@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/maxtaco/go-framed-msgpack-rpc/rpc2"
+	"github.com/keybase/go-framed-msgpack-rpc/rpc2"
 )
 
 type Server struct {
 	port int
+	nEOFs int
 }
 
 type ArithServer struct {
-	c net.Conn
+	s *Server
 }
 
 func (a *ArithServer) Add(args *AddArgs) (ret int, err error) {
@@ -30,6 +31,10 @@ func (a *ArithServer) DivMod(args *DivModArgs) (ret *DivModRes, err error) {
 		ret.R = args.A % args.B
 	}
 	return
+}
+
+func (a *ArithServer) OnEOF() {
+	a.s.nEOFs++
 }
 
 //---------------------------------------------------------------
@@ -96,8 +101,12 @@ func (s *Server) Run(ready chan struct{}) (err error) {
 		}
 		xp := rpc2.NewTransport(c, lf, nil)
 		srv := rpc2.NewServer(xp, nil)
-		srv.Register(ArithProtocol(&ArithServer{c}))
+		arithServer := &ArithServer{s}
+		srv.Register(ArithProtocol(arithServer))
 		srv.Run(true)
+		xp.SetEOFHook(func() {
+			arithServer.OnEOF()
+		})
 	}
 	return nil
 }

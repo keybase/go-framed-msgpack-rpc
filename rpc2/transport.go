@@ -7,9 +7,11 @@ import (
 	"io/ioutil"
 	"net"
 	"sync"
+	"fmt"
 )
 
 type WrapErrorFunc func(error) interface{}
+type EOFHook func()
 type UnwrapErrorFunc func(nxt DecodeNext) (error, error)
 
 type Transporter interface {
@@ -20,6 +22,7 @@ type Transporter interface {
 	GetDispatcher() (Dispatcher, error)
 	ReadLock()
 	ReadUnlock()
+	Close()
 }
 
 type ConPackage struct {
@@ -59,6 +62,7 @@ type Transport struct {
 	log        LogInterface
 	running    bool
 	wrapError  WrapErrorFunc
+	eofHook    EOFHook
 }
 
 func NewConPackage(c net.Conn, mh *codec.MsgpackHandle) *ConPackage {
@@ -110,6 +114,12 @@ func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) *Transport {
 	return ret
 }
 
+// SetEOFHook to the given function, which will be called when there is an EOF
+// on the transport.
+func (t *Transport) SetEOFHook(h EOFHook) {
+	t.eofHook = h
+}
+
 func (t *Transport) ReadLock()   { t.rdlck.Lock() }
 func (t *Transport) ReadUnlock() { t.rdlck.Unlock() }
 
@@ -127,9 +137,7 @@ func (t *Transport) run2() (err error) {
 	return
 }
 
-func (t *Transport) handlePacketizerFailure(err error) {
-	// For now, just throw everything away.  Eventually we might
-	// want to make a plan for reconnecting.
+func (t *Transport) Close() {
 	t.mutex.Lock()
 	t.running = false
 	t.dispatcher.Reset()
@@ -138,7 +146,23 @@ func (t *Transport) handlePacketizerFailure(err error) {
 	t.packetizer = nil
 	t.cpkg.Close()
 	t.cpkg = nil
+	eh := t.eofHook
+	t.eofHook = nil
 	t.mutex.Unlock()
+
+	if eh != nil {
+		fmt.Printf("calling hook!")
+		eh()
+	}
+
+	return
+}
+
+func (t *Transport) handlePacketizerFailure(err error) {
+	fmt.Printf("handle packetizer failure %s\n", err)
+	// For now, just throw everything away.  Eventually we might
+	// want to make a plan for reconnecting.
+	t.Close()
 	// NOTE: The logging implementation can be anything. In particular, it
 	// might try to send logs over this transport, which would take the mutex
 	// again. We *must not* call this while we hold the lock. (Yes, we figured

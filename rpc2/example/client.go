@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/maxtaco/go-framed-msgpack-rpc/rpc2"
+	"github.com/keybase/go-framed-msgpack-rpc/rpc2"
 )
 
 type GenericClient interface {

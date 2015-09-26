@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
-	"github.com/maxtaco/go-framed-msgpack-rpc/rpc2"
+
+	"github.com/keybase/go-framed-msgpack-rpc/rpc2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,4 +43,8 @@ func TestProtocol(t *testing.T) {
 
 	err = cli.Broken()
 	assert.Error(t, err, "Called nonexistent method, expected error")
+
+	xp.Close()
+	time.Sleep(1000)
+	assert.Equal(t, 1, server.nEOFs, "EOF hook worked as planned")
 }
