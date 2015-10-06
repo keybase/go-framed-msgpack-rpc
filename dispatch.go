@@ -5,6 +5,10 @@ import "sync"
 type DecodeNext func(interface{}) error
 type ServeHook func(DecodeNext) (interface{}, error)
 type ServeNotifyHook func(DecodeNext) error
+
+// EOFHook is typically called when a transport has to shut down.
+// We supply it with the exact error that caused the shutdown, which
+// should be io.EOF under normal circumstances.
 type EOFHook func(error)
 
 type dispatcher interface {
@@ -266,6 +270,10 @@ func (d *Dispatch) RegisterProtocol(p Protocol) (err error) {
 	return err
 }
 
+// RegisterEOFHook registers a function to call when the dispatcher
+// hits EOF. The hook will be called with whatever error caused the
+// channel to close.  Usually this should be io.EOF, but it can
+// of course be otherwise.
 func (d *Dispatch) RegisterEOFHook(h EOFHook) error {
 	d.eofHook = h
 	return nil
