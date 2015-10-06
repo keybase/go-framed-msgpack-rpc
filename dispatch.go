@@ -1,6 +1,9 @@
 package rpc
 
-import "sync"
+import (
+	"sync"
+	"io"
+)
 
 type DecodeNext func(interface{}) error
 type ServeHook func(DecodeNext) (interface{}, error)
@@ -332,7 +335,7 @@ func (d *Dispatch) dispatchResponse(m *Message) (err error) {
 func (d *Dispatch) Reset(eofError error) error {
 	d.callsMutex.Lock()
 	for k, v := range d.calls {
-		v.ch <- EofError{}
+		v.ch <- io.EOF
 		delete(d.calls, k)
 	}
 	d.callsMutex.Unlock()
