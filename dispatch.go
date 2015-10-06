@@ -5,13 +5,15 @@ import "sync"
 type DecodeNext func(interface{}) error
 type ServeHook func(DecodeNext) (interface{}, error)
 type ServeNotifyHook func(DecodeNext) error
+type EOFHook func(error)
 
 type dispatcher interface {
 	Call(name string, arg interface{}, res interface{}, f UnwrapErrorFunc) error
 	Notify(name string, arg interface{}) error
 	RegisterProtocol(Protocol) error
 	Dispatch(m *Message) error
-	Reset() error
+	Reset(error) error
+	RegisterEOFHook(EOFHook) error
 }
 
 type Protocol struct {
@@ -29,6 +31,7 @@ type Dispatch struct {
 	xp         transporter
 	log        LogInterface
 	wrapError  WrapErrorFunc
+	eofHook    EOFHook
 }
 
 func NewDispatch(xp transporter, l LogInterface, wef WrapErrorFunc) *Dispatch {
@@ -263,6 +266,11 @@ func (d *Dispatch) RegisterProtocol(p Protocol) (err error) {
 	return err
 }
 
+func (d *Dispatch) RegisterEOFHook(h EOFHook) error {
+	d.eofHook = h
+	return nil
+}
+
 func (d *Dispatch) dispatchResponse(m *Message) (err error) {
 	var seqno int
 
@@ -313,13 +321,16 @@ func (d *Dispatch) dispatchResponse(m *Message) (err error) {
 	return
 }
 
-func (d *Dispatch) Reset() error {
+func (d *Dispatch) Reset(eofError error) error {
 	d.callsMutex.Lock()
 	for k, v := range d.calls {
 		v.ch <- EofError{}
 		delete(d.calls, k)
 	}
 	d.callsMutex.Unlock()
+	if d.eofHook != nil {
+		d.eofHook(eofError)
+	}
 	return nil
 }
 

@@ -138,7 +138,7 @@ func (t *Transport) handlePacketizerFailure(err error) {
 	// want to make a plan for reconnecting.
 	t.mutex.Lock()
 	t.running = false
-	t.dispatcher.Reset()
+	t.dispatcher.Reset(err)
 	t.dispatcher = nil
 	t.packetizer.Clear()
 	t.packetizer = nil
