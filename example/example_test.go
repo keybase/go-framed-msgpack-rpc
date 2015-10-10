@@ -3,54 +3,100 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
 	"testing"
 	"time"
 
 	rpc "github.com/keybase/go-framed-msgpack-rpc"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/context"
 )
 
-func TestProtocol(t *testing.T) {
-	port := 8089
-	server := &Server{port: 8089}
+var testPort int = 8089
+
+func TestMain(m *testing.M) {
+	err := prepServer()
+	if err != nil {
+		fmt.Println("A server error occurred")
+		os.Exit(-1)
+	}
+	os.Exit(m.Run())
+}
+
+func prepServer() error {
+	server := &Server{port: testPort}
 
 	serverReady := make(chan struct{})
+	var err error
 	go func() {
-		err := server.Run(serverReady)
-		assert.Nil(t, err, "a server error occurred")
+		err = server.Run(serverReady)
 	}()
 	<-serverReady
+	return err
+}
 
-	c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-	if err != nil {
-		return
-	}
+func prepTest(t *testing.T) TestClient {
+	c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
+	assert.Nil(t, err, "a dialer error occurred")
 
 	xp := rpc.NewTransport(c, nil, nil)
-	cli := ArithClient{GenericClient: rpc.NewClient(xp, nil)}
+	return TestClient{GenericClient: rpc.NewClient(xp, nil)}
+}
+
+func TestCall(t *testing.T) {
+	cli := prepTest(t)
 
 	B := 34
 	for A := 10; A < 23; A += 2 {
-		var res int
-		if res, err = cli.Add(AddArgs{A: A, B: B}); err != nil {
-			return
-		}
+		res, err := cli.Add(context.Background(), AddArgs{A: A, B: B})
+		assert.Nil(t, err, "an error occurred while adding parameters")
 		assert.Equal(t, A+B, res, "Result should be the two parameters added together")
 	}
+}
 
-	err = cli.Broken()
+func TestBrokenCall(t *testing.T) {
+	cli := prepTest(t)
+
+	err := cli.Broken()
 	assert.Error(t, err, "Called nonexistent method, expected error")
+}
+
+func TestNotify(t *testing.T) {
+	cli := prepTest(t)
 
 	pi := 31415
 
-	if err = cli.UpdateConstants(Constants{Pi: pi}); err != nil {
-		t.Fatalf("Unexpected error on notify: %v", err)
-	}
+	err := cli.UpdateConstants(context.Background(), Constants{Pi: pi})
+	assert.Nil(t, err, "Unexpected error on notify: %v", err)
+
 	time.Sleep(3 * time.Millisecond)
-	var constants Constants
-	if constants, err = cli.GetConstants(); err != nil {
-		t.Fatalf("Unexpected error on GetConstants: %v", err)
-	} else {
-		assert.Equal(t, pi, constants.Pi, "we set the constant properly via Notify")
-	}
+	constants, err := cli.GetConstants(context.Background())
+	assert.Nil(t, err, "Unexpected error on GetConstants: %v", err)
+	assert.Equal(t, pi, constants.Pi, "we set the constant properly via Notify")
+}
+
+func TestLongCall(t *testing.T) {
+	cli := prepTest(t)
+
+	longResult, err := cli.LongCall(context.Background())
+	assert.Nil(t, err, "call should have succeeded")
+	assert.Equal(t, longResult, 1, "call should have succeeded")
+}
+
+func TestLongCallCancel(t *testing.T) {
+	cli := prepTest(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var longResult int
+	var err error
+	done := false
+	go func() {
+		longResult, err = cli.LongCall(ctx)
+		done = true
+	}()
+	cancel()
+	time.Sleep(3 * time.Millisecond)
+	assert.True(t, done, "call should be completed via cancel")
+	assert.Error(t, err, "call should be canceled")
+	assert.Equal(t, longResult, 0, "call should be canceled")
 }

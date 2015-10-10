@@ -18,6 +18,17 @@ func (s *Server) Register(p Protocol) error {
 	return dispatcher.RegisterProtocol(p)
 }
 
+// AddCloseListener supplies a channel listener to which
+// the server will send an error when a connection closes
+func (s *Server) AddCloseListener(ch chan error) error {
+	dispatcher, err := s.xp.getDispatcher()
+	if err != nil {
+		return err
+	}
+	dispatcher.AddCloseListener(ch)
+	return nil
+}
+
 func (s *Server) Run(bg bool) error {
 	if bg {
 		go s.xp.Run()

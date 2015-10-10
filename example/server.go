@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/keybase/go-framed-msgpack-rpc"
 )
@@ -12,17 +13,17 @@ type Server struct {
 	port int
 }
 
-type ArithServer struct {
+type TestServer struct {
 	c         net.Conn
 	constants Constants
 }
 
-func (a *ArithServer) Add(args *AddArgs) (ret int, err error) {
+func (a *TestServer) Add(args *AddArgs) (ret int, err error) {
 	ret = args.A + args.B
 	return
 }
 
-func (a *ArithServer) DivMod(args *DivModArgs) (ret *DivModRes, err error) {
+func (a *TestServer) DivMod(args *DivModArgs) (ret *DivModRes, err error) {
 	ret = &DivModRes{}
 	if args.B == 0 {
 		err = errors.New("Cannot divide by 0")
@@ -33,13 +34,18 @@ func (a *ArithServer) DivMod(args *DivModArgs) (ret *DivModRes, err error) {
 	return
 }
 
-func (a *ArithServer) UpdateConstants(args *Constants) error {
+func (a *TestServer) UpdateConstants(args *Constants) error {
 	a.constants = *args
 	return nil
 }
 
-func (a *ArithServer) GetConstants() (*Constants, error) {
+func (a *TestServer) GetConstants() (*Constants, error) {
 	return &a.constants, nil
+}
+
+func (a *TestServer) LongCall() (int, error) {
+	time.Sleep(100 * time.Millisecond)
+	return 1, nil
 }
 
 //---------------------------------------------------------------
@@ -64,46 +70,75 @@ type Constants struct {
 	Pi int
 }
 
-type ArithInferface interface {
+type TestInterface interface {
 	Add(*AddArgs) (int, error)
 	DivMod(*DivModArgs) (*DivModRes, error)
 	UpdateConstants(*Constants) error
 	GetConstants() (*Constants, error)
+	LongCall() (int, error)
 }
 
-func ArithProtocol(i ArithInferface) rpc.Protocol {
+func ArithProtocol(i TestInterface) rpc.Protocol {
 	return rpc.Protocol{
 		Name: "test.1.arith",
-		Methods: map[string]rpc.ServeHook{
-			"add": func(nxt rpc.DecodeNext) (ret interface{}, err error) {
-				var args AddArgs
-				if err = nxt(&args); err == nil {
-					ret, err = i.Add(&args)
-				}
-				return
+		Methods: map[string]rpc.ServeHandlerDescription{
+			"add": {
+				MakeArg: func() interface{} {
+					return new(AddArgs)
+				},
+				Handler: func(args interface{}) (interface{}, error) {
+					addArgs, ok := args.(*AddArgs)
+					if !ok {
+						return nil, rpc.NewTypeError((*AddArgs)(nil), args)
+					}
+					return i.Add(addArgs)
+				},
+				MethodType: rpc.MethodCall,
 			},
-			"divMod": func(nxt rpc.DecodeNext) (ret interface{}, err error) {
-				var args DivModArgs
-				if err = nxt(&args); err == nil {
-					ret, err = i.DivMod(&args)
-				}
-				return
+			"divMod": {
+				MakeArg: func() interface{} {
+					return new(DivModArgs)
+				},
+				Handler: func(args interface{}) (interface{}, error) {
+					divModArgs, ok := args.(*DivModArgs)
+					if !ok {
+						return nil, rpc.NewTypeError((*DivModArgs)(nil), args)
+					}
+					return i.DivMod(divModArgs)
+				},
+				MethodType: rpc.MethodCall,
 			},
-			"GetConstants": func(nxt rpc.DecodeNext) (ret interface{}, err error) {
-				var args interface{}
-				if err = nxt(&args); err == nil {
-					ret, err = i.GetConstants()
-				}
-				return
+			"GetConstants": {
+				MakeArg: func() interface{} {
+					return new(interface{})
+				},
+				Handler: func(interface{}) (interface{}, error) {
+					return i.GetConstants()
+				},
+				MethodType: rpc.MethodCall,
 			},
-		},
-		NotifyMethods: map[string]rpc.ServeNotifyHook{
-			"updateConstants": func(nxt rpc.DecodeNext) (err error) {
-				var args Constants
-				if err = nxt(&args); err == nil {
-					err = i.UpdateConstants(&args)
-				}
-				return
+			"updateConstants": {
+				MakeArg: func() interface{} {
+					return new(Constants)
+				},
+				Handler: func(args interface{}) (interface{}, error) {
+					constants, ok := args.(*Constants)
+					if !ok {
+						return nil, rpc.NewTypeError((*Constants)(nil), args)
+					}
+					err := i.UpdateConstants(constants)
+					return nil, err
+				},
+				MethodType: rpc.MethodNotify,
+			},
+			"LongCall": {
+				MakeArg: func() interface{} {
+					return new(interface{})
+				},
+				Handler: func(interface{}) (interface{}, error) {
+					return i.LongCall()
+				},
+				MethodType: rpc.MethodCall,
 			},
 		},
 	}
@@ -128,7 +163,7 @@ func (s *Server) Run(ready chan struct{}) (err error) {
 		}
 		xp := rpc.NewTransport(c, lf, nil)
 		srv := rpc.NewServer(xp, nil)
-		srv.Register(ArithProtocol(&ArithServer{c, Constants{}}))
+		srv.Register(ArithProtocol(&TestServer{c, Constants{}}))
 		srv.Run(true)
 	}
 	return nil
