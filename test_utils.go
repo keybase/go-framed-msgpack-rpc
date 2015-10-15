@@ -215,18 +215,43 @@ func (a TestClient) LongCall(ctx context.Context) (ret int, err error) {
 }
 
 type mockCodec struct {
-	elements []interface{}
-	pos      int
+	elems []interface{}
+}
+
+func newMockCodec(elems ...interface{}) *mockCodec {
+	return &mockCodec{
+		elems: elems,
+	}
 }
 
 func (md *mockCodec) Decode(i interface{}) error {
-	if md.pos >= len(md.elements) {
+	if len(md.elems) == 0 {
 		return errors.New("Tried to decode too many elements")
 	}
-	v := reflect.ValueOf(i)
-	v.Elem().Set(reflect.ValueOf(md.elements[md.pos]))
-	md.pos++
+	v := reflect.ValueOf(i).Elem()
+	d := reflect.ValueOf(md.elems[0])
+	if !d.Type().AssignableTo(v.Type()) {
+		return errors.New("Tried to decode incorrect type")
+	}
+	v.Set(d)
+	md.elems = md.elems[1:]
 	return nil
+}
+
+func (md *mockCodec) ReadByte() (b byte, err error) {
+	err = md.Decode(&b)
+	return b, err
+}
+
+func (md *mockCodec) Encode(i interface{}) error {
+	v := reflect.ValueOf(i)
+	if v.Kind() == reflect.Slice {
+		for i := 0; i < v.Len(); i++ {
+			md.elems = append(md.elems, v.Index(i).Interface())
+		}
+		return nil
+	}
+	return errors.New("only support encoding slices")
 }
 
 type mockErrorUnwrapper struct{}

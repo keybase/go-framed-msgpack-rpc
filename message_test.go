@@ -13,24 +13,24 @@ func TestValidMessage(t *testing.T) {
 		&m.seqno,
 	}
 
-	md := &mockCodec{
-		elements: []interface{}{
-			"testMethod",
-			123,
-			456,
-			789,
-		},
-	}
+	md := newMockCodec(
+		"testMethod",
+		123,
+		456,
+		789,
+	)
 
-	decodeIntoMessage(md, m)
+	err := decodeIntoMessage(md, m)
+	assert.Nil(t, err, "An error occurred while decoding")
 	assert.Equal(t, 2, m.remainingFields, "Decoded the wrong number of fields")
 
-	decodeToNull(md, m)
+	err = decodeToNull(md, m)
+	assert.Nil(t, err, "An error occurred while decoding")
 	assert.Equal(t, 0, m.remainingFields, "Expected message decoding to be finished")
 	assert.Equal(t, "testMethod", m.method, "Wrong method name decoded")
 	assert.Equal(t, 123, m.seqno, "Wrong sequence number decoded")
 
-	err := decodeMessage(md, m, new(interface{}))
+	err = decodeMessage(md, m, new(interface{}))
 	assert.Error(t, err, "Expected error decoding past end")
 }
 
@@ -41,11 +41,9 @@ func TestInvalidMessage(t *testing.T) {
 		&m.seqno,
 	}
 
-	md := &mockCodec{
-		elements: []interface{}{
-			"testMethod",
-		},
-	}
+	md := newMockCodec(
+		"testMethod",
+	)
 
 	err := decodeIntoMessage(md, m)
 	assert.Error(t, err, "Expected error decoding past end")
@@ -53,12 +51,10 @@ func TestInvalidMessage(t *testing.T) {
 
 func TestDecodeError(t *testing.T) {
 	m := &message{remainingFields: 2}
-	md := &mockCodec{
-		elements: []interface{}{
-			123,
-			"testError",
-		},
-	}
+	md := newMockCodec(
+		123,
+		"testError",
+	)
 	appErr, dispatchErr := decodeError(md, m, &mockErrorUnwrapper{})
 	assert.Nil(t, appErr, "Expected app error to be nil")
 	assert.Nil(t, dispatchErr, "Expected dispatch error to be nil")
