@@ -144,7 +144,7 @@ func (r *receiveHandler) receiveCall() error {
 
 func (r *receiveHandler) receiveCancel() (err error) {
 	req := newRequest(MethodCancel)
-	if err := decodeIntoRequest(r.reader, req); err != nil {
+	if err := decodeIntoMessage(r.reader, req.Message()); err != nil {
 		return err
 	}
 	req.LogInvocation(r.log, nil, nil)
@@ -153,7 +153,7 @@ func (r *receiveHandler) receiveCancel() (err error) {
 }
 
 func (r *receiveHandler) handleReceiveDispatch(req request) error {
-	if err := decodeIntoRequest(r.reader, req); err != nil {
+	if err := decodeIntoMessage(r.reader, req.Message()); err != nil {
 		return err
 	}
 

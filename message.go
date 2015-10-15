@@ -13,6 +13,15 @@ type message struct {
 	decodeSlots     []interface{}
 }
 
+func decodeIntoMessage(dec decoder, m *message) error {
+	for _, s := range m.decodeSlots {
+		if err := decodeMessage(dec, m, s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func decodeMessage(dec decoder, m *message, i interface{}) error {
 	err := dec.Decode(i)
 	if err == nil {

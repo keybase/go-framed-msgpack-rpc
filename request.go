@@ -173,13 +173,3 @@ func newRequest(methodType MethodType) request {
 	}
 	return nil
 }
-
-func decodeIntoRequest(dec decoder, r request) error {
-	m := r.Message()
-	for _, s := range m.decodeSlots {
-		if err := decodeMessage(dec, m, s); err != nil {
-			return err
-		}
-	}
-	return nil
-}

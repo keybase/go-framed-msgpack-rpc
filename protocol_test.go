@@ -1,4 +1,4 @@
-package main
+package rpc
 
 import (
 	"fmt"
@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/keybase/go-framed-msgpack-rpc"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 )
@@ -24,7 +23,7 @@ func TestMain(m *testing.M) {
 }
 
 func prepServer() error {
-	server := &Server{port: testPort}
+	server := &server{port: testPort}
 
 	serverReady := make(chan struct{})
 	var err error
@@ -39,8 +38,8 @@ func prepClient(t *testing.T) TestClient {
 	c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
 	assert.Nil(t, err, "a dialer error occurred")
 
-	xp := rpc.NewTransport(c, nil, nil)
-	return TestClient{GenericClient: rpc.NewClient(xp, nil)}
+	xp := NewTransport(c, nil, nil)
+	return TestClient{GenericClient: NewClient(xp, nil)}
 }
 
 func TestCall(t *testing.T) {

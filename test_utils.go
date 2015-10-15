@@ -1,30 +1,30 @@
-package main
+package rpc
 
 import (
 	"errors"
 	"fmt"
 	"net"
+	"reflect"
 	"time"
 
-	"github.com/keybase/go-framed-msgpack-rpc"
 	"golang.org/x/net/context"
 )
 
-type Server struct {
+type server struct {
 	port int
 }
 
-type TestServer struct {
+type testProtocol struct {
 	c         net.Conn
 	constants Constants
 }
 
-func (a *TestServer) Add(args *AddArgs) (ret int, err error) {
+func (a *testProtocol) Add(args *AddArgs) (ret int, err error) {
 	ret = args.A + args.B
 	return
 }
 
-func (a *TestServer) DivMod(args *DivModArgs) (ret *DivModRes, err error) {
+func (a *testProtocol) DivMod(args *DivModArgs) (ret *DivModRes, err error) {
 	ret = &DivModRes{}
 	if args.B == 0 {
 		err = errors.New("Cannot divide by 0")
@@ -35,16 +35,16 @@ func (a *TestServer) DivMod(args *DivModArgs) (ret *DivModRes, err error) {
 	return
 }
 
-func (a *TestServer) UpdateConstants(args *Constants) error {
+func (a *testProtocol) UpdateConstants(args *Constants) error {
 	a.constants = *args
 	return nil
 }
 
-func (a *TestServer) GetConstants() (*Constants, error) {
+func (a *testProtocol) GetConstants() (*Constants, error) {
 	return &a.constants, nil
 }
 
-func (a *TestServer) LongCall(ctx context.Context) (int, error) {
+func (a *testProtocol) LongCall(ctx context.Context) (int, error) {
 	for i := 0; i < 100; i++ {
 		select {
 		case <-time.After(time.Millisecond):
@@ -86,10 +86,10 @@ type TestInterface interface {
 	LongCall(context.Context) (int, error)
 }
 
-func TestProtocol(i TestInterface) rpc.Protocol {
-	return rpc.Protocol{
+func newTestProtocol(i TestInterface) Protocol {
+	return Protocol{
 		Name: "test.1.testp",
-		Methods: map[string]rpc.ServeHandlerDescription{
+		Methods: map[string]ServeHandlerDescription{
 			"add": {
 				MakeArg: func() interface{} {
 					return new(AddArgs)
@@ -97,11 +97,11 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
 					addArgs, ok := args.(*AddArgs)
 					if !ok {
-						return nil, rpc.NewTypeError((*AddArgs)(nil), args)
+						return nil, NewTypeError((*AddArgs)(nil), args)
 					}
 					return i.Add(addArgs)
 				},
-				MethodType: rpc.MethodCall,
+				MethodType: MethodCall,
 			},
 			"divMod": {
 				MakeArg: func() interface{} {
@@ -110,11 +110,11 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
 					divModArgs, ok := args.(*DivModArgs)
 					if !ok {
-						return nil, rpc.NewTypeError((*DivModArgs)(nil), args)
+						return nil, NewTypeError((*DivModArgs)(nil), args)
 					}
 					return i.DivMod(divModArgs)
 				},
-				MethodType: rpc.MethodCall,
+				MethodType: MethodCall,
 			},
 			"GetConstants": {
 				MakeArg: func() interface{} {
@@ -123,7 +123,7 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 				Handler: func(_ context.Context, _ interface{}) (interface{}, error) {
 					return i.GetConstants()
 				},
-				MethodType: rpc.MethodCall,
+				MethodType: MethodCall,
 			},
 			"updateConstants": {
 				MakeArg: func() interface{} {
@@ -132,12 +132,12 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
 					constants, ok := args.(*Constants)
 					if !ok {
-						return nil, rpc.NewTypeError((*Constants)(nil), args)
+						return nil, NewTypeError((*Constants)(nil), args)
 					}
 					err := i.UpdateConstants(constants)
 					return nil, err
 				},
-				MethodType: rpc.MethodNotify,
+				MethodType: MethodNotify,
 			},
 			"LongCall": {
 				MakeArg: func() interface{} {
@@ -146,7 +146,7 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
 					return i.LongCall(ctx)
 				},
-				MethodType: rpc.MethodCall,
+				MethodType: MethodCall,
 			},
 		},
 	}
@@ -155,10 +155,10 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 // end autogen code
 //---------------------------------------------------------------
 
-func (s *Server) Run(ready chan struct{}) (err error) {
+func (s *server) Run(ready chan struct{}) (err error) {
 	var listener net.Listener
-	o := rpc.SimpleLogOutput{}
-	lf := rpc.NewSimpleLogFactory(o, nil)
+	o := SimpleLogOutput{}
+	lf := NewSimpleLogFactory(o, nil)
 	o.Info(fmt.Sprintf("Listening on port %d...", s.port))
 	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil {
 		return
@@ -169,10 +169,72 @@ func (s *Server) Run(ready chan struct{}) (err error) {
 		if c, err = listener.Accept(); err != nil {
 			return
 		}
-		xp := rpc.NewTransport(c, lf, nil)
-		srv := rpc.NewServer(xp, nil)
-		srv.Register(TestProtocol(&TestServer{c, Constants{}}))
+		xp := NewTransport(c, lf, nil)
+		srv := NewServer(xp, nil)
+		srv.Register(newTestProtocol(&testProtocol{c, Constants{}}))
 		srv.Run(true)
 	}
 	return nil
+}
+
+//---------------------------------------------------------------------
+// Client
+
+type GenericClient interface {
+	Call(ctx context.Context, method string, arg interface{}, res interface{}) error
+	Notify(ctx context.Context, method string, arg interface{}) error
+}
+
+type TestClient struct {
+	GenericClient
+}
+
+func (a TestClient) Add(ctx context.Context, arg AddArgs) (ret int, err error) {
+	err = a.Call(ctx, "test.1.testp.add", arg, &ret)
+	return
+}
+
+func (a TestClient) Broken() (err error) {
+	err = a.Call(nil, "test.1.testp.broken", nil, nil)
+	return
+}
+
+func (a TestClient) UpdateConstants(ctx context.Context, arg Constants) (err error) {
+	err = a.Notify(ctx, "test.1.testp.updateConstants", arg)
+	return
+}
+
+func (a TestClient) GetConstants(ctx context.Context) (ret Constants, err error) {
+	err = a.Call(ctx, "test.1.testp.GetConstants", nil, &ret)
+	return
+}
+
+func (a TestClient) LongCall(ctx context.Context) (ret int, err error) {
+	err = a.Call(ctx, "test.1.testp.LongCall", nil, &ret)
+	return
+}
+
+type mockCodec struct {
+	elements []interface{}
+	pos      int
+}
+
+func (md *mockCodec) Decode(i interface{}) error {
+	if md.pos >= len(md.elements) {
+		return errors.New("Tried to decode too many elements")
+	}
+	v := reflect.ValueOf(i)
+	v.Elem().Set(reflect.ValueOf(md.elements[md.pos]))
+	md.pos++
+	return nil
+}
+
+type mockErrorUnwrapper struct{}
+
+func (eu *mockErrorUnwrapper) MakeArg() interface{} {
+	return new(int)
+}
+
+func (eu *mockErrorUnwrapper) UnwrapError(i interface{}) (appErr error, dispatchErr error) {
+	return nil, nil
 }
