@@ -34,7 +34,7 @@ func decodeToNull(dec decoder, m *message) error {
 	var err error
 	for err == nil && m.remainingFields > 0 {
 		i := new(interface{})
-		decodeMessage(dec, m, i)
+		err = decodeMessage(dec, m, i)
 	}
 	return err
 }

@@ -14,6 +14,28 @@ type server struct {
 	port int
 }
 
+func (s *server) Run(ready chan struct{}) (err error) {
+	var listener net.Listener
+	o := SimpleLogOutput{}
+	lf := NewSimpleLogFactory(o, nil)
+	o.Info(fmt.Sprintf("Listening on port %d...", s.port))
+	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil {
+		return
+	}
+	close(ready)
+	for {
+		var c net.Conn
+		if c, err = listener.Accept(); err != nil {
+			return
+		}
+		xp := NewTransport(c, lf, nil)
+		srv := NewServer(xp, nil)
+		srv.Register(newTestProtocol(&testProtocol{c, Constants{}}))
+		srv.Run(true)
+	}
+	return nil
+}
+
 type testProtocol struct {
 	c         net.Conn
 	constants Constants
@@ -155,28 +177,6 @@ func newTestProtocol(i TestInterface) Protocol {
 // end autogen code
 //---------------------------------------------------------------
 
-func (s *server) Run(ready chan struct{}) (err error) {
-	var listener net.Listener
-	o := SimpleLogOutput{}
-	lf := NewSimpleLogFactory(o, nil)
-	o.Info(fmt.Sprintf("Listening on port %d...", s.port))
-	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil {
-		return
-	}
-	close(ready)
-	for {
-		var c net.Conn
-		if c, err = listener.Accept(); err != nil {
-			return
-		}
-		xp := NewTransport(c, lf, nil)
-		srv := NewServer(xp, nil)
-		srv.Register(newTestProtocol(&testProtocol{c, Constants{}}))
-		srv.Run(true)
-	}
-	return nil
-}
-
 //---------------------------------------------------------------------
 // Client
 
@@ -215,27 +215,34 @@ func (a TestClient) LongCall(ctx context.Context) (ret int, err error) {
 }
 
 type mockCodec struct {
-	elems []interface{}
+	elems chan interface{}
 }
 
 func newMockCodec(elems ...interface{}) *mockCodec {
-	return &mockCodec{
-		elems: elems,
+	md := &mockCodec{
+		elems: make(chan interface{}, 32),
 	}
+	for _, i := range elems {
+		md.elems <- i
+	}
+	return md
+}
+
+func (md *mockCodec) decode(i interface{}) error {
+	v := reflect.ValueOf(i).Elem()
+	d := reflect.ValueOf(<-md.elems)
+	if !d.Type().AssignableTo(v.Type()) {
+		return fmt.Errorf("Tried to decode incorrect type. Expected: %v, actual: %v", v.Type(), d.Type())
+	}
+	v.Set(d)
+	return nil
 }
 
 func (md *mockCodec) Decode(i interface{}) error {
 	if len(md.elems) == 0 {
 		return errors.New("Tried to decode too many elements")
 	}
-	v := reflect.ValueOf(i).Elem()
-	d := reflect.ValueOf(md.elems[0])
-	if !d.Type().AssignableTo(v.Type()) {
-		return errors.New("Tried to decode incorrect type")
-	}
-	v.Set(d)
-	md.elems = md.elems[1:]
-	return nil
+	return md.decode(i)
 }
 
 func (md *mockCodec) ReadByte() (b byte, err error) {
@@ -247,11 +254,26 @@ func (md *mockCodec) Encode(i interface{}) error {
 	v := reflect.ValueOf(i)
 	if v.Kind() == reflect.Slice {
 		for i := 0; i < v.Len(); i++ {
-			md.elems = append(md.elems, v.Index(i).Interface())
+			md.elems <- v.Index(i).Interface()
 		}
 		return nil
 	}
 	return errors.New("only support encoding slices")
+}
+
+type blockingMockCodec struct {
+	mockCodec
+}
+
+func newBlockingMockCodec(elems ...interface{}) *blockingMockCodec {
+	md := newMockCodec(elems)
+	return &blockingMockCodec{
+		mockCodec: *md,
+	}
+}
+
+func (md *blockingMockCodec) Decode(i interface{}) error {
+	return md.decode(i)
 }
 
 type mockErrorUnwrapper struct{}

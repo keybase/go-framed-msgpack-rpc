@@ -132,11 +132,11 @@ func (t *transport) run() (err error) {
 	return
 }
 
-func (t *transport) readerLoop() {
+func (t *transport) readerLoop() error {
 	for {
 		select {
 		case <-t.stopCh:
-			return
+			return nil
 		case i := <-t.decodeCh:
 			err := t.cdec.Decode(i)
 			t.decodeResultCh <- err
@@ -151,11 +151,11 @@ func (t *transport) readerLoop() {
 	}
 }
 
-func (t *transport) writerLoop() {
+func (t *transport) writerLoop() error {
 	for {
 		select {
 		case <-t.stopCh:
-			return
+			return nil
 		case bytes := <-t.encodeCh:
 			_, err := t.cdec.Write(bytes)
 			t.encodeResultCh <- err
@@ -175,13 +175,4 @@ func (t *transport) getReceiver() (receiver, error) {
 		return nil, DisconnectedError{}
 	}
 	return t.receiver, nil
-}
-
-func runInBg(f func()) chan struct{} {
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		f()
-	}()
-	return done
 }

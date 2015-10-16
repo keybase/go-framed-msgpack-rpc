@@ -113,8 +113,8 @@ func (d *dispatch) callLoop() {
 func (d *dispatch) handleCall(calls map[int]*call, c *call) {
 	seqid := d.nextSeqid()
 	c.seqid = seqid
-	v := []interface{}{MethodCall, seqid, c.method, c.arg}
 	calls[c.seqid] = c
+	v := []interface{}{MethodCall, seqid, c.method, c.arg}
 	err := d.writer.Encode(v)
 	if err != nil {
 		c.Finish(err)
@@ -125,12 +125,15 @@ func (d *dispatch) handleCall(calls map[int]*call, c *call) {
 		select {
 		case <-c.ctx.Done():
 			ch := make(chan *call)
-			d.rmCallCh <- callRetrieval{seqid, ch}
-			<-ch
-			c.Finish(newCanceledError(c.method, c.seqid))
-			d.log.ClientCancel(seqid, c.method)
-			v := []interface{}{MethodCancel, seqid, c.method}
-			d.writer.Encode(v)
+			select {
+			case d.rmCallCh <- callRetrieval{seqid, ch}:
+				<-ch
+				c.Finish(newCanceledError(c.method, c.seqid))
+				d.log.ClientCancel(seqid, c.method)
+				v := []interface{}{MethodCancel, seqid, c.method}
+				d.writer.Encode(v)
+			default:
+			}
 		case <-c.doneCh:
 		}
 	}()

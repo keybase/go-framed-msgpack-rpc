@@ -1,7 +1,5 @@
 package rpc
 
-import ()
-
 type Errors struct {
 	v []error
 }
@@ -43,4 +41,12 @@ func SplitMethodName(n string) (p string, m string) {
 	}
 	m = n
 	return
+}
+
+func runInBg(f func() error) chan error {
+	done := make(chan error)
+	go func() {
+		done <- f()
+	}()
+	return done
 }

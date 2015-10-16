@@ -93,7 +93,7 @@ func TestLongCallCancel(t *testing.T) {
 	wait := make(chan struct{})
 	go func() {
 		longResult, err = cli.LongCall(ctx)
-		wait <- struct{}{}
+		close(wait)
 	}()
 	cancel()
 	<-wait
