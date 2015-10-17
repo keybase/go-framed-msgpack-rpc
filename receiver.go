@@ -187,7 +187,8 @@ func (r *receiveHandler) receiveResponse() (err error) {
 
 	if call == nil {
 		r.log.UnexpectedReply(m.seqno)
-		return decodeToNull(r.reader, m)
+		decodeToNull(r.reader, m)
+		return CallNotFoundError{m.seqno}
 	}
 
 	var apperr error

@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"errors"
+	"fmt"
 )
 
 type message struct {
@@ -24,15 +25,17 @@ func decodeIntoMessage(dec decoder, m *message) error {
 
 func decodeMessage(dec decoder, m *message, i interface{}) error {
 	err := dec.Decode(i)
-	if err == nil {
-		m.remainingFields--
-	}
+	// TODO need to verify whether codec.Decode pulls from the reader if
+	// the decode fails, or whether the reader stays in the same state
+	// as before the Decode
+	m.remainingFields--
 	return err
 }
 
 func decodeToNull(dec decoder, m *message) error {
 	var err error
 	for err == nil && m.remainingFields > 0 {
+		fmt.Printf("Decoding to null, remaining fields: %d\n", m.remainingFields)
 		i := new(interface{})
 		err = decodeMessage(dec, m, i)
 	}
@@ -40,7 +43,7 @@ func decodeToNull(dec decoder, m *message) error {
 }
 
 func decodeError(dec decoder, m *message, f ErrorUnwrapper) (appErr error, dispatchErr error) {
-	var s string
+	var s string = ""
 	if f != nil {
 		arg := f.MakeArg()
 		err := decodeMessage(dec, m, arg)

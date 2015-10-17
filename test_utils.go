@@ -228,14 +228,8 @@ func newMockCodec(elems ...interface{}) *mockCodec {
 	return md
 }
 
-func (md *mockCodec) decode(i interface{}) error {
-	v := reflect.ValueOf(i).Elem()
-	d := reflect.ValueOf(<-md.elems)
-	if !d.Type().AssignableTo(v.Type()) {
-		return fmt.Errorf("Tried to decode incorrect type. Expected: %v, actual: %v", v.Type(), d.Type())
-	}
-	v.Set(d)
-	return nil
+func (md *mockCodec) NumElements() int {
+	return len(md.elems)
 }
 
 func (md *mockCodec) Decode(i interface{}) error {
@@ -254,11 +248,22 @@ func (md *mockCodec) Encode(i interface{}) error {
 	v := reflect.ValueOf(i)
 	if v.Kind() == reflect.Slice {
 		for i := 0; i < v.Len(); i++ {
-			md.elems <- v.Index(i).Interface()
+			e := v.Index(i).Interface()
+			md.elems <- e
 		}
 		return nil
 	}
 	return errors.New("only support encoding slices")
+}
+
+func (md *mockCodec) decode(i interface{}) error {
+	v := reflect.ValueOf(i).Elem()
+	d := reflect.ValueOf(<-md.elems)
+	if !d.Type().AssignableTo(v.Type()) {
+		return fmt.Errorf("Tried to decode incorrect type. Expected: %v, actual: %v", v.Type(), d.Type())
+	}
+	v.Set(d)
+	return nil
 }
 
 type blockingMockCodec struct {
@@ -266,7 +271,7 @@ type blockingMockCodec struct {
 }
 
 func newBlockingMockCodec(elems ...interface{}) *blockingMockCodec {
-	md := newMockCodec(elems)
+	md := newMockCodec(elems...)
 	return &blockingMockCodec{
 		mockCodec: *md,
 	}
