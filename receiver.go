@@ -104,7 +104,7 @@ func (r *receiveHandler) taskLoop() {
 }
 
 func (r *receiveHandler) findServeHandler(n string) (*ServeHandlerDescription, WrapErrorFunc, error) {
-	p, m := SplitMethodName(n)
+	p, m := splitMethodName(n)
 	prot, found := r.protocols[p]
 	if !found {
 		return nil, r.wrapErrorFunc, ProtocolNotFoundError{p}
