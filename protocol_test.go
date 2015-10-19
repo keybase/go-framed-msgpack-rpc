@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
@@ -68,9 +67,6 @@ func TestNotify(t *testing.T) {
 	err := cli.UpdateConstants(context.Background(), Constants{Pi: pi})
 	assert.Nil(t, err, "Unexpected error on notify: %v", err)
 
-	// TODO remove the dependence on time for Notify() tests e.g. pass a
-	// channel in the context, or run a server on the client's transport
-	time.Sleep(3 * time.Millisecond)
 	constants, err := cli.GetConstants(context.Background())
 	assert.Nil(t, err, "Unexpected error on GetConstants: %v", err)
 	assert.Equal(t, pi, constants.Pi, "we set the constant properly via Notify")
