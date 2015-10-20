@@ -84,3 +84,11 @@ func newCanceledError(method string, seq int) CanceledError {
 func (c CanceledError) Error() string {
 	return c.p
 }
+
+type CallNotFoundError struct {
+	seqno int
+}
+
+func (c CallNotFoundError) Error() string {
+	return fmt.Sprintf("Call not found for sequence number %d", c.seqno)
+}

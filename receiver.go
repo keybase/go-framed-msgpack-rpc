@@ -104,7 +104,7 @@ func (r *receiveHandler) taskLoop() {
 }
 
 func (r *receiveHandler) findServeHandler(n string) (*ServeHandlerDescription, WrapErrorFunc, error) {
-	p, m := SplitMethodName(n)
+	p, m := splitMethodName(n)
 	prot, found := r.protocols[p]
 	if !found {
 		return nil, r.wrapErrorFunc, ProtocolNotFoundError{p}
@@ -144,7 +144,7 @@ func (r *receiveHandler) receiveCall() error {
 
 func (r *receiveHandler) receiveCancel() (err error) {
 	req := newRequest(MethodCancel)
-	if err := decodeIntoRequest(r.reader, req); err != nil {
+	if err := decodeIntoMessage(r.reader, req.Message()); err != nil {
 		return err
 	}
 	req.LogInvocation(r.log, nil, nil)
@@ -153,7 +153,7 @@ func (r *receiveHandler) receiveCancel() (err error) {
 }
 
 func (r *receiveHandler) handleReceiveDispatch(req request) error {
-	if err := decodeIntoRequest(r.reader, req); err != nil {
+	if err := decodeIntoMessage(r.reader, req.Message()); err != nil {
 		return err
 	}
 
@@ -167,10 +167,8 @@ func (r *receiveHandler) handleReceiveDispatch(req request) error {
 		req.LogInvocation(r.log, se, nil)
 		return req.Reply(r.writer, r.log)
 	}
-	cancelFunc := req.Serve(r.reader, r.writer, serveHandler, wrapErrorFunc, r.log)
-	if cancelFunc != nil {
-
-	}
+	r.taskBeginCh <- &task{m.seqno, req.CancelFunc()}
+	req.Serve(r.reader, r.writer, serveHandler, wrapErrorFunc, r.log)
 	return nil
 }
 
@@ -187,7 +185,8 @@ func (r *receiveHandler) receiveResponse() (err error) {
 
 	if call == nil {
 		r.log.UnexpectedReply(m.seqno)
-		return decodeToNull(r.reader, m)
+		decodeToNull(r.reader, m)
+		return CallNotFoundError{m.seqno}
 	}
 
 	var apperr error
