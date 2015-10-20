@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/keybase/go-framed-msgpack-rpc"
+	"golang.org/x/net/context"
 )
 
 type Server struct {
@@ -43,8 +44,15 @@ func (a *TestServer) GetConstants() (*Constants, error) {
 	return &a.constants, nil
 }
 
-func (a *TestServer) LongCall() (int, error) {
-	time.Sleep(100 * time.Millisecond)
+func (a *TestServer) LongCall(ctx context.Context) (int, error) {
+	for i := 0; i < 100; i++ {
+		select {
+		case <-time.After(time.Millisecond):
+		case <-ctx.Done():
+			// There is no way to get this value out right now
+			return 999, nil
+		}
+	}
 	return 1, nil
 }
 
@@ -75,7 +83,7 @@ type TestInterface interface {
 	DivMod(*DivModArgs) (*DivModRes, error)
 	UpdateConstants(*Constants) error
 	GetConstants() (*Constants, error)
-	LongCall() (int, error)
+	LongCall(context.Context) (int, error)
 }
 
 func TestProtocol(i TestInterface) rpc.Protocol {
@@ -86,7 +94,7 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 				MakeArg: func() interface{} {
 					return new(AddArgs)
 				},
-				Handler: func(args interface{}) (interface{}, error) {
+				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
 					addArgs, ok := args.(*AddArgs)
 					if !ok {
 						return nil, rpc.NewTypeError((*AddArgs)(nil), args)
@@ -99,7 +107,7 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 				MakeArg: func() interface{} {
 					return new(DivModArgs)
 				},
-				Handler: func(args interface{}) (interface{}, error) {
+				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
 					divModArgs, ok := args.(*DivModArgs)
 					if !ok {
 						return nil, rpc.NewTypeError((*DivModArgs)(nil), args)
@@ -112,7 +120,7 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 				MakeArg: func() interface{} {
 					return new(interface{})
 				},
-				Handler: func(interface{}) (interface{}, error) {
+				Handler: func(_ context.Context, _ interface{}) (interface{}, error) {
 					return i.GetConstants()
 				},
 				MethodType: rpc.MethodCall,
@@ -121,7 +129,7 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 				MakeArg: func() interface{} {
 					return new(Constants)
 				},
-				Handler: func(args interface{}) (interface{}, error) {
+				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
 					constants, ok := args.(*Constants)
 					if !ok {
 						return nil, rpc.NewTypeError((*Constants)(nil), args)
@@ -135,8 +143,8 @@ func TestProtocol(i TestInterface) rpc.Protocol {
 				MakeArg: func() interface{} {
 					return new(interface{})
 				},
-				Handler: func(interface{}) (interface{}, error) {
-					return i.LongCall()
+				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
+					return i.LongCall(ctx)
 				},
 				MethodType: rpc.MethodCall,
 			},

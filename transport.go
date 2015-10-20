@@ -13,6 +13,7 @@ type WrapErrorFunc func(error) interface{}
 
 type Transporter interface {
 	getDispatcher() (dispatcher, error)
+	getReceiver() (receiver, error)
 	Run() error
 	IsConnected() bool
 }
@@ -43,8 +44,8 @@ var _ transporter = (*transport)(nil)
 type transport struct {
 	cdec             *connDecoder
 	dispatcher       dispatcher
-	enc              encoder
-	dec              byteReadingDecoder
+	receiver         receiver
+	packetizer       packetizer
 	log              LogInterface
 	wrapError        WrapErrorFunc
 	startOnce        sync.Once
@@ -76,9 +77,12 @@ func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
 		decodeResultCh:   make(chan error),
 		stopCh:           make(chan struct{}),
 	}
-	ret.enc = newFramedMsgpackEncoder(ret.encodeCh, ret.encodeResultCh)
-	ret.dec = newFramedMsgpackDecoder(ret.decodeCh, ret.decodeResultCh, ret.readByteCh, ret.readByteResultCh)
-	ret.dispatcher = newDispatch(ret.enc, ret.dec, log, wef)
+	enc := newFramedMsgpackEncoder(ret.encodeCh, ret.encodeResultCh)
+	dec := newFramedMsgpackDecoder(ret.decodeCh, ret.decodeResultCh, ret.readByteCh, ret.readByteResultCh)
+	callRetrievalCh := make(chan callRetrieval)
+	ret.dispatcher = newDispatch(enc, dec, callRetrievalCh, log)
+	ret.receiver = newReceiveHandler(enc, dec, callRetrievalCh, log, wef)
+	ret.packetizer = newPacketHandler(ret.receiver, dec)
 	return ret
 }
 
@@ -107,15 +111,15 @@ func (t *transport) run() (err error) {
 	writerDone := runInBg(t.writerLoop)
 
 	// Packetize: do work
-	packetizer := newPacketizer(t.dispatcher, t.dec)
-	err = packetizer.Packetize()
+	err = t.packetizer.Packetize()
 
 	// Log packetizer completion
 	t.log.TransportError(err)
 
-	// Since the dispatcher might require the transport, we have to
+	// Since the receiver might require the transport, we have to
 	// close it before terminating our loops
 	<-t.dispatcher.Close(err)
+	<-t.receiver.Close(err)
 	close(t.stopCh)
 
 	// Wait for loops to finish before closing the connection
@@ -164,6 +168,13 @@ func (t *transport) getDispatcher() (dispatcher, error) {
 		return nil, DisconnectedError{}
 	}
 	return t.dispatcher, nil
+}
+
+func (t *transport) getReceiver() (receiver, error) {
+	if !t.IsConnected() {
+		return nil, DisconnectedError{}
+	}
+	return t.receiver, nil
 }
 
 func runInBg(f func()) chan struct{} {

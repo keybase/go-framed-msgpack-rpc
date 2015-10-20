@@ -75,7 +75,7 @@ type CanceledError struct {
 	p string
 }
 
-func NewCanceledError(method string, seq int) CanceledError {
+func newCanceledError(method string, seq int) CanceledError {
 	return CanceledError{
 		p: fmt.Sprintf("call canceled: method %s, seqid %d", method, seq),
 	}
