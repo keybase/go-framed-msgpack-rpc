@@ -167,10 +167,8 @@ func (r *receiveHandler) handleReceiveDispatch(req request) error {
 		req.LogInvocation(r.log, se, nil)
 		return req.Reply(r.writer, r.log)
 	}
-	cancelFunc := req.Serve(r.reader, r.writer, serveHandler, wrapErrorFunc, r.log)
-	if cancelFunc != nil {
-
-	}
+	r.taskBeginCh <- &task{m.seqno, req.CancelFunc()}
+	req.Serve(r.reader, r.writer, serveHandler, wrapErrorFunc, r.log)
 	return nil
 }
 

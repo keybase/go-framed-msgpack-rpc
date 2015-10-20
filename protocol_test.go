@@ -85,7 +85,7 @@ func TestLongCall(t *testing.T) {
 
 	longResult, err := cli.LongCall(context.Background())
 	assert.Nil(t, err, "call should have succeeded")
-	assert.Equal(t, longResult, 1, "call should have succeeded")
+	assert.Equal(t, longResult, 100, "call should have succeeded")
 }
 
 func TestLongCallCancel(t *testing.T) {
@@ -102,5 +102,9 @@ func TestLongCallCancel(t *testing.T) {
 	cancel()
 	<-wait
 	assert.Error(t, err, "call should be canceled")
-	assert.Equal(t, longResult, 0, "call should be canceled")
+	assert.Equal(t, -1, longResult, "call should be canceled")
+
+	longResult, err = cli.LongCallResult(context.Background())
+	assert.Nil(t, err, "call should have succeeded")
+	assert.Equal(t, -1, longResult, "canceled call should have set the result to canceled")
 }

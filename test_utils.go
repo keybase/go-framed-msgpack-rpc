@@ -25,10 +25,8 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 	}
 	closeListener := make(chan error)
 	go func() {
-		err := <-closeListener
-		if err == io.EOF {
-			listener.Close()
-		}
+		<-closeListener
+		listener.Close()
 	}()
 	close(ready)
 	for {
@@ -39,7 +37,7 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 		}
 		xp := NewTransport(c, lf, nil)
 		srv := NewServer(xp, nil)
-		srv.Register(newTestProtocol(&testProtocol{c, Constants{}}))
+		srv.Register(newTestProtocol(&testProtocol{c, Constants{}, 0}))
 		srv.AddCloseListener(closeListener)
 		srv.Run(true)
 	}
@@ -47,8 +45,9 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 }
 
 type testProtocol struct {
-	c         net.Conn
-	constants Constants
+	c              net.Conn
+	constants      Constants
+	longCallResult int
 }
 
 func (a *testProtocol) Add(args *AddArgs) (ret int, err error) {
@@ -77,15 +76,22 @@ func (a *testProtocol) GetConstants() (*Constants, error) {
 }
 
 func (a *testProtocol) LongCall(ctx context.Context) (int, error) {
+	a.longCallResult = 0
 	for i := 0; i < 100; i++ {
 		select {
 		case <-time.After(time.Millisecond):
+			a.longCallResult++
 		case <-ctx.Done():
+			a.longCallResult = -1
 			// There is no way to get this value out right now
-			return 999, nil
+			return a.longCallResult, errors.New("terminated")
 		}
 	}
-	return 1, nil
+	return a.longCallResult, nil
+}
+
+func (a *testProtocol) LongCallResult(ctx context.Context) (int, error) {
+	return a.longCallResult, nil
 }
 
 //---------------------------------------------------------------
@@ -116,6 +122,7 @@ type TestInterface interface {
 	UpdateConstants(*Constants) error
 	GetConstants() (*Constants, error)
 	LongCall(context.Context) (int, error)
+	LongCallResult(context.Context) (int, error)
 }
 
 func newTestProtocol(i TestInterface) Protocol {
@@ -180,6 +187,15 @@ func newTestProtocol(i TestInterface) Protocol {
 				},
 				MethodType: MethodCall,
 			},
+			"LongCallResult": {
+				MakeArg: func() interface{} {
+					return new(interface{})
+				},
+				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
+					return i.LongCallResult(ctx)
+				},
+				MethodType: MethodCall,
+			},
 		},
 	}
 }
@@ -221,6 +237,11 @@ func (a TestClient) GetConstants(ctx context.Context) (ret Constants, err error)
 
 func (a TestClient) LongCall(ctx context.Context) (ret int, err error) {
 	err = a.Call(ctx, "test.1.testp.LongCall", nil, &ret)
+	return
+}
+
+func (a TestClient) LongCallResult(ctx context.Context) (ret int, err error) {
+	err = a.Call(ctx, "test.1.testp.LongCallResult", nil, &ret)
 	return
 }
 

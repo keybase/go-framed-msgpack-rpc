@@ -6,25 +6,31 @@ import (
 
 type request interface {
 	Message() *message
+	CancelFunc() context.CancelFunc
 	Reply(encoder, LogInterface) error
-	Serve(byteReadingDecoder, encoder, *ServeHandlerDescription, WrapErrorFunc, LogInterface) context.CancelFunc
+	Serve(byteReadingDecoder, encoder, *ServeHandlerDescription, WrapErrorFunc, LogInterface)
 	LogInvocation(log LogInterface, err error, arg interface{})
 	LogCompletion(log LogInterface, err error)
 }
 
 type requestImpl struct {
 	message
+	ctx        context.Context
+	cancelFunc context.CancelFunc
 }
 
 func (req *requestImpl) Message() *message {
 	return &req.message
 }
 
+func (req *requestImpl) CancelFunc() context.CancelFunc {
+	return req.cancelFunc
+}
+
 func (r *requestImpl) LogInvocation(LogInterface, error, interface{}) {}
 func (r *requestImpl) LogCompletion(LogInterface, error)              {}
 func (r *requestImpl) Reply(encoder, LogInterface) error              { return nil }
-func (r *requestImpl) Serve(byteReadingDecoder, encoder, *ServeHandlerDescription, WrapErrorFunc, LogInterface) context.CancelFunc {
-	return nil
+func (r *requestImpl) Serve(byteReadingDecoder, encoder, *ServeHandlerDescription, WrapErrorFunc, LogInterface) {
 }
 
 func (req *requestImpl) getArg(receiver decoder, handler *ServeHandlerDescription) (interface{}, error) {
@@ -38,11 +44,14 @@ type callRequest struct {
 }
 
 func newCallRequest() *callRequest {
+	ctx, cancel := context.WithCancel(context.Background())
 	r := &callRequest{
 		requestImpl: requestImpl{
 			message: message{
 				remainingFields: 3,
 			},
+			ctx:        ctx,
+			cancelFunc: cancel,
 		},
 	}
 	r.decodeSlots = []interface{}{
@@ -74,18 +83,17 @@ func (r *callRequest) Reply(enc encoder, log LogInterface) error {
 	return err
 }
 
-func (r *callRequest) Serve(receiver byteReadingDecoder, transmitter encoder, handler *ServeHandlerDescription, wrapErrorFunc WrapErrorFunc, log LogInterface) context.CancelFunc {
+func (r *callRequest) Serve(receiver byteReadingDecoder, transmitter encoder, handler *ServeHandlerDescription, wrapErrorFunc WrapErrorFunc, log LogInterface) {
 
 	prof := log.StartProfiler("serve %s", r.method)
 	arg, err := r.getArg(receiver, handler)
-	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	go func() {
 		r.LogInvocation(log, err, arg)
 		if err != nil {
 			r.err = wrapError(wrapErrorFunc, err)
 		} else {
-			res, err := handler.Handler(ctx, arg)
+			res, err := handler.Handler(r.ctx, arg)
 			r.err = wrapError(wrapErrorFunc, err)
 			r.res = res
 		}
@@ -93,7 +101,6 @@ func (r *callRequest) Serve(receiver byteReadingDecoder, transmitter encoder, ha
 		r.LogCompletion(log, err)
 		r.Reply(transmitter, log)
 	}()
-	return cancelFunc
 }
 
 type notifyRequest struct {
@@ -101,11 +108,14 @@ type notifyRequest struct {
 }
 
 func newNotifyRequest() *notifyRequest {
+	ctx, cancel := context.WithCancel(context.Background())
 	r := &notifyRequest{
 		requestImpl: requestImpl{
 			message: message{
 				remainingFields: 2,
 			},
+			ctx:        ctx,
+			cancelFunc: cancel,
 		},
 	}
 	r.decodeSlots = []interface{}{
@@ -122,21 +132,19 @@ func (r *notifyRequest) LogCompletion(log LogInterface, err error) {
 	log.ServerNotifyComplete(r.method, err)
 }
 
-func (r *notifyRequest) Serve(receiver byteReadingDecoder, transmitter encoder, handler *ServeHandlerDescription, wrapErrorFunc WrapErrorFunc, log LogInterface) context.CancelFunc {
+func (r *notifyRequest) Serve(receiver byteReadingDecoder, transmitter encoder, handler *ServeHandlerDescription, wrapErrorFunc WrapErrorFunc, log LogInterface) {
 
 	prof := log.StartProfiler("serve-notify %s", r.method)
 	arg, err := r.getArg(receiver, handler)
-	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	go func() {
 		r.LogInvocation(log, err, arg)
 		if err == nil {
-			_, err = handler.Handler(ctx, arg)
+			_, err = handler.Handler(r.ctx, arg)
 		}
 		prof.Stop()
 		r.LogCompletion(log, err)
 	}()
-	return cancelFunc
 }
 
 type cancelRequest struct {
@@ -149,6 +157,7 @@ func newCancelRequest() *cancelRequest {
 			message: message{
 				remainingFields: 2,
 			},
+			ctx: context.Background(),
 		},
 	}
 	r.decodeSlots = []interface{}{

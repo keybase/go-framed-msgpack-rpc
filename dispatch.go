@@ -124,16 +124,9 @@ func (d *dispatch) handleCall(calls map[int]*call, c *call) {
 	go func() {
 		select {
 		case <-c.ctx.Done():
-			ch := make(chan *call)
-			select {
-			case d.rmCallCh <- callRetrieval{seqid, ch}:
-				<-ch
-				c.Finish(newCanceledError(c.method, c.seqid))
-				d.log.ClientCancel(seqid, c.method)
-				v := []interface{}{MethodCancel, seqid, c.method}
-				d.writer.Encode(v)
-			default:
-			}
+			d.log.ClientCancel(seqid, c.method)
+			v := []interface{}{MethodCancel, seqid, c.method}
+			d.writer.Encode(v)
 		case <-c.doneCh:
 		}
 	}()
