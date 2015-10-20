@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"errors"
-	"fmt"
 )
 
 type message struct {
@@ -35,7 +34,6 @@ func decodeMessage(dec decoder, m *message, i interface{}) error {
 func decodeToNull(dec decoder, m *message) error {
 	var err error
 	for err == nil && m.remainingFields > 0 {
-		fmt.Printf("Decoding to null, remaining fields: %d\n", m.remainingFields)
 		i := new(interface{})
 		err = decodeMessage(dec, m, i)
 	}

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/ugorji/go/codec"
@@ -139,6 +140,9 @@ func (t *transport) readerLoop() error {
 			return nil
 		case i := <-t.decodeCh:
 			err := t.cdec.Decode(i)
+			if err != nil && strings.Index(err.Error(), "use of closed network connection") >= 0 {
+				err = io.EOF
+			}
 			t.decodeResultCh <- err
 		case <-t.readByteCh:
 			b, err := t.cdec.ReadByte()

@@ -2,8 +2,8 @@ package rpc
 
 import (
 	"fmt"
+	"io"
 	"net"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,37 +12,42 @@ import (
 
 var testPort int = 8089
 
-func TestMain(m *testing.M) {
-	err := prepServer()
-	if err != nil {
-		fmt.Println("A server error occurred")
-		os.Exit(-1)
-	}
-	os.Exit(m.Run())
-}
-
-func prepServer() error {
+func prepServer(listener chan error) error {
 	server := &server{port: testPort}
 
 	serverReady := make(chan struct{})
 	var err error
 	go func() {
-		err = server.Run(serverReady)
+		err = server.Run(serverReady, listener)
 	}()
 	<-serverReady
 	return err
 }
 
-func prepClient(t *testing.T) TestClient {
+func prepClient(t *testing.T) (TestClient, net.Conn) {
 	c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
 	assert.Nil(t, err, "a dialer error occurred")
 
 	xp := NewTransport(c, nil, nil)
-	return TestClient{GenericClient: NewClient(xp, nil)}
+	return TestClient{GenericClient: NewClient(xp, nil)}, c
+}
+
+func prepTest(t *testing.T) (TestClient, chan error, net.Conn) {
+	listener := make(chan error)
+	prepServer(listener)
+	cli, conn := prepClient(t)
+	return cli, listener, conn
+}
+
+func endTest(t *testing.T, c net.Conn, listener chan error) {
+	c.Close()
+	err := <-listener
+	assert.EqualError(t, err, io.EOF.Error(), "expected EOF")
 }
 
 func TestCall(t *testing.T) {
-	cli := prepClient(t)
+	cli, listener, conn := prepTest(t)
+	defer endTest(t, conn, listener)
 
 	B := 34
 	for A := 10; A < 23; A += 2 {
@@ -53,14 +58,16 @@ func TestCall(t *testing.T) {
 }
 
 func TestBrokenCall(t *testing.T) {
-	cli := prepClient(t)
+	cli, listener, conn := prepTest(t)
+	defer endTest(t, conn, listener)
 
 	err := cli.Broken()
 	assert.Error(t, err, "Called nonexistent method, expected error")
 }
 
 func TestNotify(t *testing.T) {
-	cli := prepClient(t)
+	cli, listener, conn := prepTest(t)
+	defer endTest(t, conn, listener)
 
 	pi := 31415
 
@@ -73,7 +80,8 @@ func TestNotify(t *testing.T) {
 }
 
 func TestLongCall(t *testing.T) {
-	cli := prepClient(t)
+	cli, listener, conn := prepTest(t)
+	defer endTest(t, conn, listener)
 
 	longResult, err := cli.LongCall(context.Background())
 	assert.Nil(t, err, "call should have succeeded")
@@ -81,16 +89,16 @@ func TestLongCall(t *testing.T) {
 }
 
 func TestLongCallCancel(t *testing.T) {
-	cli := prepClient(t)
+	cli, listener, conn := prepTest(t)
+	defer endTest(t, conn, listener)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var longResult int
 	var err error
-	wait := make(chan struct{})
-	go func() {
+	wait := runInBg(func() error {
 		longResult, err = cli.LongCall(ctx)
-		close(wait)
-	}()
+		return err
+	})
 	cancel()
 	<-wait
 	assert.Error(t, err, "call should be canceled")

@@ -3,6 +3,7 @@ package rpc
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"reflect"
 	"time"
@@ -14,7 +15,7 @@ type server struct {
 	port int
 }
 
-func (s *server) Run(ready chan struct{}) (err error) {
+func (s *server) Run(ready chan struct{}, externalListener chan error) (err error) {
 	var listener net.Listener
 	o := SimpleLogOutput{}
 	lf := NewSimpleLogFactory(o, nil)
@@ -22,15 +23,24 @@ func (s *server) Run(ready chan struct{}) (err error) {
 	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil {
 		return
 	}
+	closeListener := make(chan error)
+	go func() {
+		err := <-closeListener
+		if err == io.EOF {
+			listener.Close()
+		}
+	}()
 	close(ready)
 	for {
 		var c net.Conn
 		if c, err = listener.Accept(); err != nil {
+			externalListener <- io.EOF
 			return
 		}
 		xp := NewTransport(c, lf, nil)
 		srv := NewServer(xp, nil)
 		srv.Register(newTestProtocol(&testProtocol{c, Constants{}}))
+		srv.AddCloseListener(closeListener)
 		srv.Run(true)
 	}
 	return nil
