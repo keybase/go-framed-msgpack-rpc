@@ -41,7 +41,6 @@ func decodeToNull(dec decoder, m *message) error {
 }
 
 func decodeError(dec decoder, m *message, f ErrorUnwrapper) (appErr error, dispatchErr error) {
-	var s string
 	if f != nil {
 		arg := f.MakeArg()
 		err := decodeMessage(dec, m, arg)
@@ -50,6 +49,7 @@ func decodeError(dec decoder, m *message, f ErrorUnwrapper) (appErr error, dispa
 		}
 		return f.UnwrapError(arg)
 	}
+	var s string
 	if dispatchErr = decodeMessage(dec, m, &s); dispatchErr == nil && len(s) > 0 {
 		appErr = errors.New(s)
 	}
