@@ -21,6 +21,8 @@ func prepServer(listener chan error) error {
 		err = server.Run(serverReady, listener)
 	}()
 	<-serverReady
+	// TODO: Fix the race here -- when serverReady is closed by
+	// server.Run, err is in an indeterminate state.
 	return err
 }
 

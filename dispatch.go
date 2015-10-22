@@ -16,6 +16,7 @@ type dispatch struct {
 	writer encoder
 	reader byteReadingDecoder
 
+	// TODO: Use a separate type for seqid.
 	seqid int
 
 	// Stops all loops when closed
