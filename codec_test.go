@@ -35,10 +35,12 @@ func TestCodec(t *testing.T) {
 	enc.Encode(i)
 	assert.Equal(t, 5, len(buf.Bytes()), "expected buffer to contain bytes")
 	err = dec.Decode(&targetString)
-	assert.EqualError(t, err, "readContainerLen: Unrecognized descriptor byte: hex: ce, dec: 206", "expected error while decoding")
+	assert.Error(t, err, "expected error while decoding")
+	assert.Contains(t, err.Error(), "Unrecognized descriptor byte", "expected error while decoding")
 	assert.Equal(t, 4, len(buf.Bytes()), "expected buffer to have bytes")
 	err = dec.Decode(&targetString)
-	assert.EqualError(t, err, "readContainerLen: Unrecognized descriptor byte: hex: ce, dec: 206", "expected error while decoding")
+	assert.Error(t, err, "expected error while decoding")
+	assert.Contains(t, err.Error(), "Unrecognized descriptor byte", "expected error while decoding")
 	assert.Equal(t, 4, len(buf.Bytes()), "expected buffer to have bytes")
 
 	targetInt = 0

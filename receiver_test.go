@@ -11,7 +11,7 @@ import (
 
 func testReceive(t *testing.T, callCh chan callRetrieval, p *Protocol, args ...interface{}) error {
 	receiveIn := newBlockingMockCodec()
-	receiveOut := newMockCodec()
+	receiveOut := newBlockingMockCodec()
 
 	logFactory := NewSimpleLogFactory(SimpleLogOutput{}, SimpleLogOptions{})
 	r := newReceiveHandler(receiveOut, receiveIn, callCh, logFactory.NewLog(nil), nil)
@@ -20,27 +20,31 @@ func testReceive(t *testing.T, callCh chan callRetrieval, p *Protocol, args ...i
 	}
 	go receiveIn.Encode(args)
 
-	err := r.Receive(len(args))
-	if err != nil {
-		return err
-	}
-
-	if receiveOut.NumElements() > 0 {
-		require.Equal(t, 4, receiveOut.NumElements(), "Expected a full response")
+	errCh := make(chan error)
+	go func() {
 		var m MethodType
-		var seqno int
+		var seqno seqNumber
 		var respErrStr string
+		var res interface{}
 		decErr := receiveOut.Decode(&m)
 		require.Nil(t, decErr, "Expected decode to succeed")
 		require.Equal(t, MethodResponse, m, "Expected a response")
 		decErr = receiveOut.Decode(&seqno)
 		require.Nil(t, decErr, "Expected decode to succeed")
-		require.Equal(t, 0, seqno, "Expected sequence number to be 0")
+		require.Equal(t, (seqNumber)(0), seqno, "Expected sequence number to be 0")
 		decErr = receiveOut.Decode(&respErrStr)
 		require.Nil(t, decErr, "Expected decode to succeed")
-		return errors.New(respErrStr)
+		decErr = receiveOut.Decode(&res)
+		require.Nil(t, decErr, "Expected decode to succeed")
+		errCh <- errors.New(respErrStr)
+	}()
+
+	err := r.Receive(len(args))
+	if err != nil {
+		return err
 	}
-	return nil
+
+	return <-errCh
 }
 
 func TestReceiveInvalidType(t *testing.T) {
@@ -49,7 +53,7 @@ func TestReceiveInvalidType(t *testing.T) {
 		make(chan callRetrieval),
 		nil,
 		"hello",
-		0,
+		(seqNumber)(0),
 		"invalid",
 		new(interface{}),
 	)
@@ -62,7 +66,7 @@ func TestReceiveInvalidMethodType(t *testing.T) {
 		make(chan callRetrieval),
 		nil,
 		(MethodType)(999),
-		0,
+		(seqNumber)(0),
 		"invalid",
 		new(interface{}),
 	)
@@ -75,7 +79,7 @@ func TestReceiveInvalidProtocol(t *testing.T) {
 		make(chan callRetrieval),
 		nil,
 		MethodCall,
-		0,
+		(seqNumber)(0),
 		"nonexistent.broken",
 		new(interface{}),
 	)
@@ -91,7 +95,7 @@ func TestReceiveInvalidMethod(t *testing.T) {
 			Methods: make(map[string]ServeHandlerDescription),
 		},
 		MethodCall,
-		0,
+		(seqNumber)(0),
 		"existent.invalid",
 		new(interface{}),
 	)
@@ -104,7 +108,7 @@ func TestReceiveWrongMessageLength(t *testing.T) {
 		make(chan callRetrieval),
 		nil,
 		MethodCall,
-		0,
+		(seqNumber)(0),
 		"invalid",
 	)
 	require.EqualError(t, err, "dispatcher error: wrong number of fields for message (got n=3, expected n=4)", "Expected error attempting to call a nonexistent method")
@@ -118,7 +122,7 @@ func TestReceiveResponse(t *testing.T) {
 			callCh,
 			nil,
 			MethodResponse,
-			0,
+			(seqNumber)(0),
 			"",
 			"hi",
 		)
@@ -140,7 +144,7 @@ func TestReceiveResponseWrongSize(t *testing.T) {
 		make(chan callRetrieval),
 		nil,
 		MethodResponse,
-		0,
+		(seqNumber)(0),
 		"",
 	)
 	require.EqualError(t, err, "dispatcher error: wrong number of fields for message (got n=3, expected n=4)", "Expected error attempting to receive the wrong size of response")
@@ -154,7 +158,7 @@ func TestReceiveResponseNilCall(t *testing.T) {
 			callCh,
 			nil,
 			MethodResponse,
-			0,
+			(seqNumber)(0),
 			"",
 			"hi",
 		)
@@ -176,7 +180,7 @@ func TestReceiveResponseError(t *testing.T) {
 			callCh,
 			nil,
 			MethodResponse,
-			0,
+			(seqNumber)(0),
 			// Wrong type for error, should be string
 			32,
 			"hi",

@@ -103,8 +103,8 @@ func TestLongCallCancel(t *testing.T) {
 	})
 	cancel()
 	<-wait
-	assert.Error(t, err, "call should be canceled")
-	assert.Equal(t, -1, longResult, "call should be canceled")
+	assert.EqualError(t, err, "call canceled: method test.1.testp.LongCall, seqid 0", "call should be canceled")
+	assert.Equal(t, 0, longResult, "call should be canceled")
 
 	longResult, err = cli.LongCallResult(context.Background())
 	assert.Nil(t, err, "call should have succeeded")

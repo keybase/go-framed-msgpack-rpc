@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"sync"
 	"time"
 
 	"golang.org/x/net/context"
@@ -37,7 +38,7 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 		}
 		xp := NewTransport(c, lf, nil)
 		srv := NewServer(xp, nil)
-		srv.Register(newTestProtocol(&testProtocol{c, Constants{}, 0}))
+		srv.Register(createTestProtocol(newTestProtocol(c)))
 		srv.AddCloseListener(closeListener)
 		srv.Run(true)
 	}
@@ -48,6 +49,16 @@ type testProtocol struct {
 	c              net.Conn
 	constants      Constants
 	longCallResult int
+	notifyCh       chan struct{}
+}
+
+func newTestProtocol(c net.Conn) *testProtocol {
+	return &testProtocol{
+		c:              c,
+		constants:      Constants{},
+		longCallResult: 0,
+		notifyCh:       make(chan struct{}, 1),
+	}
 }
 
 func (a *testProtocol) Add(args *AddArgs) (ret int, err error) {
@@ -68,14 +79,19 @@ func (a *testProtocol) DivMod(args *DivModArgs) (ret *DivModRes, err error) {
 
 func (a *testProtocol) UpdateConstants(args *Constants) error {
 	a.constants = *args
+	a.notifyCh <- struct{}{}
 	return nil
 }
 
 func (a *testProtocol) GetConstants() (*Constants, error) {
+	<-a.notifyCh
 	return &a.constants, nil
 }
 
 func (a *testProtocol) LongCall(ctx context.Context) (int, error) {
+	defer func() {
+		a.notifyCh <- struct{}{}
+	}()
 	a.longCallResult = 0
 	for i := 0; i < 100; i++ {
 		select {
@@ -91,6 +107,7 @@ func (a *testProtocol) LongCall(ctx context.Context) (int, error) {
 }
 
 func (a *testProtocol) LongCallResult(ctx context.Context) (int, error) {
+	<-a.notifyCh
 	return a.longCallResult, nil
 }
 
@@ -125,7 +142,7 @@ type TestInterface interface {
 	LongCallResult(context.Context) (int, error)
 }
 
-func newTestProtocol(i TestInterface) Protocol {
+func createTestProtocol(i TestInterface) Protocol {
 	return Protocol{
 		Name: "test.1.testp",
 		Methods: map[string]ServeHandlerDescription{
@@ -247,6 +264,7 @@ func (a TestClient) LongCallResult(ctx context.Context) (ret int, err error) {
 
 type mockCodec struct {
 	elems []interface{}
+	mtx   sync.Mutex
 }
 
 func newMockCodec(elems ...interface{}) *mockCodec {
@@ -276,15 +294,20 @@ func (md *mockCodec) ReadByte() (b byte, err error) {
 }
 
 func (md *mockCodec) Encode(i interface{}) error {
-	return md.encode(i)
+	return md.encode(i, nil)
 }
 
-func (md *mockCodec) encode(i interface{}) error {
+func (md *mockCodec) encode(i interface{}, ch chan struct{}) error {
 	v := reflect.ValueOf(i)
 	if v.Kind() == reflect.Slice {
 		for i := 0; i < v.Len(); i++ {
 			e := v.Index(i).Interface()
+			md.mtx.Lock()
 			md.elems = append(md.elems, e)
+			md.mtx.Unlock()
+			if ch != nil {
+				ch <- struct{}{}
+			}
 		}
 		return nil
 	}
@@ -292,13 +315,17 @@ func (md *mockCodec) encode(i interface{}) error {
 }
 
 func (md *mockCodec) decode(i interface{}) error {
+	md.mtx.Lock()
+	defer md.mtx.Unlock()
 	v := reflect.ValueOf(i).Elem()
 	d := reflect.ValueOf(md.elems[0])
-	if !d.Type().AssignableTo(v.Type()) {
-		return fmt.Errorf("Tried to decode incorrect type. Expected: %v, actual: %v", v.Type(), d.Type())
+	if d.IsValid() {
+		if !d.Type().AssignableTo(v.Type()) {
+			return fmt.Errorf("Tried to decode incorrect type. Expected: %v, actual: %v", v.Type(), d.Type())
+		}
+		v.Set(d)
 	}
 	md.elems = md.elems[1:]
-	v.Set(d)
 	return nil
 }
 
@@ -316,19 +343,12 @@ func newBlockingMockCodec(elems ...interface{}) *blockingMockCodec {
 }
 
 func (md *blockingMockCodec) Decode(i interface{}) error {
-	if len(md.elems) == 0 {
-		<-md.ch
-	}
+	<-md.ch
 	return md.decode(i)
 }
 
 func (md *blockingMockCodec) Encode(i interface{}) error {
-	if len(md.elems) == 0 {
-		defer func() {
-			md.ch <- struct{}{}
-		}()
-	}
-	return md.encode(i)
+	return md.encode(i, md.ch)
 }
 
 type mockErrorUnwrapper struct{}

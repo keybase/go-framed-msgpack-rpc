@@ -15,7 +15,7 @@ func TestValidMessage(t *testing.T) {
 
 	md := newMockCodec(
 		"testMethod",
-		123,
+		(seqNumber)(123),
 		456,
 		789,
 	)
@@ -28,7 +28,7 @@ func TestValidMessage(t *testing.T) {
 	assert.Nil(t, err, "An error occurred while decoding")
 	assert.Equal(t, 0, m.remainingFields, "Expected message decoding to be finished")
 	assert.Equal(t, "testMethod", m.method, "Wrong method name decoded")
-	assert.Equal(t, 123, m.seqno, "Wrong sequence number decoded")
+	assert.Equal(t, (seqNumber)(123), m.seqno, "Wrong sequence number decoded")
 
 	err = decodeMessage(md, m, new(interface{}))
 	assert.Error(t, err, "Expected error decoding past end")
