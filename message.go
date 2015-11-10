@@ -24,9 +24,6 @@ func decodeIntoMessage(dec decoder, m *message) error {
 
 func decodeMessage(dec decoder, m *message, i interface{}) error {
 	err := dec.Decode(i)
-	// TODO need to verify whether codec.Decode pulls from the reader if
-	// the decode fails, or whether the reader stays in the same state
-	// as before the Decode
 	m.remainingFields--
 	return err
 }

@@ -56,6 +56,7 @@ func TestReceiveInvalidType(t *testing.T) {
 		seqNumber(0),
 		"invalid",
 		new(interface{}),
+		nil,
 	)
 	require.EqualError(t, err, "Tried to decode incorrect type. Expected: rpc.MethodType, actual: string", "Expected error attempting to call an invalid method type")
 }
@@ -69,6 +70,7 @@ func TestReceiveInvalidMethodType(t *testing.T) {
 		seqNumber(0),
 		"invalid",
 		new(interface{}),
+		nil,
 	)
 	require.EqualError(t, err, "dispatcher error: invalid message type", "Expected error attempting to call an invalid method type")
 }
@@ -82,6 +84,7 @@ func TestReceiveInvalidProtocol(t *testing.T) {
 		seqNumber(0),
 		"nonexistent.broken",
 		new(interface{}),
+		nil,
 	)
 	require.EqualError(t, err, "protocol not found: nonexistent", "Expected error attempting to call a nonexistent method")
 }
@@ -98,6 +101,7 @@ func TestReceiveInvalidMethod(t *testing.T) {
 		seqNumber(0),
 		"existent.invalid",
 		new(interface{}),
+		nil,
 	)
 	require.EqualError(t, err, "method 'invalid' not found in protocol 'existent'", "Expected error attempting to call a nonexistent method")
 }
@@ -111,7 +115,7 @@ func TestReceiveWrongMessageLength(t *testing.T) {
 		seqNumber(0),
 		"invalid",
 	)
-	require.EqualError(t, err, "dispatcher error: wrong number of fields for message (got n=3, expected n=4)", "Expected error attempting to call a nonexistent method")
+	require.EqualError(t, err, "dispatcher error: wrong number of fields for message (got n=3, expected n=5)", "Expected error attempting to call a nonexistent method")
 }
 
 func TestReceiveResponse(t *testing.T) {
