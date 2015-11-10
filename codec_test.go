@@ -49,3 +49,47 @@ func TestCodec(t *testing.T) {
 	require.Equal(t, math.MaxInt32, targetInt, "expected codec to successfully decode int")
 	require.Equal(t, 0, len(buf.Bytes()), "expected buffer to be empty")
 }
+
+func TestMap(t *testing.T) {
+	var buf bytes.Buffer
+	mh := &codec.MsgpackHandle{WriteExt: true}
+	enc := codec.NewEncoder(&buf, mh)
+	dec := codec.NewDecoder(&buf, mh)
+
+	var m map[string]string = map[string]string{
+		"hello": "world",
+		"foo":   "bar",
+	}
+	err := enc.Encode(m)
+	require.Nil(t, err, "expected encoding to succeed")
+
+	var targetMap map[string]string
+	err = dec.Decode(&targetMap)
+	require.Nil(t, err, "expected decoding to succeed")
+	require.Equal(t, m, targetMap)
+	require.Equal(t, "world", targetMap["hello"])
+	require.Equal(t, "bar", targetMap["foo"])
+
+	var zeroMap map[string]string
+	var targetMapInterface interface{}
+	err = enc.Encode(zeroMap)
+	require.Nil(t, err, "expected encoding to succeed")
+
+	err = dec.Decode(&targetMapInterface)
+	require.Nil(t, err, "expected decoding to succeed")
+	require.Equal(t, 0, len(buf.Bytes()))
+
+	err = enc.Encode([]interface{}{"hello", "world", m})
+	require.Nil(t, err, "expected encoding to succeed")
+	var a string
+	var b string
+	var c map[string]string = make(map[string]string)
+	i := []interface{}{&a, &b, &c}
+	msg := &message{remainingFields: 1, decodeSlots: []interface{}{&i}}
+	err = decodeIntoMessage(dec, msg)
+	require.Nil(t, err, "expected decoding to succeed")
+	require.Equal(t, 0, len(buf.Bytes()))
+	require.Equal(t, "hello", a)
+	require.Equal(t, "world", b)
+	require.Equal(t, m, c)
+}

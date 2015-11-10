@@ -50,7 +50,7 @@ func newCallRequest() *callRequest {
 	r := &callRequest{
 		requestImpl: requestImpl{
 			message: message{
-				remainingFields: 3,
+				remainingFields: 4,
 			},
 			ctx:        ctx,
 			cancelFunc: cancel,
@@ -124,7 +124,7 @@ func newNotifyRequest() *notifyRequest {
 	r := &notifyRequest{
 		requestImpl: requestImpl{
 			message: message{
-				remainingFields: 2,
+				remainingFields: 3,
 			},
 			ctx:        ctx,
 			cancelFunc: cancel,
@@ -167,7 +167,7 @@ func newCancelRequest() *cancelRequest {
 	r := &cancelRequest{
 		requestImpl: requestImpl{
 			message: message{
-				remainingFields: 2,
+				remainingFields: 3,
 			},
 			ctx: context.Background(),
 		},

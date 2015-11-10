@@ -39,10 +39,12 @@ func (p *packetHandler) getMessage(l int) (err error) {
 	// https://github.com/msgpack/msgpack/blob/master/spec.md#formats-array
 	// . Do this so we can decode directly into the expected
 	// fields without copying.
+	// We need this because the target type information isn't known until
+	// we decode the first few fields.
 	if nb >= 0x91 && nb <= 0x9f {
 		err = p.receiver.Receive(nb - 0x90)
 	} else {
-		err = NewPacketizerError("wrong message structure prefix (%d)", nb)
+		err = NewPacketizerError("wrong message structure prefix (0x%x)", nb)
 	}
 
 	return err
