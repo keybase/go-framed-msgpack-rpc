@@ -57,6 +57,7 @@ func (e *framedMsgpackEncoder) Encode(i interface{}) error {
 		return err
 	}
 	e.writeCh <- bytes
+	// FIXME race here?
 	return <-e.resultCh
 }
 
@@ -83,11 +84,13 @@ func newFramedMsgpackDecoder(decoderCh chan interface{}, decoderResultCh chan er
 
 func (t *framedMsgpackDecoder) ReadByte() (byte, error) {
 	t.readByteCh <- struct{}{}
+	// FIXME race here?
 	byteRes := <-t.readByteResultCh
 	return byteRes.b, byteRes.err
 }
 
 func (t *framedMsgpackDecoder) Decode(i interface{}) error {
 	t.decoderCh <- i
+	// FIXME race here?
 	return <-t.decoderResultCh
 }
