@@ -66,17 +66,6 @@ func (a *testProtocol) Add(args *AddArgs) (ret int, err error) {
 	return
 }
 
-func (a *testProtocol) DivMod(args *DivModArgs) (ret *DivModRes, err error) {
-	ret = &DivModRes{}
-	if args.B == 0 {
-		err = errors.New("Cannot divide by 0")
-	} else {
-		ret.Q = args.A / args.B
-		ret.R = args.A % args.B
-	}
-	return
-}
-
 func (a *testProtocol) UpdateConstants(args *Constants) error {
 	a.constants = *args
 	a.notifyCh <- struct{}{}
@@ -119,23 +108,12 @@ type AddArgs struct {
 	B int
 }
 
-type DivModArgs struct {
-	A int
-	B int
-}
-
-type DivModRes struct {
-	Q int
-	R int
-}
-
 type Constants struct {
 	Pi int
 }
 
 type TestInterface interface {
 	Add(*AddArgs) (int, error)
-	DivMod(*DivModArgs) (*DivModRes, error)
 	UpdateConstants(*Constants) error
 	GetConstants() (*Constants, error)
 	LongCall(context.Context) (int, error)
@@ -156,19 +134,6 @@ func createTestProtocol(i TestInterface) Protocol {
 						return nil, NewTypeError((*AddArgs)(nil), args)
 					}
 					return i.Add(addArgs)
-				},
-				MethodType: MethodCall,
-			},
-			"divMod": {
-				MakeArg: func() interface{} {
-					return new(DivModArgs)
-				},
-				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
-					divModArgs, ok := args.(*DivModArgs)
-					if !ok {
-						return nil, NewTypeError((*DivModArgs)(nil), args)
-					}
-					return i.DivMod(divModArgs)
 				},
 				MethodType: MethodCall,
 			},
