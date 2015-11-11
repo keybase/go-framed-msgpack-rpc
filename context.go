@@ -14,7 +14,7 @@ const (
 	CtxRpcTagsKey CtxRpcKey = iota
 )
 
-type CtxRpcTags map[string]string
+type CtxRpcTags map[string]interface{}
 
 // NewContext returns a new Context that carries adds the given log
 // tag mappings (context key -> display string).
