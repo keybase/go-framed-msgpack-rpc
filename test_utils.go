@@ -49,6 +49,7 @@ type testProtocol struct {
 	c              net.Conn
 	constants      Constants
 	longCallResult int
+	debugTags      CtxRpcTags
 	notifyCh       chan struct{}
 }
 
@@ -81,6 +82,9 @@ func (a *testProtocol) LongCall(ctx context.Context) (int, error) {
 	defer func() {
 		a.notifyCh <- struct{}{}
 	}()
+
+	tags, _ := RpcTagsFromContext(ctx)
+	a.debugTags = tags
 	a.longCallResult = 0
 	for i := 0; i < 100; i++ {
 		select {
@@ -98,6 +102,10 @@ func (a *testProtocol) LongCall(ctx context.Context) (int, error) {
 func (a *testProtocol) LongCallResult(ctx context.Context) (int, error) {
 	<-a.notifyCh
 	return a.longCallResult, nil
+}
+
+func (a *testProtocol) LongCallDebugTags(ctx context.Context) (CtxRpcTags, error) {
+	return a.debugTags, nil
 }
 
 //---------------------------------------------------------------
@@ -118,6 +126,7 @@ type TestInterface interface {
 	GetConstants() (*Constants, error)
 	LongCall(context.Context) (int, error)
 	LongCallResult(context.Context) (int, error)
+	LongCallDebugTags(context.Context) (CtxRpcTags, error)
 }
 
 func createTestProtocol(i TestInterface) Protocol {
@@ -178,6 +187,15 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 				MethodType: MethodCall,
 			},
+			"LongCallDebugTags": {
+				MakeArg: func() interface{} {
+					return new(interface{})
+				},
+				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
+					return i.LongCallDebugTags(ctx)
+				},
+				MethodType: MethodCall,
+			},
 		},
 	}
 }
@@ -224,6 +242,11 @@ func (a TestClient) LongCall(ctx context.Context) (ret int, err error) {
 
 func (a TestClient) LongCallResult(ctx context.Context) (ret int, err error) {
 	err = a.Call(ctx, "test.1.testp.LongCallResult", nil, &ret)
+	return
+}
+
+func (a TestClient) LongCallDebugTags(ctx context.Context) (ret CtxRpcTags, err error) {
+	err = a.Call(ctx, "test.1.testp.LongCallDebugTags", nil, &ret)
 	return
 }
 
