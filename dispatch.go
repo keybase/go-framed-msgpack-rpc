@@ -145,7 +145,7 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 			// TODO: Remove c from calls:
 			// https://github.com/keybase/go-framed-msgpack-rpc/issues/30
 			// .
-			err := d.dispatchMessage(c.ctx, MethodCancel, seqid, c.method)
+			err := d.writer.Encode([]interface{}{MethodCancel, seqid, c.method})
 			d.log.ClientCancel(seqid, c.method, err)
 		case <-c.doneCh:
 		}
