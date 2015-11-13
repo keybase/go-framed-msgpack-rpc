@@ -134,17 +134,17 @@ func (d *receiveHandler) Receive(length int) error {
 }
 
 func (r *receiveHandler) receiveNotify() (err error) {
-	req := newRequest(MethodNotify)
+	req := r.newRequest(MethodNotify)
 	return r.handleReceiveDispatch(req)
 }
 
 func (r *receiveHandler) receiveCall() error {
-	req := newRequest(MethodCall)
+	req := r.newRequest(MethodCall)
 	return r.handleReceiveDispatch(req)
 }
 
 func (r *receiveHandler) receiveCancel() (err error) {
-	req := newRequest(MethodCancel)
+	req := r.newRequest(MethodCancel)
 	m := req.Message()
 	if err := decodeIntoMessage(r.reader, m); err != nil {
 		return err
@@ -152,17 +152,18 @@ func (r *receiveHandler) receiveCancel() (err error) {
 	if err := decodeToNull(r.reader, m); err != nil {
 		return err
 	}
-	req.LogInvocation(r.log, nil, nil)
+	req.LogInvocation(nil, nil)
 	r.taskCancelCh <- req.Message().seqno
 	return nil
 }
 
 func (r *receiveHandler) handleReceiveDispatch(req request) error {
-	if err := decodeIntoMessage(r.reader, req.Message()); err != nil {
+	m := req.Message()
+	if err := decodeIntoMessage(r.reader, m); err != nil {
 		return err
 	}
 
-	m := req.Message()
+	// Handle the dispatched call
 	serveHandler, wrapErrorFunc, se := r.findServeHandler(m.method)
 	if se != nil {
 		fmt.Printf("Server error: %v\n", se)
@@ -170,21 +171,35 @@ func (r *receiveHandler) handleReceiveDispatch(req request) error {
 		if err := decodeToNull(r.reader, m); err != nil {
 			return err
 		}
-		req.LogInvocation(r.log, se, nil)
-		return req.Reply(r.writer, r.log)
+		req.LogInvocation(se, nil)
+		return req.Reply()
 	}
+
+	// Obtain the argument
+	arg, err := r.getArg(m, serveHandler)
+	if err != nil {
+		m.err = wrapError(wrapErrorFunc, err)
+	}
+	req.LogInvocation(err, arg)
+
+	// Obtain debug tags for request context
+	err = r.setCtx(req)
+	if err != nil {
+		m.err = wrapError(wrapErrorFunc, err)
+	}
+
+	// Get ready to handle cancellation
 	r.taskBeginCh <- &task{m.seqno, req.CancelFunc()}
-	req.Serve(r.reader, r.writer, serveHandler, wrapErrorFunc, r.log)
-	if err := decodeToNull(r.reader, m); err != nil {
-		return err
-	}
+
+	// Serve the request
+	req.Serve(arg, serveHandler.Handler, wrapErrorFunc)
 	return nil
 }
 
 func (r *receiveHandler) receiveResponse() (err error) {
 	m := &message{remainingFields: 3}
 
-	if err = decodeMessage(r.reader, m, &m.seqno); err != nil {
+	if err = decodeField(r.reader, m, &m.seqno); err != nil {
 		return err
 	}
 
@@ -207,7 +222,7 @@ func (r *receiveHandler) receiveResponse() (err error) {
 		if decodeTo == nil {
 			decodeTo = new(interface{})
 		}
-		err = decodeMessage(r.reader, m, decodeTo)
+		err = decodeField(r.reader, m, decodeTo)
 		r.log.ClientReply(m.seqno, call.method, err, decodeTo)
 	} else {
 		r.log.ClientReply(m.seqno, call.method, err, nil)
@@ -223,6 +238,34 @@ func (r *receiveHandler) receiveResponse() (err error) {
 	call.Finish(apperr)
 
 	return
+}
+
+func (r *receiveHandler) getArg(m *message, handler *ServeHandlerDescription) (interface{}, error) {
+	arg := handler.MakeArg()
+	err := decodeField(r.reader, m, arg)
+	return arg, err
+}
+
+func (r *receiveHandler) setCtx(req request) error {
+	tags := make(CtxRpcTags)
+	err := decodeField(r.reader, req.Message(), &tags)
+	if err != nil {
+		return err
+	}
+	req.setContext(context.WithValue(req.Context(), CtxRpcTagsKey, tags))
+	return nil
+}
+
+func (r *receiveHandler) newRequest(methodType MethodType) request {
+	switch methodType {
+	case MethodCall:
+		return newCallRequest(r.reader, r.writer, r.log, r.taskEndCh)
+	case MethodNotify:
+		return newNotifyRequest(r.reader, r.writer, r.log)
+	case MethodCancel:
+		return newCancelRequest(r.log)
+	}
+	return nil
 }
 
 func (r *receiveHandler) RegisterProtocol(p Protocol) (err error) {
