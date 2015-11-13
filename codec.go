@@ -25,7 +25,10 @@ type framedMsgpackEncoder struct {
 }
 
 func newFramedMsgpackEncoder(writeCh chan []byte, resultCh chan error) *framedMsgpackEncoder {
-	mh := &codec.MsgpackHandle{WriteExt: true}
+	mh := &codec.MsgpackHandle{
+		WriteExt:    true,
+		RawToString: true,
+	}
 	return &framedMsgpackEncoder{
 		handle:   mh,
 		writeCh:  writeCh,
