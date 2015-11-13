@@ -30,7 +30,7 @@ func TestValidMessage(t *testing.T) {
 	require.Equal(t, "testMethod", m.method, "Wrong method name decoded")
 	require.Equal(t, seqNumber(123), m.seqno, "Wrong sequence number decoded")
 
-	err = decodeMessage(md, m, new(interface{}))
+	err = decodeField(md, m, new(interface{}))
 	require.Error(t, err, "Expected error decoding past end")
 }
 
