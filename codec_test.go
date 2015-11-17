@@ -16,7 +16,7 @@ import (
 // advancing the Reader.
 func TestCodec(t *testing.T) {
 	var buf bytes.Buffer
-	mh := &codec.MsgpackHandle{WriteExt: true}
+	mh := &codec.MsgpackHandle{WriteExt: true, RawToString: true}
 	enc := codec.NewEncoder(&buf, mh)
 	dec := codec.NewDecoder(&buf, mh)
 
@@ -52,11 +52,11 @@ func TestCodec(t *testing.T) {
 
 func TestMap(t *testing.T) {
 	var buf bytes.Buffer
-	mh := &codec.MsgpackHandle{WriteExt: true}
+	mh := &codec.MsgpackHandle{WriteExt: true, RawToString: true}
 	enc := codec.NewEncoder(&buf, mh)
 	dec := codec.NewDecoder(&buf, mh)
 
-	var m map[string]string = map[string]string{
+	m := map[string]string{
 		"hello": "world",
 		"foo":   "bar",
 	}
@@ -67,8 +67,6 @@ func TestMap(t *testing.T) {
 	err = dec.Decode(&targetMap)
 	require.Nil(t, err, "expected decoding to succeed")
 	require.Equal(t, m, targetMap)
-	require.Equal(t, "world", targetMap["hello"])
-	require.Equal(t, "bar", targetMap["foo"])
 
 	var zeroMap map[string]string
 	var targetMapInterface interface{}
@@ -83,7 +81,7 @@ func TestMap(t *testing.T) {
 	require.Nil(t, err, "expected encoding to succeed")
 	var a string
 	var b string
-	var c map[string]string = make(map[string]string)
+	var c map[string]string
 	i := []interface{}{&a, &b, &c}
 	msg := &message{remainingFields: 1, decodeSlots: []interface{}{&i}}
 	err = decodeIntoMessage(dec, msg)
