@@ -95,7 +95,7 @@ func TestLongCallCancel(t *testing.T) {
 	defer endTest(t, conn, listener)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx, err := NewContextWithLogTags(ctx, CtxRpcTags{"hello": []string{"world"}})
+	ctx, err := AddRpcTagsToContext(ctx, CtxRpcTags{"hello": []string{"world"}})
 	var longResult int
 	wait := runInBg(func() error {
 		longResult, err = cli.LongCall(ctx)

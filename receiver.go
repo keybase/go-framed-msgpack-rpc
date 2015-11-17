@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"fmt"
 	"sync"
 
 	"golang.org/x/net/context"
@@ -75,10 +74,10 @@ func newReceiveHandler(enc encoder, dec byteReadingDecoder, rmCallCh chan callRe
 		wrapErrorFunc: wef,
 	}
 	r.messageHandlers = map[MethodType]messageHandler{
-		MethodNotify:   {dispatchFunc: r.receiveNotify, messageLength: 4},
-		MethodCall:     {dispatchFunc: r.receiveCall, messageLength: 5},
-		MethodResponse: {dispatchFunc: r.receiveResponse, messageLength: 4},
-		MethodCancel:   {dispatchFunc: r.receiveCancel, messageLength: 4},
+		MethodNotify:   {dispatchFunc: r.receiveNotify, messageLength: notifyRequestLength},
+		MethodCall:     {dispatchFunc: r.receiveCall, messageLength: callRequestLength},
+		MethodResponse: {dispatchFunc: r.receiveResponse, messageLength: responseLength},
+		MethodCancel:   {dispatchFunc: r.receiveCancel, messageLength: cancelRequestLength},
 	}
 	go r.taskLoop()
 	return r
@@ -166,7 +165,6 @@ func (r *receiveHandler) handleReceiveDispatch(req request) error {
 	// Handle the dispatched call
 	serveHandler, wrapErrorFunc, se := r.findServeHandler(m.method)
 	if se != nil {
-		fmt.Printf("Server error: %v\n", se)
 		m.err = wrapError(wrapErrorFunc, se)
 		if err := decodeToNull(r.reader, m); err != nil {
 			return err
