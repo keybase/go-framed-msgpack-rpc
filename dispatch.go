@@ -124,7 +124,7 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 		select {
 		case <-c.ctx.Done():
 			c.ch <- newCanceledError(c.method, seqid)
-			err := d.dispatchMessage(c.ctx, MethodCancel, seqid, c.method)
+			err := d.writer.Encode([]interface{}{MethodCancel, seqid, c.method})
 			d.log.ClientCancel(seqid, c.method, err)
 		case <-c.doneCh:
 		}

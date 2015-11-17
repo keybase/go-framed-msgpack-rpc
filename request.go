@@ -17,6 +17,13 @@ type request interface {
 	setContext(context.Context)
 }
 
+const (
+	callRequestLength   int = 5
+	notifyRequestLength     = 4
+	responseLength          = 4
+	cancelRequestLength     = 3
+)
+
 type requestImpl struct {
 	message
 	ctx        context.Context
@@ -59,7 +66,7 @@ func newCallRequest(reader decoder, writer encoder, log LogInterface, doneCh cha
 	r := &callRequest{
 		requestImpl: requestImpl{
 			message: message{
-				remainingFields: 4,
+				remainingFields: callRequestLength - 1,
 			},
 			ctx:        ctx,
 			cancelFunc: cancel,
@@ -133,7 +140,7 @@ func newNotifyRequest(reader decoder, writer encoder, log LogInterface) *notifyR
 	r := &notifyRequest{
 		requestImpl: requestImpl{
 			message: message{
-				remainingFields: 3,
+				remainingFields: notifyRequestLength - 1,
 			},
 			ctx:        ctx,
 			cancelFunc: cancel,
@@ -178,7 +185,7 @@ func newCancelRequest(log LogInterface) *cancelRequest {
 	r := &cancelRequest{
 		requestImpl: requestImpl{
 			message: message{
-				remainingFields: 3,
+				remainingFields: cancelRequestLength - 1,
 			},
 			ctx: context.Background(),
 			log: log,
