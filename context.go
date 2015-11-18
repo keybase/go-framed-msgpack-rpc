@@ -14,9 +14,10 @@ const (
 
 type CtxRpcTags map[string]interface{}
 
-// NewContext returns a new Context that carries adds the given log
-// tag mappings (context key -> display string).
-func AddRpcTagsToContext(ctx context.Context, logTagsToAdd CtxRpcTags) (context.Context, error) {
+// AddRpcTagsToContext adds the given log tag mappings (...) to the given
+// context, creating a new one if necessary. Returns the resulting context with
+// the new log tag mappings.
+func AddRpcTagsToContext(ctx context.Context, logTagsToAdd CtxRpcTags) context.Context {
 	currTags, ok := RpcTagsFromContext(ctx)
 	if !ok {
 		currTags = make(CtxRpcTags)
@@ -25,7 +26,7 @@ func AddRpcTagsToContext(ctx context.Context, logTagsToAdd CtxRpcTags) (context.
 	for key, tag := range logTagsToAdd {
 		currTags[key] = tag
 	}
-	return ctx, nil
+	return ctx
 }
 
 // RpcTagsFromContext returns the tags being passed along with the given context.

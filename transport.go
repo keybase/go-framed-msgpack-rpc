@@ -31,15 +31,10 @@ type connDecoder struct {
 
 func newConnDecoder(c net.Conn) *connDecoder {
 	br := bufio.NewReader(c)
-	mh := &codec.MsgpackHandle{
-		WriteExt:    true,
-		RawToString: true,
-	}
-
 	return &connDecoder{
 		Conn:       c,
 		ByteReader: br,
-		decoder:    codec.NewDecoder(br, mh),
+		decoder:    codec.NewDecoder(br, newMsgPackHandle()),
 	}
 }
 

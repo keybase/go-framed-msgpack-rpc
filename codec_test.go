@@ -16,7 +16,7 @@ import (
 // advancing the Reader.
 func TestCodec(t *testing.T) {
 	var buf bytes.Buffer
-	mh := &codec.MsgpackHandle{WriteExt: true, RawToString: true}
+	mh := newMsgPackHandle()
 	enc := codec.NewEncoder(&buf, mh)
 	dec := codec.NewDecoder(&buf, mh)
 
@@ -52,7 +52,7 @@ func TestCodec(t *testing.T) {
 
 func TestMap(t *testing.T) {
 	var buf bytes.Buffer
-	mh := &codec.MsgpackHandle{WriteExt: true, RawToString: true}
+	mh := newMsgPackHandle()
 	enc := codec.NewEncoder(&buf, mh)
 	dec := codec.NewDecoder(&buf, mh)
 
