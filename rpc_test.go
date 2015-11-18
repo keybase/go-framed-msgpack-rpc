@@ -19,8 +19,7 @@ func TestObjcOutput(t *testing.T) {
 
 	buf := bytes.NewBuffer(v)
 	var i int
-	mh := codec.MsgpackHandle{WriteExt: true}
-	dec := codec.NewDecoder(buf, &mh)
+	dec := codec.NewDecoder(buf, newMsgPackHandle())
 	err = dec.Decode(&i)
 	require.Nil(t, err, "an error occurred while decoding an integer")
 	require.Equal(t, buf.Len(), i, "Bad frame")
