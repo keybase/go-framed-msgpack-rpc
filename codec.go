@@ -29,13 +29,16 @@ type framedMsgpackEncoder struct {
 	resultCh chan error
 }
 
-func newFramedMsgpackEncoder(writeCh chan []byte, resultCh chan error) *framedMsgpackEncoder {
-	mh := &codec.MsgpackHandle{
+func newMsgPackHandle() *codec.MsgpackHandle {
+	return &codec.MsgpackHandle{
 		WriteExt:    true,
 		RawToString: true,
 	}
+}
+
+func newFramedMsgpackEncoder(writeCh chan []byte, resultCh chan error) *framedMsgpackEncoder {
 	return &framedMsgpackEncoder{
-		handle:   mh,
+		handle:   newMsgPackHandle(),
 		writeCh:  writeCh,
 		resultCh: resultCh,
 	}
