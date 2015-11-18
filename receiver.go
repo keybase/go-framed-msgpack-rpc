@@ -250,7 +250,7 @@ func (r *receiveHandler) setCtx(req request) error {
 	if err != nil {
 		return err
 	}
-	req.setContext(context.WithValue(req.Context(), CtxRpcTagsKey, tags))
+	req.setContext(AddRpcTagsToContext(req.Context(), tags))
 	return nil
 }
 
