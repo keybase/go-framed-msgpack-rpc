@@ -159,8 +159,7 @@ func (t *transport) writerLoop() error {
 		case <-t.stopCh:
 			return nil
 		case bytes := <-t.encodeCh:
-			_, err := t.cdec.Write(bytes)
-			t.encodeResultCh <- err
+			go t.cdec.Write(bytes)
 		}
 	}
 }
