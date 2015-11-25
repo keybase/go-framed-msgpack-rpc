@@ -98,11 +98,11 @@ func TestLongCallCancel(t *testing.T) {
 	ctx = AddRpcTagsToContext(ctx, CtxRpcTags{"hello": []string{"world"}})
 	var longResult int
 	var err error
+	cancel()
 	wait := runInBg(func() error {
 		longResult, err = cli.LongCall(ctx)
 		return err
 	})
-	cancel()
 	<-wait
 	require.EqualError(t, err, "call canceled: method test.1.testp.LongCall, seqid 0", "call should be canceled")
 	require.Equal(t, 0, longResult, "call should be canceled")

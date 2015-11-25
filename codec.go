@@ -68,8 +68,7 @@ func (e *framedMsgpackEncoder) Encode(i interface{}) error {
 		return err
 	}
 	e.writeCh <- bytes
-	// See comment above regarding potential race
-	return <-e.resultCh
+	return nil
 }
 
 type byteResult struct {
