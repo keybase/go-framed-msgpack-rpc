@@ -69,6 +69,27 @@ func TestDispatchCanceledBeforeResult(t *testing.T) {
 	<-closed
 }
 
+func TestDispatchCanceledAfterResult(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	d, callCh, done := dispatchTestCallWithContext(t, ctx)
+
+	ch := make(chan *call)
+	callCh <- callRetrieval{0, ch}
+	c := <-ch
+	require.NotNil(t, c, "Expected c not to be nil")
+
+	ok := c.Finish(nil)
+	require.True(t, ok, "Expected c.Finish to succeed")
+
+	cancel()
+
+	err := <-done
+	require.Nil(t, err, "Expected no error")
+
+	closed := d.Close(nil)
+	<-closed
+}
+
 func TestDispatchEOF(t *testing.T) {
 	d, _, done := dispatchTestCall(t)
 
