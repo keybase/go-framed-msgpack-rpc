@@ -34,7 +34,8 @@ func TestDispatchSuccessfulCall(t *testing.T) {
 	c := <-ch
 	require.NotNil(t, c, "Expected c not to be nil")
 
-	c.Finish(nil)
+	// TODO: Check this.
+	_ = c.Finish(nil)
 	err := <-done
 	require.Nil(t, err, "Expected no error")
 

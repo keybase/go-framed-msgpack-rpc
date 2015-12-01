@@ -134,7 +134,7 @@ func TestReceiveResponse(t *testing.T) {
 	callRetrieval := <-callCh
 	callRetrieval.ch <- c
 
-	<-c.ch
+	<-c.resultCh
 	require.Equal(t, "hi", result, "Expected response to say \"hi\"")
 }
 
@@ -193,7 +193,7 @@ func TestReceiveResponseError(t *testing.T) {
 	callRetrieval := <-callCh
 	callRetrieval.ch <- c
 
-	err := <-c.ch
+	err := <-c.resultCh
 	require.EqualError(t, err, "Tried to decode incorrect type. Expected: string, actual: int", "expected error when passing in a nil call")
 	err = <-done
 	require.EqualError(t, err, "Tried to decode incorrect type. Expected: string, actual: int", "expected error when passing in a nil call")
