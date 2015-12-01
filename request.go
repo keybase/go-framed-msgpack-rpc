@@ -75,7 +75,9 @@ func (r *callRequest) Reply(enc encoder, log LogInterface) error {
 	var err error
 	select {
 	case <-r.ctx.Done():
+		// TODO: Use newCanceledError.
 		err = fmt.Errorf("call canceled for seqno %d", r.seqno)
+		// TODO: Use log.Info instead.
 		log.Warning(err.Error())
 	default:
 		v := []interface{}{
