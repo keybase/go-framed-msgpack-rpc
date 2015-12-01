@@ -27,6 +27,7 @@ type LogInterface interface {
 	ClientReply(seqNumber, string, error, interface{})
 	StartProfiler(format string, args ...interface{}) Profiler
 	UnexpectedReply(seqNumber)
+	Info(format string, args ...interface{})
 	Warning(format string, args ...interface{})
 }
 
@@ -228,6 +229,10 @@ func (s SimpleLog) StartProfiler(format string, args ...interface{}) Profiler {
 
 func (s SimpleLog) UnexpectedReply(seqno seqNumber) {
 	s.Out.Warning(s.msg(false, "Unexpected seqno %d in incoming reply", seqno))
+}
+
+func (s SimpleLog) Info(format string, args ...interface{}) {
+	s.Out.Info(s.msg(false, format, args...))
 }
 
 func (s SimpleLog) Warning(format string, args ...interface{}) {
