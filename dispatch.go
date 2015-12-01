@@ -143,6 +143,7 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 				// been processed.
 				return
 			}
+			// TODO: Remove c from calls.
 			v := []interface{}{MethodCancel, seqid, c.method}
 			err := d.writer.Encode(v)
 			d.log.ClientCancel(seqid, c.method, err)
