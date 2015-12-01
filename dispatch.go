@@ -127,8 +127,10 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 	v := []interface{}{MethodCall, seqid, c.method, c.arg}
 	err := d.writer.Encode(v)
 	if err != nil {
-		// TODO: Check this.
-		_ = c.Finish(err)
+		setResult := c.Finish(err)
+		if !setResult {
+			panic("c.Finish unexpectedly returned false")
+		}
 		return
 	}
 	d.log.ClientCall(seqid, c.method, c.arg)
