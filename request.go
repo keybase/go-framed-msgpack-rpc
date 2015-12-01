@@ -107,10 +107,13 @@ func (r *callRequest) Reply() error {
 			r.err,
 			r.res,
 		}
-		err = r.writer.Encode(v)
-		if err != nil {
-			r.log.Warning("Reply error for %d: %s", r.seqno, err.Error())
-		}
+		errCh := r.writer.Encode(v)
+		go func() {
+			err := <-errCh
+			if err != nil {
+				r.log.Warning("Reply error for %d: %s", r.seqno, err.Error())
+			}
+		}()
 	}
 	r.doneCh <- r.seqno
 	return err

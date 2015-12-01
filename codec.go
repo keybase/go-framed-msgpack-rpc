@@ -20,7 +20,7 @@ type byteReadingDecoder interface {
 }
 
 type encoder interface {
-	Encode(interface{}) error
+	Encode(interface{}) <-chan error
 }
 
 type framedMsgpackEncoder struct {
@@ -62,14 +62,19 @@ func (e *framedMsgpackEncoder) encodeFrame(i interface{}) ([]byte, error) {
 	return append(length, content...), nil
 }
 
-func (e *framedMsgpackEncoder) Encode(i interface{}) error {
+func (e *framedMsgpackEncoder) Encode(i interface{}) <-chan error {
+	ch := make(chan error, 1)
 	bytes, err := e.encodeFrame(i)
 	if err != nil {
-		return err
+		ch <- err
+		return ch
 	}
-	e.writeCh <- bytes
-	// See comment above regarding potential race
-	return <-e.resultCh
+	go func() {
+		e.writeCh <- bytes
+		// See comment above regarding potential race
+		ch <- <-e.resultCh
+	}()
+	return ch
 }
 
 type byteResult struct {

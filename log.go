@@ -19,7 +19,7 @@ type LogInterface interface {
 	ClientCall(seqNumber, string, interface{})
 	ServerCall(seqNumber, string, error, interface{})
 	ServerReply(seqNumber, string, error, interface{})
-	ClientNotify(string, interface{})
+	ClientNotify(string, error, interface{})
 	ServerNotifyCall(string, error, interface{})
 	ServerNotifyComplete(string, error)
 	ClientCancel(seqNumber, string, error)
@@ -150,9 +150,9 @@ func (s SimpleLog) ServerReply(q seqNumber, meth string, err error, res interfac
 }
 
 // Notify
-func (s SimpleLog) ClientNotify(meth string, arg interface{}) {
+func (s SimpleLog) ClientNotify(meth string, err error, arg interface{}) {
 	if s.Opts.ClientTrace() {
-		s.trace("notify", "arg", s.Opts.ShowArg(), 0, meth, nil, arg)
+		s.trace("notify", "arg", s.Opts.ShowArg(), 0, meth, err, arg)
 	}
 }
 func (s SimpleLog) ServerNotifyCall(meth string, err error, arg interface{}) {

@@ -124,30 +124,33 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 	seqid := d.nextSeqid()
 	c.seqid = seqid
 	calls[c.seqid] = c
-	err := d.dispatchMessage(c.ctx, MethodCall, seqid, c.method, c.arg)
-	if err != nil {
-		setResult := c.Finish(err)
-		if !setResult {
-			panic("c.Finish unexpectedly returned false")
-		}
-		return
-	}
+	errCh := d.dispatchMessage(c.ctx, MethodCall, seqid, c.method, c.arg)
 	d.log.ClientCall(seqid, c.method, c.arg)
 	go func() {
-		select {
-		case <-c.ctx.Done():
-			setResult := c.Finish(newCanceledError(c.method, seqid))
-			if !setResult {
-				// The result of the call has already
-				// been processed.
-				return
+		for {
+			select {
+			case <-c.ctx.Done():
+				d.log.Warning("Context canceled")
+				setResult := c.Finish(newCanceledError(c.method, seqid))
+				if !setResult {
+					d.log.Warning("Result of call(%d) has already been processed", seqid)
+					return
+				}
+				delete(calls, seqid)
+				errCh := d.writer.Encode([]interface{}{MethodCancel, seqid, c.method})
+				err := <-errCh
+				d.log.ClientCancel(seqid, c.method, err)
+			case err := <-errCh:
+				if err == nil {
+					continue
+				}
+				setResult := c.Finish(err)
+				if !setResult {
+					panic("c.Finish unexpectedly returned false")
+				}
+			case <-c.doneCh:
 			}
-			// TODO: Remove c from calls:
-			// https://github.com/keybase/go-framed-msgpack-rpc/issues/30
-			// .
-			err := d.writer.Encode([]interface{}{MethodCancel, seqid, c.method})
-			d.log.ClientCancel(seqid, c.method, err)
-		case <-c.doneCh:
+			return
 		}
 	}()
 }
@@ -166,11 +169,11 @@ func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res i
 }
 
 func (d *dispatch) Notify(ctx context.Context, name string, arg interface{}) error {
-	err := d.dispatchMessage(ctx, MethodNotify, name, arg)
-	if err != nil {
-		return err
-	}
-	d.log.ClientNotify(name, arg)
+	errCh := d.dispatchMessage(ctx, MethodNotify, name, arg)
+	go func() {
+		err := <-errCh
+		d.log.ClientNotify(name, err, arg)
+	}()
 	return nil
 }
 
@@ -179,7 +182,7 @@ func (d *dispatch) Close(err error) chan struct{} {
 	return d.closedCh
 }
 
-func (d *dispatch) dispatchMessage(ctx context.Context, args ...interface{}) error {
+func (d *dispatch) dispatchMessage(ctx context.Context, args ...interface{}) <-chan error {
 	rpcTags, _ := RpcTagsFromContext(ctx)
 	return d.writer.Encode(append(args, rpcTags))
 }
