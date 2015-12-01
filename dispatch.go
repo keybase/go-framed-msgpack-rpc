@@ -138,13 +138,14 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 		select {
 		case <-c.ctx.Done():
 			setResult := c.Finish(newCanceledError(c.method, seqid))
-			// If setResult is false, then the result of
-			// the call has already been processed.
-			if setResult {
-				v := []interface{}{MethodCancel, seqid, c.method}
-				err := d.writer.Encode(v)
-				d.log.ClientCancel(seqid, c.method, err)
+			if !setResult {
+				// The result of the call has already
+				// been processed.
+				return
 			}
+			v := []interface{}{MethodCancel, seqid, c.method}
+			err := d.writer.Encode(v)
+			d.log.ClientCancel(seqid, c.method, err)
 		case <-c.doneCh:
 		}
 	}()
