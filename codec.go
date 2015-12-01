@@ -23,10 +23,14 @@ type encoder interface {
 	Encode(interface{}) <-chan error
 }
 
-type framedMsgpackEncoder struct {
-	handle   codec.Handle
-	writeCh  chan []byte
+type encodingBundle struct {
+	bytes    []byte
 	resultCh chan error
+}
+
+type framedMsgpackEncoder struct {
+	handle  codec.Handle
+	writeCh chan encodingBundle
 }
 
 func newMsgPackHandle() *codec.MsgpackHandle {
@@ -36,11 +40,10 @@ func newMsgPackHandle() *codec.MsgpackHandle {
 	}
 }
 
-func newFramedMsgpackEncoder(writeCh chan []byte, resultCh chan error) *framedMsgpackEncoder {
+func newFramedMsgpackEncoder(writeCh chan encodingBundle) *framedMsgpackEncoder {
 	return &framedMsgpackEncoder{
-		handle:   newMsgPackHandle(),
-		writeCh:  writeCh,
-		resultCh: resultCh,
+		handle:  newMsgPackHandle(),
+		writeCh: writeCh,
 	}
 }
 
@@ -70,9 +73,7 @@ func (e *framedMsgpackEncoder) Encode(i interface{}) <-chan error {
 		return ch
 	}
 	go func() {
-		e.writeCh <- bytes
-		// See comment above regarding potential race
-		ch <- <-e.resultCh
+		e.writeCh <- encodingBundle{bytes: bytes, resultCh: ch}
 	}()
 	return ch
 }
