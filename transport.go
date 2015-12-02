@@ -14,7 +14,8 @@ type WrapErrorFunc func(error) interface{}
 type Transporter interface {
 	getDispatcher() (dispatcher, error)
 	getReceiver() (receiver, error)
-	Run(bg bool) error
+	Run() error
+	RunAsync() error
 	IsConnected() bool
 }
 
@@ -99,27 +100,36 @@ func (t *transport) IsConnected() bool {
 	}
 }
 
-func (t *transport) Run(bg bool) error {
+func (t *transport) Run() error {
 	if !t.IsConnected() {
 		return DisconnectedError{}
 	}
 
 	select {
 	case <-t.startCh:
-		if bg {
-			go func() {
-				err := t.run()
-				if err != nil {
-					t.log.Warning("asynchronous t.run() failed with %v", err)
-				}
-			}()
-			return nil
-		}
-
 		return t.run()
 	default:
 		return nil
 	}
+}
+
+func (t *transport) RunAsync() error {
+	if !t.IsConnected() {
+		return DisconnectedError{}
+	}
+
+	select {
+	case <-t.startCh:
+		go func() {
+			err := t.run()
+			if err != nil {
+				t.log.Warning("asynchronous t.run() failed with %v", err)
+			}
+		}()
+	default:
+	}
+
+	return nil
 }
 
 func (t *transport) run() (err error) {

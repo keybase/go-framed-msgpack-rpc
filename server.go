@@ -30,5 +30,8 @@ func (s *Server) AddCloseListener(ch chan error) error {
 }
 
 func (s *Server) Run(bg bool) error {
-	return s.xp.Run(bg)
+	if bg {
+		return s.xp.Run()
+	}
+	return s.xp.RunAsync()
 }
