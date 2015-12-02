@@ -29,6 +29,7 @@ func (s *Server) AddCloseListener(ch chan error) error {
 	return nil
 }
 
+// TODO: Split into Run and RunAsync, and update callers.
 func (s *Server) Run(bg bool) error {
 	if bg {
 		return s.xp.Run()
