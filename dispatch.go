@@ -130,18 +130,24 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 		for {
 			select {
 			case <-c.ctx.Done():
-				d.log.Warning("Context canceled")
 				setResult := c.Finish(newCanceledError(c.method, seqid))
 				if !setResult {
-					d.log.Warning("Result of call(%d) has already been processed", seqid)
+					d.log.Warning("call has already been processed: method=%s, seqid=%d", c.method, seqid)
 					return
 				}
-				delete(calls, seqid)
-				errCh := d.writer.Encode([]interface{}{MethodCancel, seqid, c.method})
-				err := <-errCh
+
+				// Ensure that the call is removed from the list of pending calls
+				cr := callRetrieval{seqid: seqid, ch: make(chan *call)}
+				d.rmCallCh <- cr
+				<-cr.ch
+
+				// Dispatch the cancellation request
+				cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, seqid, c.method})
+				err := <-cancelErrCh
 				d.log.ClientCancel(seqid, c.method, err)
 			case err := <-errCh:
 				if err == nil {
+					// No error, continue waiting on call completion scenarios
 					continue
 				}
 				setResult := c.Finish(err)

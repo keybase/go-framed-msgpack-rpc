@@ -5,10 +5,9 @@ import (
 	"io"
 )
 
-// It might seem like the encoder and decoder will race, because
-// we use a shared channel to deliver results. However, since
-// channels are FIFO and we only consume one element at a time,
-// there is no race.
+// It might seem like the decoder will race, because we use a shared channel to
+// deliver results. However, since channels are FIFO and we only consume one
+// element at a time, there is no race.
 
 type decoder interface {
 	Decode(interface{}) error

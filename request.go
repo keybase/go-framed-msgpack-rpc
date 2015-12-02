@@ -93,6 +93,13 @@ func (r *callRequest) LogCompletion(err error) {
 
 func (r *callRequest) Reply() error {
 	var err error
+	v := []interface{}{
+		MethodResponse,
+		r.seqno,
+		r.err,
+		r.res,
+	}
+	errCh := r.writer.Encode(v)
 	select {
 	case <-r.ctx.Done():
 		// TODO: Use newCanceledError and log.Info:
@@ -100,20 +107,10 @@ func (r *callRequest) Reply() error {
 		// .
 		err = fmt.Errorf("call canceled for seqno %d", r.seqno)
 		r.log.Warning(err.Error())
-	default:
-		v := []interface{}{
-			MethodResponse,
-			r.seqno,
-			r.err,
-			r.res,
+	case err = <-errCh:
+		if err != nil {
+			r.log.Warning("Reply error for %d: %s", r.seqno, err.Error())
 		}
-		errCh := r.writer.Encode(v)
-		go func() {
-			err := <-errCh
-			if err != nil {
-				r.log.Warning("Reply error for %d: %s", r.seqno, err.Error())
-			}
-		}()
 	}
 	r.doneCh <- r.seqno
 	return err
