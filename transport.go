@@ -67,7 +67,7 @@ func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
 		cdec:             cdec,
 		log:              log,
 		wrapError:        wef,
-		encodeCh:         make(chan encodingBundle),
+		encodeCh:         make(chan encodingBundle, 1),
 		readByteCh:       make(chan struct{}),
 		readByteResultCh: make(chan byteResult),
 		decodeCh:         make(chan interface{}),

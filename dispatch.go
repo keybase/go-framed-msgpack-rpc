@@ -130,6 +130,10 @@ func (d *dispatch) handleCall(c *call) {
 		for {
 			select {
 			case <-c.ctx.Done():
+				// Dispatch the cancellation request first to avoid races
+				cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
+
+				// Return the call
 				setResult := c.Finish(newCanceledError(c.method, c.seqid))
 				if !setResult {
 					d.log.Info("call has already been processed: method=%s, seqid=%d", c.method, c.seqid)
@@ -141,8 +145,6 @@ func (d *dispatch) handleCall(c *call) {
 				d.rmCallCh <- callRetrieval{c.seqid, ch}
 				<-ch
 
-				// Dispatch the cancellation request
-				cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
 				err := <-cancelErrCh
 				d.log.ClientCancel(c.seqid, c.method, err)
 			case err := <-errCh:

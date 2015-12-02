@@ -284,16 +284,18 @@ func (md *mockCodec) encode(i interface{}, ch chan struct{}) <-chan error {
 	errCh := make(chan error, 1)
 	v := reflect.ValueOf(i)
 	if v.Kind() == reflect.Slice {
-		for i := 0; i < v.Len(); i++ {
-			e := v.Index(i).Interface()
-			md.mtx.Lock()
-			md.elems = append(md.elems, e)
-			md.mtx.Unlock()
-			if ch != nil {
-				ch <- struct{}{}
+		go func() {
+			for i := 0; i < v.Len(); i++ {
+				e := v.Index(i).Interface()
+				md.mtx.Lock()
+				md.elems = append(md.elems, e)
+				md.mtx.Unlock()
+				if ch != nil {
+					ch <- struct{}{}
+				}
 			}
-		}
-		errCh <- nil
+			errCh <- nil
+		}()
 	} else {
 		errCh <- errors.New("only support encoding slices")
 	}

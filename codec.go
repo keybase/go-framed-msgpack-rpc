@@ -71,9 +71,7 @@ func (e *framedMsgpackEncoder) Encode(i interface{}) <-chan error {
 		ch <- err
 		return ch
 	}
-	go func() {
-		e.writeCh <- encodingBundle{bytes: bytes, resultCh: ch}
-	}()
+	e.writeCh <- encodingBundle{bytes: bytes, resultCh: ch}
 	return ch
 }
 
