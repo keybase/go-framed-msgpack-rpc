@@ -111,7 +111,10 @@ func (d *dispatch) callLoop() {
 			close(d.closedCh)
 			return
 		case c := <-d.callCh:
-			d.handleCall(calls, c)
+			seqid := d.nextSeqid()
+			c.seqid = seqid
+			calls[seqid] = c
+			d.handleCall(c)
 		case cr := <-d.rmCallCh:
 			call := calls[cr.seqid]
 			delete(calls, cr.seqid)
@@ -120,31 +123,28 @@ func (d *dispatch) callLoop() {
 	}
 }
 
-func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
-	seqid := d.nextSeqid()
-	c.seqid = seqid
-	calls[c.seqid] = c
-	errCh := d.dispatchMessage(c.ctx, MethodCall, seqid, c.method, c.arg)
-	d.log.ClientCall(seqid, c.method, c.arg)
+func (d *dispatch) handleCall(c *call) {
+	errCh := d.dispatchMessage(c.ctx, MethodCall, c.seqid, c.method, c.arg)
+	d.log.ClientCall(c.seqid, c.method, c.arg)
 	go func() {
 		for {
 			select {
 			case <-c.ctx.Done():
-				setResult := c.Finish(newCanceledError(c.method, seqid))
+				setResult := c.Finish(newCanceledError(c.method, c.seqid))
 				if !setResult {
-					d.log.Warning("call has already been processed: method=%s, seqid=%d", c.method, seqid)
+					d.log.Info("call has already been processed: method=%s, seqid=%d", c.method, c.seqid)
 					return
 				}
 
-				// Ensure that the call is removed from the list of pending calls
-				cr := callRetrieval{seqid: seqid, ch: make(chan *call)}
-				d.rmCallCh <- cr
-				<-cr.ch
+				// Ensure the call is removed
+				ch := make(chan *call)
+				d.rmCallCh <- callRetrieval{c.seqid, ch}
+				<-ch
 
 				// Dispatch the cancellation request
-				cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, seqid, c.method})
+				cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
 				err := <-cancelErrCh
-				d.log.ClientCancel(seqid, c.method, err)
+				d.log.ClientCancel(c.seqid, c.method, err)
 			case err := <-errCh:
 				if err == nil {
 					// No error, continue waiting on call completion scenarios
@@ -177,8 +177,12 @@ func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res i
 func (d *dispatch) Notify(ctx context.Context, name string, arg interface{}) error {
 	errCh := d.dispatchMessage(ctx, MethodNotify, name, arg)
 	go func() {
-		err := <-errCh
-		d.log.ClientNotify(name, err, arg)
+		select {
+		case err := <-errCh:
+			d.log.ClientNotify(name, err, arg)
+		case <-ctx.Done():
+			d.log.ClientCancel(-1, name, nil)
+		}
 	}()
 	return nil
 }

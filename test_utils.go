@@ -86,9 +86,9 @@ func (a *testProtocol) LongCall(ctx context.Context) (int, error) {
 	tags, _ := RpcTagsFromContext(ctx)
 	a.debugTags = tags
 	a.longCallResult = 0
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		select {
-		case <-time.After(time.Millisecond):
+		case <-time.After(10 * time.Millisecond):
 			a.longCallResult++
 		case <-ctx.Done():
 			a.longCallResult = -1

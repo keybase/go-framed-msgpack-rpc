@@ -87,7 +87,7 @@ func TestLongCall(t *testing.T) {
 
 	longResult, err := cli.LongCall(context.Background())
 	require.Nil(t, err, "call should have succeeded")
-	require.Equal(t, longResult, 100, "call should have succeeded")
+	require.Equal(t, longResult, 10, "call should have succeeded")
 }
 
 func TestLongCallCancel(t *testing.T) {
@@ -98,11 +98,15 @@ func TestLongCallCancel(t *testing.T) {
 	ctx = AddRpcTagsToContext(ctx, CtxRpcTags{"hello": []string{"world"}})
 	var longResult int
 	var err error
-	cancel()
+	// Getting a funky race here:
+	// 1) LongCall is called and dispatched, but it immediately returns because of the cancel
+	// 2) LongCallResult is called and dispatched
+	// 3) The LongCall cancel is dispatched
 	wait := runInBg(func() error {
 		longResult, err = cli.LongCall(ctx)
 		return err
 	})
+	cancel()
 	<-wait
 	require.EqualError(t, err, "call canceled: method test.1.testp.LongCall, seqid 0", "call should be canceled")
 	require.Equal(t, 0, longResult, "call should be canceled")
