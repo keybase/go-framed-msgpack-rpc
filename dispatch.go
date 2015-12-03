@@ -122,6 +122,18 @@ func (d *dispatch) callLoop() {
 	}
 }
 
+func (d *dispatch) handleCallCancel(c *call, err error) <-chan error {
+	// TODO: Make err a part of the error passed to c.Finish.
+	// Return the call
+	setResult := c.Finish(newCanceledError(c.method, c.seqid))
+	if !setResult {
+		return nil
+	}
+
+	// Dispatch cancellation
+	return d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
+}
+
 func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 	c.seqid = d.nextSeqid()
 
@@ -132,15 +144,12 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 	// Wait for a cancel or encoding result
 	select {
 	case <-c.ctx.Done():
-		// Return the call
-		setResult := c.Finish(newCanceledError(c.method, c.seqid))
-		if !setResult {
-			panic(fmt.Sprintf("call has already been processed: method=%s, seqid=%d", c.method, c.seqid))
+		cancelErrCh := d.handleCallCancel(c, c.ctx.Err())
+		if cancelErrCh == nil {
+			panic(fmt.Sprintf("c.Finish unexpectedly returned false for method=%s, seqid=%d", c.method, c.seqid))
 			return
 		}
 
-		// Dispatch cancellation
-		cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
 		go func() {
 			err := <-cancelErrCh
 			d.log.ClientCancel(c.seqid, c.method, err)
@@ -163,15 +172,12 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 		// Wait for a cancellation or response
 		select {
 		case <-c.ctx.Done():
-			// Return the call
-			setResult := c.Finish(newCanceledError(c.method, c.seqid))
-			if !setResult {
+			cancelErrCh := d.handleCallCancel(c, c.ctx.Err())
+			if cancelErrCh == nil {
 				d.log.Info("call has already been processed: method=%s, seqid=%d", c.method, c.seqid)
 				return
 			}
 
-			// Dispatch cancellation
-			cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
 			err := <-cancelErrCh
 			d.log.ClientCancel(c.seqid, c.method, err)
 
