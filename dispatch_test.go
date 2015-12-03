@@ -21,7 +21,7 @@ func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher,
 
 	// Necessary to ensure the call is far enough along to
 	// be ready to respond
-	decoderErr := decodeToNull(dispatchOut, &message{remainingFields: 4})
+	decoderErr := decodeToNull(dispatchOut, &message{remainingFields: 5})
 	require.Nil(t, decoderErr, "Expected no error")
 	return d, callCh, done
 }
