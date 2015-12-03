@@ -178,14 +178,13 @@ func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res i
 
 func (d *dispatch) Notify(ctx context.Context, name string, arg interface{}) error {
 	errCh := d.dispatchMessage(ctx, MethodNotify, name, arg)
-	go func() {
-		select {
-		case err := <-errCh:
-			d.log.ClientNotify(name, err, arg)
-		case <-ctx.Done():
-			d.log.ClientCancel(-1, name, nil)
-		}
-	}()
+	select {
+	case err := <-errCh:
+		d.log.ClientNotify(name, err, arg)
+		return err
+	case <-ctx.Done():
+		d.log.ClientCancel(-1, name, nil)
+	}
 	return nil
 }
 
