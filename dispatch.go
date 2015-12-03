@@ -220,6 +220,8 @@ func (d *dispatch) Close(err error) chan struct{} {
 
 func (d *dispatch) dispatchMessage(ctx context.Context, args ...interface{}) <-chan error {
 	rpcTags, _ := RpcTagsFromContext(ctx)
+	// TODO: Pass ctx to encode so we can cancel it before it
+	// writes.
 	return d.writer.Encode(append(args, rpcTags))
 }
 
