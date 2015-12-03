@@ -98,3 +98,17 @@ func TestDispatchEOF(t *testing.T) {
 	err := <-done
 	require.Equal(t, io.EOF, err, "Expected EOF")
 }
+
+func TestDispatchEncodeError(t *testing.T) {
+	dispatchOut := newErrorMockCodec()
+
+	logFactory := NewSimpleLogFactory(SimpleLogOutput{}, SimpleLogOptions{})
+	callCh := make(chan callRetrieval)
+	d := newDispatch(dispatchOut, newBlockingMockCodec(), callCh, logFactory.NewLog(nil))
+
+	done := runInBg(func() error {
+		return d.Call(context.Background(), "whatever", new(interface{}), new(interface{}), nil)
+	})
+
+	require.EqualError(t, <-done, "Encode error")
+}

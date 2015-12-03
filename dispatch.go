@@ -111,7 +111,10 @@ func (d *dispatch) callLoop() {
 			close(d.closedCh)
 			return
 		case c := <-d.callCh:
-			d.handleCall(calls, c)
+			seqid := d.nextSeqid()
+			c.seqid = seqid
+			calls[seqid] = c
+			d.handleCall(c)
 		case cr := <-d.rmCallCh:
 			call := calls[cr.seqid]
 			delete(calls, cr.seqid)
@@ -120,33 +123,50 @@ func (d *dispatch) callLoop() {
 	}
 }
 
-func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
-	seqid := d.nextSeqid()
-	c.seqid = seqid
-	calls[c.seqid] = c
-	err := d.dispatchMessage(c.ctx, MethodCall, seqid, c.method, c.arg)
-	if err != nil {
-		setResult := c.Finish(err)
-		if !setResult {
-			panic("c.Finish unexpectedly returned false")
-		}
+func (d *dispatch) handleCallCancel(c *call) {
+	// Return the call
+	setResult := c.Finish(newCanceledError(c.method, c.seqid))
+	if !setResult {
+		d.log.Info("call has already been processed: method=%s, seqid=%d", c.method, c.seqid)
 		return
 	}
-	d.log.ClientCall(seqid, c.method, c.arg)
+
+	// Ensure the call is removed
+	ch := make(chan *call)
+	d.rmCallCh <- callRetrieval{c.seqid, ch}
+	<-ch
+
+	// Dispatch cancellation
+	cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
+	err := <-cancelErrCh
+	d.log.ClientCancel(c.seqid, c.method, err)
+}
+
+func (d *dispatch) handleCall(c *call) {
+	errCh := d.dispatchMessage(c.ctx, MethodCall, c.seqid, c.method, c.arg)
+	d.log.ClientCall(c.seqid, c.method, c.arg)
+	d.log.Info("client call")
+
 	go func() {
+		// Wait for a cancel or encoding result
 		select {
 		case <-c.ctx.Done():
-			setResult := c.Finish(newCanceledError(c.method, seqid))
-			if !setResult {
-				// The result of the call has already
-				// been processed.
+			d.handleCallCancel(c)
+			return
+		case err := <-errCh:
+			if err != nil {
+				setResult := c.Finish(err)
+				if !setResult {
+					panic("c.Finish unexpectedly returned false")
+				}
 				return
 			}
-			// TODO: Remove c from calls:
-			// https://github.com/keybase/go-framed-msgpack-rpc/issues/30
-			// .
-			err := d.writer.Encode([]interface{}{MethodCancel, seqid, c.method})
-			d.log.ClientCancel(seqid, c.method, err)
+		}
+
+		// Wait for a cancellation or response
+		select {
+		case <-c.ctx.Done():
+			d.handleCallCancel(c)
 		case <-c.doneCh:
 		}
 	}()
@@ -166,11 +186,14 @@ func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res i
 }
 
 func (d *dispatch) Notify(ctx context.Context, name string, arg interface{}) error {
-	err := d.dispatchMessage(ctx, MethodNotify, name, arg)
-	if err != nil {
+	errCh := d.dispatchMessage(ctx, MethodNotify, name, arg)
+	select {
+	case err := <-errCh:
+		d.log.ClientNotify(name, err, arg)
 		return err
+	case <-ctx.Done():
+		d.log.ClientCancel(-1, name, nil)
 	}
-	d.log.ClientNotify(name, arg)
 	return nil
 }
 
@@ -179,7 +202,7 @@ func (d *dispatch) Close(err error) chan struct{} {
 	return d.closedCh
 }
 
-func (d *dispatch) dispatchMessage(ctx context.Context, args ...interface{}) error {
+func (d *dispatch) dispatchMessage(ctx context.Context, args ...interface{}) <-chan error {
 	rpcTags, _ := RpcTagsFromContext(ctx)
 	return d.writer.Encode(append(args, rpcTags))
 }

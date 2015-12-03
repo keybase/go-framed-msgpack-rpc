@@ -157,15 +157,21 @@ func TestReceiveResponseWrongSize(t *testing.T) {
 func TestReceiveResponseNilCall(t *testing.T) {
 	callCh := make(chan callRetrieval)
 	done := runInBg(func() error {
-		err := testReceive(
-			t,
-			callCh,
-			nil,
+		receiveIn := newBlockingMockCodec()
+		receiveOut := newBlockingMockCodec()
+
+		logFactory := NewSimpleLogFactory(SimpleLogOutput{}, SimpleLogOptions{})
+		r := newReceiveHandler(receiveOut, receiveIn, callCh, logFactory.NewLog(nil), nil)
+
+		args := []interface{}{
 			MethodResponse,
 			seqNumber(0),
 			"",
 			"hi",
-		)
+		}
+		go receiveIn.Encode(args)
+
+		err := r.Receive(len(args))
 		return err
 	})
 
@@ -173,7 +179,7 @@ func TestReceiveResponseNilCall(t *testing.T) {
 	callRetrieval.ch <- nil
 
 	err := <-done
-	require.EqualError(t, err, "Call not found for sequence number 0", "expected error when passing in a nil call")
+	require.Nil(t, err)
 }
 
 func TestReceiveResponseError(t *testing.T) {

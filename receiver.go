@@ -206,9 +206,10 @@ func (r *receiveHandler) receiveResponse() (err error) {
 	call := <-ch
 
 	if call == nil {
+		// This can only happen if a call has already been canceled
 		r.log.UnexpectedReply(m.seqno)
 		decodeToNull(r.reader, m)
-		return CallNotFoundError{m.seqno}
+		return nil
 	}
 
 	var apperr error

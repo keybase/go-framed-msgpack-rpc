@@ -19,7 +19,7 @@ type LogInterface interface {
 	ClientCall(seqNumber, string, interface{})
 	ServerCall(seqNumber, string, error, interface{})
 	ServerReply(seqNumber, string, error, interface{})
-	ClientNotify(string, interface{})
+	ClientNotify(string, error, interface{})
 	ServerNotifyCall(string, error, interface{})
 	ServerNotifyComplete(string, error)
 	ClientCancel(seqNumber, string, error)
@@ -28,6 +28,7 @@ type LogInterface interface {
 	StartProfiler(format string, args ...interface{}) Profiler
 	UnexpectedReply(seqNumber)
 	Warning(format string, args ...interface{})
+	Info(format string, args ...interface{})
 }
 
 type LogFactory interface {
@@ -150,9 +151,9 @@ func (s SimpleLog) ServerReply(q seqNumber, meth string, err error, res interfac
 }
 
 // Notify
-func (s SimpleLog) ClientNotify(meth string, arg interface{}) {
+func (s SimpleLog) ClientNotify(meth string, err error, arg interface{}) {
 	if s.Opts.ClientTrace() {
-		s.trace("notify", "arg", s.Opts.ShowArg(), 0, meth, nil, arg)
+		s.trace("notify", "arg", s.Opts.ShowArg(), 0, meth, err, arg)
 	}
 }
 func (s SimpleLog) ServerNotifyCall(meth string, err error, arg interface{}) {
@@ -232,6 +233,10 @@ func (s SimpleLog) UnexpectedReply(seqno seqNumber) {
 
 func (s SimpleLog) Warning(format string, args ...interface{}) {
 	s.Out.Warning(s.msg(false, format, args...))
+}
+
+func (s SimpleLog) Info(format string, args ...interface{}) {
+	s.Out.Info(s.msg(false, format, args...))
 }
 
 func (l SimpleLog) msg(force bool, format string, args ...interface{}) string {

@@ -5,10 +5,9 @@ import (
 	"io"
 )
 
-// It might seem like the encoder and decoder will race, because
-// we use a shared channel to deliver results. However, since
-// channels are FIFO and we only consume one element at a time,
-// there is no race.
+// It might seem like the decoder will race, because we use a shared channel to
+// deliver results. However, since channels are FIFO and we only consume one
+// element at a time, there is no race.
 
 type decoder interface {
 	Decode(interface{}) error
@@ -20,13 +19,17 @@ type byteReadingDecoder interface {
 }
 
 type encoder interface {
-	Encode(interface{}) error
+	Encode(interface{}) <-chan error
+}
+
+type encodingBundle struct {
+	bytes    []byte
+	resultCh chan error
 }
 
 type framedMsgpackEncoder struct {
-	handle   codec.Handle
-	writeCh  chan []byte
-	resultCh chan error
+	handle  codec.Handle
+	writeCh chan encodingBundle
 }
 
 func newMsgPackHandle() *codec.MsgpackHandle {
@@ -36,11 +39,10 @@ func newMsgPackHandle() *codec.MsgpackHandle {
 	}
 }
 
-func newFramedMsgpackEncoder(writeCh chan []byte, resultCh chan error) *framedMsgpackEncoder {
+func newFramedMsgpackEncoder(writeCh chan encodingBundle) *framedMsgpackEncoder {
 	return &framedMsgpackEncoder{
-		handle:   newMsgPackHandle(),
-		writeCh:  writeCh,
-		resultCh: resultCh,
+		handle:  newMsgPackHandle(),
+		writeCh: writeCh,
 	}
 }
 
@@ -62,14 +64,15 @@ func (e *framedMsgpackEncoder) encodeFrame(i interface{}) ([]byte, error) {
 	return append(length, content...), nil
 }
 
-func (e *framedMsgpackEncoder) Encode(i interface{}) error {
+func (e *framedMsgpackEncoder) Encode(i interface{}) <-chan error {
+	ch := make(chan error, 1)
 	bytes, err := e.encodeFrame(i)
 	if err != nil {
-		return err
+		ch <- err
+		return ch
 	}
-	e.writeCh <- bytes
-	// See comment above regarding potential race
-	return <-e.resultCh
+	e.writeCh <- encodingBundle{bytes: bytes, resultCh: ch}
+	return ch
 }
 
 type byteResult struct {

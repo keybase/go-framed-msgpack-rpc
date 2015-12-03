@@ -48,8 +48,7 @@ type transport struct {
 	log              LogInterface
 	wrapError        WrapErrorFunc
 	startOnce        sync.Once
-	encodeCh         chan []byte
-	encodeResultCh   chan error
+	encodeCh         chan encodingBundle
 	readByteCh       chan struct{}
 	readByteResultCh chan byteResult
 	decodeCh         chan interface{}
@@ -68,15 +67,14 @@ func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
 		cdec:             cdec,
 		log:              log,
 		wrapError:        wef,
-		encodeCh:         make(chan []byte),
-		encodeResultCh:   make(chan error),
+		encodeCh:         make(chan encodingBundle),
 		readByteCh:       make(chan struct{}),
 		readByteResultCh: make(chan byteResult),
 		decodeCh:         make(chan interface{}),
 		decodeResultCh:   make(chan error),
 		stopCh:           make(chan struct{}),
 	}
-	enc := newFramedMsgpackEncoder(ret.encodeCh, ret.encodeResultCh)
+	enc := newFramedMsgpackEncoder(ret.encodeCh)
 	dec := newFramedMsgpackDecoder(ret.decodeCh, ret.decodeResultCh, ret.readByteCh, ret.readByteResultCh)
 	callRetrievalCh := make(chan callRetrieval)
 	ret.dispatcher = newDispatch(enc, dec, callRetrievalCh, log)
@@ -158,9 +156,9 @@ func (t *transport) writerLoop() error {
 		select {
 		case <-t.stopCh:
 			return nil
-		case bytes := <-t.encodeCh:
-			_, err := t.cdec.Write(bytes)
-			t.encodeResultCh <- err
+		case bundle := <-t.encodeCh:
+			_, err := t.cdec.Write(bundle.bytes)
+			bundle.resultCh <- err
 		}
 	}
 }

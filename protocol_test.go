@@ -87,7 +87,7 @@ func TestLongCall(t *testing.T) {
 
 	longResult, err := cli.LongCall(context.Background())
 	require.Nil(t, err, "call should have succeeded")
-	require.Equal(t, longResult, 100, "call should have succeeded")
+	require.Equal(t, longResult, 10, "call should have succeeded")
 }
 
 func TestLongCallCancel(t *testing.T) {
