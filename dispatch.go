@@ -116,22 +116,28 @@ func (d *dispatch) callLoop() {
 		case cr := <-d.rmCallCh:
 			call := calls[cr.seqid]
 			delete(calls, cr.seqid)
-			d.log.Info("looking up %v, found %v", cr.seqid, call)
 			cr.ch <- call
 		}
 	}
 }
 
-func (d *dispatch) handleCallCancel(c *call, err error) <-chan error {
+func (d *dispatch) handleCallCancel(c *call, err error) bool {
 	// TODO: Make err a part of the error passed to c.Finish.
 	// Return the call
 	setResult := c.Finish(newCanceledError(c.method, c.seqid))
 	if !setResult {
-		return nil
+		return false
 	}
 
 	// Dispatch cancellation
-	return d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
+	cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
+
+	go func() {
+		err := <-cancelErrCh
+		d.log.ClientCancel(c.seqid, c.method, err)
+	}()
+
+	return true
 }
 
 func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
@@ -144,23 +150,17 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 	// Wait for a cancel or encoding result
 	select {
 	case <-c.ctx.Done():
-		cancelErrCh := d.handleCallCancel(c, c.ctx.Err())
-		if cancelErrCh == nil {
-			panic(fmt.Sprintf("c.Finish unexpectedly returned false for method=%s, seqid=%d", c.method, c.seqid))
-			return
+		setResult := d.handleCallCancel(c, c.ctx.Err())
+		if !setResult {
+			panic(fmt.Sprintf("d.handleCallCancel unexpectedly returned false for method=%s, seqid=%d", c.method, c.seqid))
 		}
-
-		go func() {
-			err := <-cancelErrCh
-			d.log.ClientCancel(c.seqid, c.method, err)
-		}()
 		return
 
 	case err := <-errCh:
 		if err != nil {
 			setResult := c.Finish(err)
 			if !setResult {
-				panic("c.Finish unexpectedly returned false")
+				panic(fmt.Sprintf("c.Finish unexpectedly returned false for method=%s, seqid=%d", c.method, c.seqid))
 			}
 			return
 		}
@@ -169,17 +169,14 @@ func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
 	calls[c.seqid] = c
 
 	go func() {
-		// Wait for a cancellation or response
+		// Wait for a cancel or response
 		select {
 		case <-c.ctx.Done():
-			cancelErrCh := d.handleCallCancel(c, c.ctx.Err())
-			if cancelErrCh == nil {
+			setResult := d.handleCallCancel(c, c.ctx.Err())
+			if !setResult {
 				d.log.Info("call has already been processed: method=%s, seqid=%d", c.method, c.seqid)
 				return
 			}
-
-			err := <-cancelErrCh
-			d.log.ClientCancel(c.seqid, c.method, err)
 
 			// Ensure the call is removed
 			ch := make(chan *call)
