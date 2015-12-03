@@ -132,6 +132,7 @@ func (d *dispatch) handleCallCancel(c *call, err error) bool {
 	// Dispatch cancellation
 	cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
 
+	// TODO: Make a single goroutine to handle this.
 	go func() {
 		err := <-cancelErrCh
 		d.log.ClientCancel(c.seqid, c.method, err)
