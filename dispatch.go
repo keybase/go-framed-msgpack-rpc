@@ -123,42 +123,51 @@ func (d *dispatch) callLoop() {
 	}
 }
 
+func (d *dispatch) handleCallCancel(c *call) {
+	// Return the call
+	setResult := c.Finish(newCanceledError(c.method, c.seqid))
+	if !setResult {
+		d.log.Info("call has already been processed: method=%s, seqid=%d", c.method, c.seqid)
+		return
+	}
+
+	// Ensure the call is removed
+	ch := make(chan *call)
+	d.rmCallCh <- callRetrieval{c.seqid, ch}
+	<-ch
+
+	// Dispatch cancellation
+	cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
+	err := <-cancelErrCh
+	d.log.ClientCancel(c.seqid, c.method, err)
+}
+
 func (d *dispatch) handleCall(c *call) {
 	errCh := d.dispatchMessage(c.ctx, MethodCall, c.seqid, c.method, c.arg)
 	d.log.ClientCall(c.seqid, c.method, c.arg)
+	d.log.Info("client call")
+
 	go func() {
-		for {
-			select {
-			case <-c.ctx.Done():
-				// Dispatch the cancellation request first to avoid races
-				cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
-
-				// Return the call
-				setResult := c.Finish(newCanceledError(c.method, c.seqid))
-				if !setResult {
-					d.log.Info("call has already been processed: method=%s, seqid=%d", c.method, c.seqid)
-					return
-				}
-
-				// Ensure the call is removed
-				ch := make(chan *call)
-				d.rmCallCh <- callRetrieval{c.seqid, ch}
-				<-ch
-
-				err := <-cancelErrCh
-				d.log.ClientCancel(c.seqid, c.method, err)
-			case err := <-errCh:
-				if err == nil {
-					// No error, continue waiting on call completion scenarios
-					continue
-				}
+		// Wait for a cancel or encoding result
+		select {
+		case <-c.ctx.Done():
+			d.handleCallCancel(c)
+			return
+		case err := <-errCh:
+			if err != nil {
 				setResult := c.Finish(err)
 				if !setResult {
 					panic("c.Finish unexpectedly returned false")
 				}
-			case <-c.doneCh:
+				return
 			}
-			return
+		}
+
+		// Wait for a cancellation or response
+		select {
+		case <-c.ctx.Done():
+			d.handleCallCancel(c)
+		case <-c.doneCh:
 		}
 	}()
 }
