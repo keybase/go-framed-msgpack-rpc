@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"fmt"
 	"io"
 
 	"golang.org/x/net/context"
@@ -111,13 +112,11 @@ func (d *dispatch) callLoop() {
 			close(d.closedCh)
 			return
 		case c := <-d.callCh:
-			seqid := d.nextSeqid()
-			c.seqid = seqid
-			calls[seqid] = c
-			d.handleCall(c)
+			d.handleCall(calls, c)
 		case cr := <-d.rmCallCh:
 			call := calls[cr.seqid]
 			delete(calls, cr.seqid)
+			d.log.Info("looking up %v, found %v", cr.seqid, call)
 			cr.ch <- call
 		}
 	}
@@ -142,27 +141,44 @@ func (d *dispatch) handleCallCancel(c *call) {
 	d.log.ClientCancel(c.seqid, c.method, err)
 }
 
-func (d *dispatch) handleCall(c *call) {
+func (d *dispatch) handleCall(calls map[seqNumber]*call, c *call) {
+	c.seqid = d.nextSeqid()
+
 	errCh := d.dispatchMessage(c.ctx, MethodCall, c.seqid, c.method, c.arg)
 	d.log.ClientCall(c.seqid, c.method, c.arg)
 	d.log.Info("client call")
 
-	go func() {
-		// Wait for a cancel or encoding result
-		select {
-		case <-c.ctx.Done():
-			d.handleCallCancel(c)
+	// Wait for a cancel or encoding result
+	select {
+	case <-c.ctx.Done():
+		// Return the call
+		setResult := c.Finish(newCanceledError(c.method, c.seqid))
+		if !setResult {
+			panic(fmt.Sprintf("call has already been processed: method=%s, seqid=%d", c.method, c.seqid))
 			return
-		case err := <-errCh:
-			if err != nil {
-				setResult := c.Finish(err)
-				if !setResult {
-					panic("c.Finish unexpectedly returned false")
-				}
-				return
-			}
 		}
 
+		// Dispatch cancellation
+		cancelErrCh := d.writer.Encode([]interface{}{MethodCancel, c.seqid, c.method})
+		go func() {
+			err := <-cancelErrCh
+			d.log.ClientCancel(c.seqid, c.method, err)
+		}()
+		return
+
+	case err := <-errCh:
+		if err != nil {
+			setResult := c.Finish(err)
+			if !setResult {
+				panic("c.Finish unexpectedly returned false")
+			}
+			return
+		}
+	}
+
+	calls[c.seqid] = c
+
+	go func() {
 		// Wait for a cancellation or response
 		select {
 		case <-c.ctx.Done():
