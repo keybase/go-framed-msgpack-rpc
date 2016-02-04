@@ -62,6 +62,9 @@ func TestDispatchCanceledBeforeResult(t *testing.T) {
 
 	cancel()
 
+	// Should not hang.
+	sendResponse(c, nil)
+
 	err := <-done
 	require.EqualError(t, err, context.Canceled.Error())
 
@@ -111,7 +114,7 @@ func TestDispatchCallAfterClose(t *testing.T) {
 	require.Equal(t, io.EOF, err)
 }
 
-func TestDispatchCancel(t *testing.T) {
+func TestDispatchCancelEndToEnd(t *testing.T) {
 	dispatchConn, _ := net.Pipe()
 	logFactory := NewSimpleLogFactory(SimpleLogOutput{}, SimpleLogOptions{})
 	enc := newFramedMsgpackEncoder(dispatchConn)
