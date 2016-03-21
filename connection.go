@@ -189,13 +189,13 @@ func NewTLSConnection(srvAddr string, rootCerts []byte,
 		logFactory: l,
 		wef:        wef,
 	}
-	return newConnectionWithTransport(handler, transport, errorUnwrapper,
+	return NewConnectionWithTransport(handler, transport, errorUnwrapper,
 		connectNow, wef, log, tagsFunc)
 }
 
-// Separate from New*Connection functions above to allow for unit
-// testing.
-func newConnectionWithTransport(handler ConnectionHandler,
+// NewConnectionWithTransport allows for connections with a custom
+// transport.
+func NewConnectionWithTransport(handler ConnectionHandler,
 	transport ConnectionTransport, errorUnwrapper ErrorUnwrapper,
 	connectNow bool, wef WrapErrorFunc, log LogOutput,
 	tagsFunc LogTagsFromContext) *Connection {

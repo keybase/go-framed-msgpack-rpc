@@ -171,7 +171,7 @@ func TestReconnectBasic(t *testing.T) {
 		errToThrow: errors.New("intentional error to trigger reconnect"),
 	}
 	output := testLogOutput{t}
-	conn := newConnectionWithTransport(unitTester, unitTester,
+	conn := NewConnectionWithTransport(unitTester, unitTester,
 		testErrorUnwrapper{}, false, testWrapError, output, testLogTags)
 	conn.reconnectBackoff.InitialInterval = 5 * time.Millisecond
 
@@ -200,7 +200,7 @@ func TestReconnectCanceled(t *testing.T) {
 		alwaysFail: true,
 	}
 	output := testLogOutput{t}
-	conn := newConnectionWithTransport(unitTester, unitTester,
+	conn := NewConnectionWithTransport(unitTester, unitTester,
 		testErrorUnwrapper{}, true, testWrapError, output, testLogTags)
 	defer conn.Shutdown()
 	// Test that any command fails with the expected error.
@@ -219,7 +219,7 @@ func TestDoCommandThrottle(t *testing.T) {
 
 	throttleErr := errors.New("throttle")
 	output := testLogOutput{t}
-	conn := newConnectionWithTransport(unitTester, unitTester,
+	conn := NewConnectionWithTransport(unitTester, unitTester,
 		testErrorUnwrapper{}, true, testWrapError, output, testLogTags)
 	defer conn.Shutdown()
 	<-unitTester.doneChan
