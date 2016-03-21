@@ -154,6 +154,19 @@ func (ct *ConnectionTransportTLS) Close() {
 
 type LogTagsFromContext func(ctx context.Context) (map[interface{}]string, bool)
 
+type connectionLog struct {
+	LogOutput
+	logPrefix string
+}
+
+func (l *connectionLog) Warning(format string, params ...interface{}) {
+	l.LogOutput.Warning("(%s) %s", l.logPrefix, fmt.Sprintf(format, params...))
+}
+
+func (l *connectionLog) Debug(format string, params ...interface{}) {
+	l.LogOutput.Debug("(%s) %s", l.logPrefix, fmt.Sprintf(format, params...))
+}
+
 // Connection encapsulates all client connection handling.
 type Connection struct {
 	srvAddr          string
@@ -163,9 +176,8 @@ type Connection struct {
 	reconnectBackoff *backoff.ExponentialBackOff
 	doCommandBackoff *backoff.ExponentialBackOff
 	wef              WrapErrorFunc
-	log              LogOutput
-	logPrefix        string
 	tagsFunc         LogTagsFromContext
+	log              connectionLog
 
 	// protects everything below.
 	mutex             sync.Mutex
@@ -213,9 +225,11 @@ func NewConnectionWithTransport(handler ConnectionHandler,
 		errorUnwrapper:   errorUnwrapper,
 		reconnectBackoff: reconnectBackoff,
 		doCommandBackoff: backoff.NewExponentialBackOff(),
-		log:              log,
-		logPrefix:        connectionPrefix,
 		tagsFunc:         tagsFunc,
+		log: connectionLog{
+			LogOutput: log,
+			logPrefix: connectionPrefix,
+		},
 	}
 	if connectNow {
 		// start connecting now
@@ -226,13 +240,12 @@ func NewConnectionWithTransport(handler ConnectionHandler,
 
 // connect performs the actual connect() and rpc setup.
 func (c *Connection) connect(ctx context.Context) error {
-	c.log.Debug("%s: Connection: dialing transport", c.logPrefix)
+	c.log.Debug("Connection: dialing transport")
 
 	// connect
 	transport, err := c.transport.Dial(ctx)
 	if err != nil {
-		c.log.Warning("%s: Connection: error dialing transport: %v",
-			c.logPrefix, err)
+		c.log.Warning("Connection: error dialing transport: %#v", err)
 		return err
 	}
 
@@ -242,8 +255,7 @@ func (c *Connection) connect(ctx context.Context) error {
 	// call the connect handler
 	err = c.handler.OnConnect(ctx, c, client, server)
 	if err != nil {
-		c.log.Warning("%s: Connection: error calling OnConnect handler: %v",
-			c.logPrefix, err)
+		c.log.Warning("Connection: error calling OnConnect handler: %#v", err)
 		return err
 	}
 
@@ -256,7 +268,7 @@ func (c *Connection) connect(ctx context.Context) error {
 	c.server = server
 	c.transport.Finalize()
 
-	c.log.Debug("%s: Connection: connected", c.logPrefix)
+	c.log.Debug("Connection: connected")
 	return nil
 }
 
@@ -314,8 +326,7 @@ func (c *Connection) waitForConnection(ctx context.Context) error {
 	// kick-off a connection and wait for it to complete
 	// or for the caller to cancel.
 	reconnectChan, disconnectStatus, reconnectErrPtr := c.getReconnectChan()
-	c.log.Debug("%s: Connection: waitForConnection; status: %d",
-		c.logPrefix, disconnectStatus)
+	c.log.Debug("Connection: waitForConnection; status: %d", disconnectStatus)
 	select {
 	case <-ctx.Done():
 		// caller canceled
@@ -348,7 +359,7 @@ func (c *Connection) IsConnected() bool {
 func (c *Connection) getReconnectChan() (
 	reconnectChan chan struct{}, disconnectStatus DisconnectStatus,
 	reconnectErrPtr *error) {
-	c.log.Debug("%s: Connection: getReconnectChan", c.logPrefix)
+	c.log.Debug("Connection: getReconnectChan")
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if c.reconnectChan == nil {
