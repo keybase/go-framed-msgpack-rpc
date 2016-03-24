@@ -3,7 +3,7 @@ package rpc
 import (
 	"bytes"
 	"encoding/base64"
-	"github.com/ugorji/go/codec"
+	"github.com/keybase/go-codec/codec"
 	"io/ioutil"
 	"testing"
 
