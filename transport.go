@@ -14,7 +14,7 @@ type Transporter interface {
 	getDispatcher() (dispatcher, error)
 	getReceiver() (receiver, error)
 	Run() error
-	RunAsync() error
+	RunAsync() <-chan error
 	IsConnected() bool
 	AddCloseListener(ch chan<- error)
 	RegisterProtocol(p Protocol) error
@@ -104,23 +104,23 @@ func (t *transport) Run() error {
 	}
 }
 
-func (t *transport) RunAsync() error {
+func (t *transport) RunAsync() <-chan error {
+	errCh := make(chan error, 1)
+
 	if !t.IsConnected() {
-		return io.EOF
+		errCh <- io.EOF
+		return errCh
 	}
 
 	select {
 	case <-t.startCh:
 		go func() {
-			err := t.run()
-			if err != nil && err != io.EOF {
-				t.log.Warning("asynchronous t.run() failed with %v", err)
-			}
+			errCh <- t.run()
 		}()
 	default:
 	}
 
-	return nil
+	return errCh
 }
 
 func (t *transport) run() error {
