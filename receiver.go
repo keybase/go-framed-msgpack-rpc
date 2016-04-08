@@ -13,8 +13,7 @@ type task struct {
 
 type receiver interface {
 	Receive(rpcMessage) error
-	Close(err error) chan struct{}
-	AddCloseListener(chan<- error)
+	Close() chan struct{}
 }
 
 type receiveHandler struct {
@@ -139,25 +138,7 @@ func (r *receiveHandler) receiveResponse(rpc *rpcResponseMessage) (err error) {
 	return nil
 }
 
-func (r *receiveHandler) Close(err error) chan struct{} {
+func (r *receiveHandler) Close() chan struct{} {
 	close(r.stopCh)
-	r.broadcast(err)
 	return r.closedCh
-}
-
-func (r *receiveHandler) AddCloseListener(ch chan<- error) {
-	r.listenerMtx.Lock()
-	defer r.listenerMtx.Unlock()
-	r.listeners[ch] = struct{}{}
-}
-
-func (r *receiveHandler) broadcast(err error) {
-	r.listenerMtx.Lock()
-	defer r.listenerMtx.Unlock()
-	for ch := range r.listeners {
-		select {
-		case ch <- err:
-		default:
-		}
-	}
 }

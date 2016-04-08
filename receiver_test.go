@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"io"
 	"net"
 	"testing"
 
@@ -114,7 +113,7 @@ func TestCloseReceiver(t *testing.T) {
 			nil,
 		),
 	)
-	closeCh := receiver.Close(io.EOF)
+	closeCh := receiver.Close()
 	<-closeCh
 
 	err := <-waitCh

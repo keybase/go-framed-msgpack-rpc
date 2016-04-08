@@ -16,7 +16,6 @@ type Transporter interface {
 	Run() error
 	RunAsync() <-chan error
 	IsConnected() bool
-	AddCloseListener(ch chan<- error)
 	RegisterProtocol(p Protocol) error
 }
 
@@ -140,7 +139,7 @@ func (t *transport) run() error {
 	// close it before terminating our loops
 	close(t.stopCh)
 	t.dispatcher.Close()
-	<-t.receiver.Close(err)
+	<-t.receiver.Close()
 
 	// First inform the encoder that it should close
 	encoderClosed := t.enc.Close()
@@ -168,10 +167,6 @@ func (t *transport) getReceiver() (receiver, error) {
 
 func (t *transport) RegisterProtocol(p Protocol) error {
 	return t.protocols.registerProtocol(p)
-}
-
-func (t *transport) AddCloseListener(ch chan<- error) {
-	t.receiver.AddCloseListener(ch)
 }
 
 func shouldContinue(err error) bool {
