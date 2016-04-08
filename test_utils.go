@@ -22,6 +22,11 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil {
 		return
 	}
+	closeListener := make(chan error)
+	go func() {
+		<-closeListener
+		listener.Close()
+	}()
 	close(ready)
 	for {
 		var c net.Conn
@@ -32,11 +37,8 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 		xp := NewTransport(c, lf, nil)
 		srv := NewServer(xp, nil)
 		srv.Register(createTestProtocol(newTestProtocol(c)))
-		errCh := srv.RunAsync()
-		go func() {
-			<-errCh
-			listener.Close()
-		}()
+		srv.AddCloseListener(closeListener)
+		srv.Run(true)
 	}
 	return nil
 }

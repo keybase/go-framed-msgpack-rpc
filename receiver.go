@@ -1,6 +1,10 @@
 package rpc
 
-import "golang.org/x/net/context"
+import (
+	"sync"
+
+	"golang.org/x/net/context"
+)
 
 type task struct {
 	seqid      seqNumber
@@ -9,7 +13,8 @@ type task struct {
 
 type receiver interface {
 	Receive(rpcMessage) error
-	Close() <-chan struct{}
+	Close(err error) chan struct{}
+	AddCloseListener(chan<- error)
 }
 
 type receiveHandler struct {
@@ -17,6 +22,9 @@ type receiveHandler struct {
 	protHandler *protocolHandler
 
 	tasks map[int]context.CancelFunc
+
+	listenerMtx sync.Mutex
+	listeners   map[chan<- error]struct{}
 
 	// Stops all loops when closed
 	stopCh chan struct{}
@@ -36,6 +44,7 @@ func newReceiveHandler(enc encoder, protHandler *protocolHandler, l LogInterface
 		writer:      enc,
 		protHandler: protHandler,
 		tasks:       make(map[int]context.CancelFunc),
+		listeners:   make(map[chan<- error]struct{}),
 		stopCh:      make(chan struct{}),
 		closedCh:    make(chan struct{}),
 
@@ -130,7 +139,25 @@ func (r *receiveHandler) receiveResponse(rpc *rpcResponseMessage) (err error) {
 	return nil
 }
 
-func (r *receiveHandler) Close() <-chan struct{} {
+func (r *receiveHandler) Close(err error) chan struct{} {
 	close(r.stopCh)
+	r.broadcast(err)
 	return r.closedCh
+}
+
+func (r *receiveHandler) AddCloseListener(ch chan<- error) {
+	r.listenerMtx.Lock()
+	defer r.listenerMtx.Unlock()
+	r.listeners[ch] = struct{}{}
+}
+
+func (r *receiveHandler) broadcast(err error) {
+	r.listenerMtx.Lock()
+	defer r.listenerMtx.Unlock()
+	for ch := range r.listeners {
+		select {
+		case ch <- err:
+		default:
+		}
+	}
 }

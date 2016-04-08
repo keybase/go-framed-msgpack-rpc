@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"io"
 	"net"
 	"testing"
 
@@ -113,8 +114,13 @@ func TestCloseReceiver(t *testing.T) {
 			nil,
 		),
 	)
-	<-receiver.Close()
+	// Receiver error status
+	errCh := make(chan error, 1)
+	receiver.AddCloseListener(errCh)
+	receiver.Close(io.EOF)
+	err := <-errCh
+	require.EqualError(t, err, io.EOF.Error())
 
-	err := <-waitCh
+	err = <-waitCh
 	require.EqualError(t, err, context.Canceled.Error())
 }
