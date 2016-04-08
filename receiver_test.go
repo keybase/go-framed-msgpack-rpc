@@ -113,8 +113,7 @@ func TestCloseReceiver(t *testing.T) {
 			nil,
 		),
 	)
-	closeCh := receiver.Close()
-	<-closeCh
+	receiver.Close()
 
 	err := <-waitCh
 	require.EqualError(t, err, context.Canceled.Error())

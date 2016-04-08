@@ -13,7 +13,7 @@ type task struct {
 
 type receiver interface {
 	Receive(rpcMessage) error
-	Close() chan struct{}
+	Close()
 }
 
 type receiveHandler struct {
@@ -138,7 +138,7 @@ func (r *receiveHandler) receiveResponse(rpc *rpcResponseMessage) (err error) {
 	return nil
 }
 
-func (r *receiveHandler) Close() chan struct{} {
+func (r *receiveHandler) Close() {
 	close(r.stopCh)
-	return r.closedCh
+	<-r.closedCh
 }
