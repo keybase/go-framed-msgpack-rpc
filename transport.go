@@ -139,7 +139,7 @@ func (t *transport) run() error {
 	// close it before terminating our loops
 	close(t.stopCh)
 	t.dispatcher.Close()
-	t.receiver.Close()
+	<-t.receiver.Close()
 
 	// First inform the encoder that it should close
 	encoderClosed := t.enc.Close()
