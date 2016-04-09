@@ -36,7 +36,9 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 		}()
 		srv := NewServer(xp, nil)
 		srv.Register(createTestProtocol(newTestProtocol(c)))
-		srv.RunAsync()
+		go func() {
+			srv.Run()
+		}()
 	}
 	return nil
 }

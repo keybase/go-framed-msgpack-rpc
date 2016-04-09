@@ -30,7 +30,9 @@ func (c *Client) Call(ctx context.Context, method string, arg interface{}, res i
 		return errors.New("No Context provided for this call")
 	}
 	var d dispatcher
-	c.xp.RunAsync()
+	go func() {
+		c.xp.Run()
+	}()
 	if d, err = c.xp.getDispatcher(); err == nil {
 		err = d.Call(ctx, method, arg, res, c.errorUnwrapper)
 	}
@@ -46,7 +48,9 @@ func (c *Client) Notify(ctx context.Context, method string, arg interface{}) (er
 		return errors.New("No Context provided for this notification")
 	}
 	var d dispatcher
-	c.xp.RunAsync()
+	go func() {
+		c.xp.Run()
+	}()
 	if d, err = c.xp.getDispatcher(); err == nil {
 		err = d.Notify(ctx, method, arg)
 	}

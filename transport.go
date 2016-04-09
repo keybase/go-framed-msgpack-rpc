@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"bufio"
+	"errors"
 	"io"
 	"net"
 
@@ -35,7 +36,6 @@ type Transporter interface {
 	IsConnected() bool
 
 	Run() error
-	RunAsync() <-chan error
 	RegisterProtocol(p Protocol) error
 }
 
@@ -126,39 +126,17 @@ func (t *transport) IsConnected() bool {
 	}
 }
 
+// Run starts processing incoming RPC messages synchronously. Always
+// returns a non-nil error, e.g. io.EOF if the connection was closed.
 func (t *transport) Run() error {
-	if !t.IsConnected() {
-		return io.EOF
-	}
-
 	select {
 	case <-t.startCh:
-		return t.run()
+		// First time calling Run() -- proceed.
 	default:
-		return nil
-	}
-}
-
-func (t *transport) RunAsync() <-chan error {
-	errCh := make(chan error, 1)
-
-	if !t.IsConnected() {
-		errCh <- io.EOF
-		return errCh
+		// Second time calling run -- error.
+		return errors.New("Run() called more than once")
 	}
 
-	select {
-	case <-t.startCh:
-		go func() {
-			errCh <- t.run()
-		}()
-	default:
-	}
-
-	return errCh
-}
-
-func (t *transport) run() error {
 	// Packetize: do work
 	var err error
 	for shouldContinue(err) {

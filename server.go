@@ -14,10 +14,8 @@ func (s *Server) Register(p Protocol) error {
 	return s.xp.RegisterProtocol(p)
 }
 
+// Run starts processing incoming RPC messages synchronously. Always
+// returns a non-nil error, e.g. io.EOF if the connection was closed.
 func (s *Server) Run() error {
 	return s.xp.Run()
-}
-
-func (s *Server) RunAsync() <-chan error {
-	return s.xp.RunAsync()
 }
