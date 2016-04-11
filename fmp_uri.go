@@ -55,7 +55,7 @@ func (f *FMPURI) UseTLS() bool {
 }
 
 func (f *FMPURI) String() string {
-	return fmt.Sprintf("%s://%s", f.Scheme, f.Host)
+	return fmt.Sprintf("%s://%s", f.Scheme, f.HostPort)
 }
 
 func (f *FMPURI) Dial() (net.Conn, error) {
