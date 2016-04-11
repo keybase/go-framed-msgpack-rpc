@@ -8,15 +8,14 @@ import (
 	"net/url"
 )
 
-type fmpURIScheme string
-
 const (
-	fmpSchemeStandard fmpURIScheme = "fmprpc"
-	fmpSchemeTLS      fmpURIScheme = "fmprpc+tls"
+	fmpSchemeStandard = "fmprpc"
+	fmpSchemeTLS      = "fmprpc+tls"
 )
 
+// FMPURI represents a URI with an FMP scheme.
 type FMPURI struct {
-	Scheme   fmpURIScheme
+	Scheme   string
 	HostPort string
 	Host     string
 }
@@ -24,15 +23,16 @@ type FMPURI struct {
 var errInvalidFMPScheme = errors.New("invalid framed msgpack rpc scheme")
 var errNoHost = errors.New("missing host in framed msgpack rpc URI")
 
+// ParseFMPURI parses an FMPURI.
 func ParseFMPURI(s string) (*FMPURI, error) {
 	uri, err := url.Parse(s)
 	if err != nil {
 		return nil, err
 	}
 
-	f := &FMPURI{HostPort: uri.Host}
+	f := &FMPURI{Scheme: uri.Scheme, HostPort: uri.Host}
 
-	switch f.Scheme = fmpURIScheme(uri.Scheme); f.Scheme {
+	switch f.Scheme {
 	case fmpSchemeStandard, fmpSchemeTLS:
 	default:
 		return nil, fmt.Errorf("invalid framed msgpack rpc scheme %s", uri.Scheme)
