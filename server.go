@@ -15,10 +15,21 @@ func (s *Server) Register(p Protocol) error {
 }
 
 // RunAsync starts processing incoming RPC messages asynchronously, if
-// it hasn't been started already.
+// it hasn't been started already. Returns a channel that's closed
+// when incoming frames have finished processing, either due to an
+// error or the underlying connection being closed. Successive calls
+// to RunAsync() return the same value.
 //
 // If you want to know when said processing is done, and any
 // associated error, use Transport.Done() and Transport.Err().
-func (s *Server) RunAsync() {
+func (s *Server) RunAsync() <-chan struct{} {
 	s.xp.ReceiveFramesAsync()
+	return s.xp.Done()
+}
+
+// Err returns a non-nil error value after Done is closed.
+// After Done is closed, successive calls to Err return the
+// same value.
+func (s *Server) Err() error {
+	return s.xp.Err()
 }
