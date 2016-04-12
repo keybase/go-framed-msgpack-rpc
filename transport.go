@@ -13,9 +13,29 @@ type WrapErrorFunc func(error) interface{}
 type Transporter interface {
 	getDispatcher() (dispatcher, error)
 	getReceiver() (receiver, error)
+
+	// Done returns a channel that's closed when incoming packets
+	// have finished processing, either due to an error or the
+	// underlying connection being closed. Successive calls to
+	// Done return the same value. This is safe to call before
+	// incoming packets have started processing (i.e., before
+	// Run() or RunAsync() has been called).
+	Done() <-chan struct{}
+
+	// Err returns a non-nil error value after Done is closed.
+	// After Done is closed, successive calls to Err return the
+	// same value.
+	Err() error
+
+	// IsConnected returns false when incoming packets have
+	// finished processing. This is exactly equivalent to checking
+	// if Done() is closed.
+	//
+	// TODO: Use a better name.
+	IsConnected() bool
+
 	Run() error
 	RunAsync() <-chan error
-	IsConnected() bool
 	RegisterProtocol(p Protocol) error
 }
 
@@ -53,6 +73,9 @@ type transport struct {
 	log        LogInterface
 	startCh    chan struct{}
 	stopCh     chan struct{}
+
+	// Filled in right before stopCh is closed.
+	stopErr error
 }
 
 func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
@@ -79,6 +102,19 @@ func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
 	ret.receiver = newReceiveHandler(enc, ret.protocols, log)
 	ret.packetizer = newPacketHandler(cdec.Reader, ret.protocols, ret.calls)
 	return ret
+}
+
+func (t *transport) Done() <-chan struct{} {
+	return t.stopCh
+}
+
+func (t *transport) Err() error {
+	select {
+	case <-t.stopCh:
+		return t.stopErr
+	default:
+		return nil
+	}
 }
 
 func (t *transport) IsConnected() bool {
@@ -134,6 +170,9 @@ func (t *transport) run() error {
 
 	// Log packetizer completion
 	t.log.TransportError(err)
+
+	// Do this before closing stopCh so that Err() sees it.
+	t.stopErr = err
 
 	// Since the receiver might require the transport, we have to
 	// close it before terminating our loops
