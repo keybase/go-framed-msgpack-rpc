@@ -30,13 +30,13 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 			return
 		}
 		xp := NewTransport(c, lf, nil)
-		srv := NewServer(xp, nil)
-		srv.Register(createTestProtocol(newTestProtocol(c)))
-		errCh := srv.RunAsync()
 		go func() {
-			<-errCh
+			<-xp.Done()
 			listener.Close()
 		}()
+		srv := NewServer(xp, nil)
+		srv.Register(createTestProtocol(newTestProtocol(c)))
+		srv.RunAsync()
 	}
 	return nil
 }
