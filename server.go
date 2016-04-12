@@ -27,9 +27,9 @@ func (s *Server) RunAsync() <-chan struct{} {
 	return s.xp.Done()
 }
 
-// Err returns a non-nil error value after Done is closed.
-// After Done is closed, successive calls to Err return the
-// same value.
+// Err returns a non-nil error value after the channel returned by
+// RunAsync is closed.  After that channel is closed, successive calls
+// to Err return the same value.
 func (s *Server) Err() error {
 	return s.xp.Err()
 }
