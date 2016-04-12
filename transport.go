@@ -37,6 +37,7 @@ type Transporter interface {
 	Run() error
 	RunAsync() <-chan error
 	RegisterProtocol(p Protocol) error
+	GetCloseBroadcaster() <-chan struct{}
 }
 
 type transporter interface {
@@ -58,6 +59,10 @@ func newConnDecoder(c net.Conn) *connDecoder {
 		Reader:  br,
 		decoder: codec.NewDecoder(br, mh),
 	}
+}
+
+func (t *transport) GetCloseBroadcaster() <-chan struct{} {
+	return t.stopCh
 }
 
 var _ transporter = (*transport)(nil)
