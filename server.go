@@ -14,14 +14,11 @@ func (s *Server) Register(p Protocol) error {
 	return s.xp.RegisterProtocol(p)
 }
 
-// Run starts processing incoming RPC messages synchronously.
+// RunAsync starts processing incoming RPC messages asynchronously, if
+// it hasn't been started already.
 //
-// Note that an error is returned immediately if incoming messages are
-// already being processed, e.g. if the underlying transport has been
-// used to make an RPC call (which has to wait for a
-// reply). Otherwise, the returned error (which is always non-nil,
-// e.g. io.EOF if the connection was closed) is due to an error
-// processing a frame or the connection being closed.
+// If you want to know when said processing is done, and any
+// associated error, use s.xp.Done() and s.xp.Err().
 func (s *Server) RunAsync() {
 	s.xp.ReceiveFramesAsync()
 }
