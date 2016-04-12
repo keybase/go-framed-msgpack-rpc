@@ -18,7 +18,7 @@ func (s *Server) Register(p Protocol) error {
 // it hasn't been started already.
 //
 // If you want to know when said processing is done, and any
-// associated error, use s.xp.Done() and s.xp.Err().
+// associated error, use Transport.Done() and Transport.Err().
 func (s *Server) RunAsync() {
 	s.xp.ReceiveFramesAsync()
 }
