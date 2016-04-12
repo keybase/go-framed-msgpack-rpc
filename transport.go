@@ -124,10 +124,6 @@ func (t *transport) IsConnected() bool {
 	}
 }
 
-// ReceiveFramesAsync starts processing incoming RPC messages in a
-// separate goroutine, if it's not doing so already. This is morally
-// equivalent to go func() { t.RecieveFrames() }(), but avoids
-// spawning a goroutine unless necessary.
 func (t *transport) ReceiveFramesAsync() {
 	select {
 	case <-t.startCh:
