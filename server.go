@@ -22,6 +22,6 @@ func (s *Server) Register(p Protocol) error {
 // reply). Otherwise, the returned error (which is always non-nil,
 // e.g. io.EOF if the connection was closed) is due to an error
 // processing a frame or the connection being closed.
-func (s *Server) Run() error {
-	return s.xp.ReceiveFrames()
+func (s *Server) Run() {
+	s.xp.ReceiveFrames()
 }

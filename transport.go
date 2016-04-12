@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"bufio"
-	"errors"
 	"io"
 	"net"
 
@@ -35,7 +34,7 @@ type Transporter interface {
 	// TODO: Use a better name.
 	IsConnected() bool
 
-	ReceiveFrames() error
+	ReceiveFrames()
 	ReceiveFramesAsync()
 
 	RegisterProtocol(p Protocol) error
@@ -129,18 +128,17 @@ func (t *transport) IsConnected() bool {
 }
 
 // ReceiveFrames starts processing incoming RPC messages
-// synchronously. Always returns a non-nil error, e.g. io.EOF if the
-// connection was closed.
-func (t *transport) ReceiveFrames() error {
+// synchronously.
+func (t *transport) ReceiveFrames() {
 	select {
 	case <-t.startCh:
 		// First time calling Run() -- proceed.
 	default:
-		// Second time calling run -- error.
-		return errors.New("Run() called more than once")
+		// Second time calling run -- do nothing.
+		return
 	}
 
-	return t.receiveFrames()
+	t.receiveFrames()
 }
 
 // ReceiveFramesAsync starts processing incoming RPC messages in a
@@ -157,11 +155,11 @@ func (t *transport) ReceiveFramesAsync() {
 	}
 
 	go func() {
-		_ = t.receiveFrames()
+		t.receiveFrames()
 	}()
 }
 
-func (t *transport) receiveFrames() error {
+func (t *transport) receiveFrames() {
 	// Packetize: do work
 	var err error
 	for shouldContinue(err) {
@@ -190,8 +188,6 @@ func (t *transport) receiveFrames() error {
 	t.cdec.Close()
 	// Wait for the encoder to finish handling the now unblocked writes
 	<-encoderClosed
-
-	return err
 }
 
 func (t *transport) getDispatcher() (dispatcher, error) {
