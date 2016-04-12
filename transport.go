@@ -40,10 +40,6 @@ type Transporter interface {
 	RegisterProtocol(p Protocol) error
 }
 
-type transporter interface {
-	Transporter
-}
-
 type connDecoder struct {
 	decoder
 	net.Conn
@@ -61,7 +57,7 @@ func newConnDecoder(c net.Conn) *connDecoder {
 	}
 }
 
-var _ transporter = (*transport)(nil)
+var _ Transporter = (*transport)(nil)
 
 type transport struct {
 	cdec       *connDecoder
