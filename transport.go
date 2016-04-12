@@ -171,7 +171,8 @@ func (t *transport) run() error {
 	// Log packetizer completion
 	t.log.TransportError(err)
 
-	// Do this before closing stopCh so that Err() sees it.
+	// This must happen before stopCh is closed to have a correct
+	// ordering.
 	t.stopErr = err
 
 	// Since the receiver might require the transport, we have to
