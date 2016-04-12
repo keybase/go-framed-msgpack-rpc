@@ -35,7 +35,9 @@ type Transporter interface {
 	// TODO: Use a better name.
 	IsConnected() bool
 
-	Run() error
+	ReceiveFrames() error
+	ReceiveFramesAsync()
+
 	RegisterProtocol(p Protocol) error
 }
 
@@ -126,9 +128,10 @@ func (t *transport) IsConnected() bool {
 	}
 }
 
-// Run starts processing incoming RPC messages synchronously. Always
-// returns a non-nil error, e.g. io.EOF if the connection was closed.
-func (t *transport) Run() error {
+// ReceiveFrames starts processing incoming RPC messages
+// synchronously. Always returns a non-nil error, e.g. io.EOF if the
+// connection was closed.
+func (t *transport) ReceiveFrames() error {
 	select {
 	case <-t.startCh:
 		// First time calling Run() -- proceed.
@@ -137,6 +140,28 @@ func (t *transport) Run() error {
 		return errors.New("Run() called more than once")
 	}
 
+	return t.receiveFrames()
+}
+
+// ReceiveFramesAsync starts processing incoming RPC messages in a
+// separate goroutine, if it's not doing so already. This is morally
+// equivalent to go func() { t.RecieveFrames() }(), but avoids
+// spawning a goroutine unless necessary.
+func (t *transport) ReceiveFramesAsync() {
+	select {
+	case <-t.startCh:
+		// First time calling Run() -- proceed.
+	default:
+		// Second time calling run -- do nothing.
+		return
+	}
+
+	go func() {
+		_ = t.receiveFrames()
+	}()
+}
+
+func (t *transport) receiveFrames() error {
 	// Packetize: do work
 	var err error
 	for shouldContinue(err) {

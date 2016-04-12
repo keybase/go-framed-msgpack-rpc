@@ -29,9 +29,7 @@ func (c *Client) Call(ctx context.Context, method string, arg interface{}, res i
 	if ctx == nil {
 		return errors.New("No Context provided for this call")
 	}
-	go func() {
-		c.xp.Run()
-	}()
+	c.xp.ReceiveFramesAsync()
 	d, err := c.xp.getDispatcher()
 	if err != nil {
 		return err
