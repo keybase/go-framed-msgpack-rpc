@@ -14,12 +14,12 @@ type Transporter interface {
 	getDispatcher() (dispatcher, error)
 	getReceiver() (receiver, error)
 
-	// Done returns a channel that's closed when incoming packets
+	// Done returns a channel that's closed when incoming frames
 	// have finished processing, either due to an error or the
 	// underlying connection being closed. Successive calls to
 	// Done return the same value. This is safe to call before
-	// incoming packets have started processing (i.e., before
-	// Run() or RunAsync() has been called).
+	// incoming frames have started processing (i.e., before
+	// ReceiveFramesAsync() has been called).
 	Done() <-chan struct{}
 
 	// Err returns a non-nil error value after Done is closed.
@@ -34,7 +34,8 @@ type Transporter interface {
 	// TODO: Use a better name.
 	IsConnected() bool
 
-	ReceiveFrames()
+	// ReceiveFramesAsync starts processing incoming frames in a
+	// background goroutine, if it's not already happening.
 	ReceiveFramesAsync()
 
 	RegisterProtocol(p Protocol) error
@@ -121,20 +122,6 @@ func (t *transport) IsConnected() bool {
 	default:
 		return true
 	}
-}
-
-// ReceiveFrames starts processing incoming RPC messages
-// synchronously.
-func (t *transport) ReceiveFrames() {
-	select {
-	case <-t.startCh:
-		// First time calling Run() -- proceed.
-	default:
-		// Second time calling run -- do nothing.
-		return
-	}
-
-	t.receiveFrames()
 }
 
 // ReceiveFramesAsync starts processing incoming RPC messages in a
