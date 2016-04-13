@@ -23,8 +23,7 @@ func (s *Server) Register(p Protocol) error {
 // If you want to know when said processing is done, and any
 // associated error, use Transport.Done() and Transport.Err().
 func (s *Server) RunAsync() <-chan struct{} {
-	s.xp.receiveFramesAsync()
-	return s.xp.done()
+	return s.xp.receiveFramesAsync()
 }
 
 // Err returns a non-nil error value after the channel returned by

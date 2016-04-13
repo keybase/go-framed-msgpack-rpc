@@ -12,8 +12,7 @@ type WrapErrorFunc func(error) interface{}
 
 type Transporter interface {
 	// IsConnected returns false when incoming packets have
-	// finished processing. This is exactly equivalent to checking
-	// if Done() is closed.
+	// finished processing.
 	//
 	// TODO: Use a better name.
 	IsConnected() bool
@@ -23,22 +22,19 @@ type Transporter interface {
 	getDispatcher() (dispatcher, error)
 	getReceiver() (receiver, error)
 
-	// done returns a channel that's closed when incoming frames
-	// have finished processing, either due to an error or the
+	// receiveFramesAsync starts processing incoming frames in a
+	// background goroutine, if it's not already happening.
+	//
+	// Returns a channel that's closed when incoming frames have
+	// finished processing, either due to an error or the
 	// underlying connection being closed. Successive calls to
-	// done return the same value. This is safe to call before
-	// incoming frames have started processing (i.e., before
-	// receiveFramesAsync() has been called).
-	done() <-chan struct{}
+	// receiveFramesAsync return the same value.
+	receiveFramesAsync() <-chan struct{}
 
 	// err returns a non-nil error value after done is closed.
 	// After done is closed, successive calls to err return the
 	// same value.
 	err() error
-
-	// receiveFramesAsync starts processing incoming frames in a
-	// background goroutine, if it's not already happening.
-	receiveFramesAsync()
 }
 
 type connDecoder struct {
@@ -102,7 +98,27 @@ func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
 	return ret
 }
 
-func (t *transport) done() <-chan struct{} {
+func (t *transport) IsConnected() bool {
+	select {
+	case <-t.stopCh:
+		return false
+	default:
+		return true
+	}
+}
+
+func (t *transport) receiveFramesAsync() <-chan struct{} {
+	select {
+	case <-t.startCh:
+		// First time -- start receiving frames.
+		go func() {
+			t.receiveFrames()
+		}()
+
+	default:
+		// Subsequent times -- do nothing.
+	}
+
 	return t.stopCh
 }
 
@@ -113,29 +129,6 @@ func (t *transport) err() error {
 	default:
 		return nil
 	}
-}
-
-func (t *transport) IsConnected() bool {
-	select {
-	case <-t.stopCh:
-		return false
-	default:
-		return true
-	}
-}
-
-func (t *transport) receiveFramesAsync() {
-	select {
-	case <-t.startCh:
-		// First time calling Run() -- proceed.
-	default:
-		// Second time calling run -- do nothing.
-		return
-	}
-
-	go func() {
-		t.receiveFrames()
-	}()
 }
 
 func (t *transport) receiveFrames() {
