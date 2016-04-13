@@ -31,7 +31,7 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 		}
 		xp := NewTransport(c, lf, nil)
 		go func() {
-			<-xp.Done()
+			<-xp.done()
 			listener.Close()
 		}()
 		srv := NewServer(xp, nil)

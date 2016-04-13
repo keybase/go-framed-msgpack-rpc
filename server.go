@@ -11,7 +11,7 @@ func NewServer(xp Transporter, f WrapErrorFunc) *Server {
 
 func (s *Server) Register(p Protocol) error {
 	p.WrapError = s.wrapError
-	return s.xp.RegisterProtocol(p)
+	return s.xp.registerProtocol(p)
 }
 
 // RunAsync starts processing incoming RPC messages asynchronously, if
@@ -23,13 +23,13 @@ func (s *Server) Register(p Protocol) error {
 // If you want to know when said processing is done, and any
 // associated error, use Transport.Done() and Transport.Err().
 func (s *Server) RunAsync() <-chan struct{} {
-	s.xp.ReceiveFramesAsync()
-	return s.xp.Done()
+	s.xp.receiveFramesAsync()
+	return s.xp.done()
 }
 
 // Err returns a non-nil error value after the channel returned by
 // RunAsync is closed.  After that channel is closed, successive calls
 // to Err return the same value.
 func (s *Server) Err() error {
-	return s.xp.Err()
+	return s.xp.err()
 }
