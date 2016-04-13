@@ -22,14 +22,14 @@ type Transporter interface {
 	getDispatcher() (dispatcher, error)
 	getReceiver() (receiver, error)
 
-	// receiveFramesAsync starts processing incoming frames in a
+	// receiveFrames starts processing incoming frames in a
 	// background goroutine, if it's not already happening.
 	//
 	// Returns a channel that's closed when incoming frames have
 	// finished processing, either due to an error or the
 	// underlying connection being closed. Successive calls to
-	// receiveFramesAsync return the same value.
-	receiveFramesAsync() <-chan struct{}
+	// receiveFrames return the same value.
+	receiveFrames() <-chan struct{}
 
 	// err returns a non-nil error value after done is closed.
 	// After done is closed, successive calls to err return the
@@ -107,12 +107,12 @@ func (t *transport) IsConnected() bool {
 	}
 }
 
-func (t *transport) receiveFramesAsync() <-chan struct{} {
+func (t *transport) receiveFrames() <-chan struct{} {
 	select {
 	case <-t.startCh:
 		// First time -- start receiving frames.
 		go func() {
-			t.receiveFrames()
+			t.receiveFramesLoop()
 		}()
 
 	default:
@@ -131,7 +131,7 @@ func (t *transport) err() error {
 	}
 }
 
-func (t *transport) receiveFrames() {
+func (t *transport) receiveFramesLoop() {
 	// Packetize: do work
 	var err error
 	for shouldContinue(err) {

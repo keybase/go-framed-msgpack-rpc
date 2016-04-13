@@ -32,7 +32,7 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 		xp := NewTransport(c, lf, nil)
 		srv := NewServer(xp, nil)
 		srv.Register(createTestProtocol(newTestProtocol(c)))
-		done := srv.RunAsync()
+		done := srv.Run()
 		go func() {
 			<-done
 			listener.Close()
