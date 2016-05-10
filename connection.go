@@ -490,15 +490,17 @@ var _ GenericClient = connectionClient{}
 
 func (c connectionClient) Call(ctx context.Context, s string, args interface{}, res interface{}) error {
 	return c.conn.DoCommand(ctx, s, func(rawClient GenericClient) error {
-		tags, ok := c.conn.tagsFunc(ctx)
-		if ok {
-			rpcTags := make(CtxRpcTags)
-			for key, tagName := range tags {
-				if v := ctx.Value(key); v != nil {
-					rpcTags[tagName] = v
+		if c.conn.tagsFunc != nil {
+			tags, ok := c.conn.tagsFunc(ctx)
+			if ok {
+				rpcTags := make(CtxRpcTags)
+				for key, tagName := range tags {
+					if v := ctx.Value(key); v != nil {
+						rpcTags[tagName] = v
+					}
 				}
+				ctx = AddRpcTagsToContext(ctx, rpcTags)
 			}
-			ctx = AddRpcTagsToContext(ctx, rpcTags)
 		}
 		return rawClient.Call(ctx, s, args, res)
 	})
