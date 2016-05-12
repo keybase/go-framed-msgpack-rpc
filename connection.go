@@ -20,15 +20,17 @@ import (
 type DisconnectStatus int
 
 const (
+	// skip 0
+	_ = iota
 	// UsingExistingConnection means that an existing
 	// connection will be used.
-	UsingExistingConnection = 1
+	UsingExistingConnection DisconnectStatus = iota
 	// StartingFirstConnection means that a connection will be
 	// started, and this is the first one.
-	StartingFirstConnection = iota
+	StartingFirstConnection
 	// StartingNonFirstConnection means that a connection will be
 	// started, and this is not the first one.
-	StartingNonFirstConnection DisconnectStatus = iota
+	StartingNonFirstConnection
 )
 
 // ConnectionTransport is a container for an underlying transport to be
