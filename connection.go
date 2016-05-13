@@ -49,6 +49,51 @@ type ConnectionTransport interface {
 	Close()
 }
 
+type connTransport struct {
+	uri             *FMPURI
+	l               LogFactory
+	wef             WrapErrorFunc
+	conn            net.Conn
+	transport       Transporter
+	stagedTransport Transporter
+}
+
+var _ ConnectionTransport = (*connTransport)(nil)
+
+// NewConnectionTransport creates a ConnectionTransport for a given FMPURI.
+func NewConnectionTransport(uri *FMPURI, l LogFactory, wef WrapErrorFunc) ConnectionTransport {
+	return &connTransport{
+		uri: uri,
+		l:   l,
+		wef: wef,
+	}
+}
+
+func (t *connTransport) Dial(context.Context) (Transporter, error) {
+	var err error
+	t.conn, err = t.uri.Dial()
+	if err != nil {
+		return nil, err
+	}
+	t.stagedTransport = NewTransport(t.conn, t.l, t.wef)
+	return t.stagedTransport, nil
+}
+
+func (t *connTransport) IsConnected() bool {
+	return t.transport != nil && t.transport.IsConnected()
+}
+
+func (t *connTransport) Finalize() {
+	t.transport = t.stagedTransport
+	t.stagedTransport = nil
+}
+
+func (t *connTransport) Close() {
+	t.conn.Close()
+	t.transport = nil
+	t.stagedTransport = nil
+}
+
 // ConnectionHandler is the callback interface for interacting with the connection.
 type ConnectionHandler interface {
 	// OnConnect is called immediately after a connection has been
