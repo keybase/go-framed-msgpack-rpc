@@ -369,12 +369,10 @@ func (c *Connection) DoCommand(ctx context.Context, name string,
 				defer c.mutex.Unlock()
 				return c.client
 			}()
-			// try the rpc call. this can also be canceled
-			// by the caller, and will retry connectivity
-			// errors w/backoff.
-			throttleErr := runUnlessCanceled(ctx, func() error {
-				return rpcFunc(rawClient)
-			})
+			// try the rpc call, assuming that it exits
+			// immediately when ctx is canceled. will
+			// retry connectivity errors w/backoff.
+			throttleErr := rpcFunc(rawClient)
 			if throttleErr != nil && c.handler.ShouldRetry(name, throttleErr) {
 				return throttleErr
 			}
