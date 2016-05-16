@@ -127,6 +127,7 @@ func (r *receiveHandler) receiveResponse(rpc *rpcResponseMessage) (err error) {
 	}
 
 	callResponseCh <- rpc
+	r.taskEndCh <- rpc.SeqNo()
 	return nil
 }
 
