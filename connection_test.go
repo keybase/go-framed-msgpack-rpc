@@ -283,9 +283,11 @@ func TestConnectionClientCallError(t *testing.T) {
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}
+	errCh := make(chan error, 1)
 	go func() {
-		err := c.Notify(context.Background(), "rpc", nil)
-		require.NoError(t, err)
+		errCh <- c.Notify(context.Background(), "rpc", nil)
 	}()
 	p2.Close()
+	err := <-errCh
+	require.Error(t, err)
 }
