@@ -338,3 +338,47 @@ func TestConnectionClientNotifyError(t *testing.T) {
 	err := <-errCh
 	require.Error(t, err)
 }
+
+func TestConnectionClientCallCancel(t *testing.T) {
+	serverConn, conn := makeConnectionForTest(t)
+	defer conn.Shutdown()
+
+	c := connectionClient{conn}
+	errCh := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		errCh <- c.Call(ctx, "callRpc", nil, nil)
+	}()
+
+	// Wait for Call to make progress.
+	n, err := serverConn.Read([]byte{1})
+	require.Equal(t, n, 1)
+	require.NoError(t, err)
+
+	cancel()
+
+	err = <-errCh
+	require.Equal(t, err, ctx.Err())
+}
+
+func TestConnectionClientNotifyCancel(t *testing.T) {
+	serverConn, conn := makeConnectionForTest(t)
+	defer conn.Shutdown()
+
+	c := connectionClient{conn}
+	errCh := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		errCh <- c.Notify(ctx, "notifyRpc", nil)
+	}()
+
+	// Wait for Notify to make progress.
+	n, err := serverConn.Read([]byte{1})
+	require.Equal(t, n, 1)
+	require.NoError(t, err)
+
+	cancel()
+
+	err = <-errCh
+	require.Equal(t, err, ctx.Err())
+}
