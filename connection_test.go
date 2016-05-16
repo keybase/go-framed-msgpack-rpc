@@ -3,8 +3,12 @@ package rpc
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"golang.org/x/net/context"
 )
@@ -241,4 +245,140 @@ func TestDoCommandThrottle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+type testConnectionHandler struct{}
+
+var _ ConnectionHandler = testConnectionHandler{}
+
+func (testConnectionHandler) OnConnect(context.Context, *Connection, GenericClient, *Server) error {
+	return nil
+}
+
+func (testConnectionHandler) OnConnectError(err error, reconnectThrottleDuration time.Duration) {
+}
+
+func (testConnectionHandler) OnDoCommandError(err error, nextTime time.Duration) {
+}
+
+func (testConnectionHandler) OnDisconnected(ctx context.Context, status DisconnectStatus) {
+}
+
+func (testConnectionHandler) ShouldRetry(name string, err error) bool {
+	return false
+}
+
+func (testConnectionHandler) ShouldRetryOnConnect(err error) bool {
+	return false
+}
+
+func (testConnectionHandler) HandlerName() string {
+	return "testConnectionHandler"
+}
+
+type sharedTransport struct {
+	t Transporter
+}
+
+var _ ConnectionTransport = sharedTransport{}
+
+// Dial is an implementation of the ConnectionTransport interface.
+func (st sharedTransport) Dial(ctx context.Context) (Transporter, error) {
+	if !st.t.IsConnected() {
+		return nil, io.EOF
+	}
+	return st.t, nil
+}
+
+// IsConnected is an implementation of the ConnectionTransport interface.
+func (st sharedTransport) IsConnected() bool {
+	return st.t.IsConnected()
+}
+
+// Finalize is an implementation of the ConnectionTransport interface.
+func (st sharedTransport) Finalize() {}
+
+// Close is an implementation of the ConnectionTransport interface.
+func (st sharedTransport) Close() {}
+
+func makeConnectionForTest(t *testing.T) (net.Conn, *Connection) {
+	clientConn, serverConn := net.Pipe()
+	transporter := NewTransport(clientConn, nil, testWrapError)
+	st := sharedTransport{transporter}
+	output := testLogOutput{t}
+	conn := NewConnectionWithTransport(testConnectionHandler{}, st,
+		testErrorUnwrapper{}, true, testWrapError, output, testLogTags)
+	return serverConn, conn
+}
+
+func TestConnectionClientCallError(t *testing.T) {
+	serverConn, conn := makeConnectionForTest(t)
+	defer conn.Shutdown()
+
+	c := connectionClient{conn}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- c.Call(context.Background(), "callRpc", nil, nil)
+	}()
+	serverConn.Close()
+	err := <-errCh
+	require.Error(t, err)
+}
+
+func TestConnectionClientNotifyError(t *testing.T) {
+	serverConn, conn := makeConnectionForTest(t)
+	defer conn.Shutdown()
+
+	c := connectionClient{conn}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- c.Notify(context.Background(), "notifyRpc", nil)
+	}()
+	serverConn.Close()
+	err := <-errCh
+	require.Error(t, err)
+}
+
+func TestConnectionClientCallCancel(t *testing.T) {
+	serverConn, conn := makeConnectionForTest(t)
+	defer conn.Shutdown()
+
+	c := connectionClient{conn}
+	errCh := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		errCh <- c.Call(ctx, "callRpc", nil, nil)
+	}()
+
+	// Wait for Call to make progress.
+	n, err := serverConn.Read([]byte{1})
+	require.Equal(t, n, 1)
+	require.NoError(t, err)
+
+	cancel()
+
+	err = <-errCh
+	require.Equal(t, err, ctx.Err())
+}
+
+func TestConnectionClientNotifyCancel(t *testing.T) {
+	serverConn, conn := makeConnectionForTest(t)
+	defer conn.Shutdown()
+
+	c := connectionClient{conn}
+	errCh := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		errCh <- c.Notify(ctx, "notifyRpc", nil)
+	}()
+
+	// Wait for Notify to make progress.
+	n, err := serverConn.Read([]byte{1})
+	require.Equal(t, n, 1)
+	require.NoError(t, err)
+
+	cancel()
+
+	err = <-errCh
+	require.Equal(t, err, ctx.Err())
 }

@@ -553,7 +553,6 @@ func (c connectionClient) Call(ctx context.Context, s string, args interface{}, 
 
 func (c connectionClient) Notify(ctx context.Context, s string, args interface{}) error {
 	return c.conn.DoCommand(ctx, s, func(rawClient GenericClient) error {
-		rawClient.Notify(ctx, s, args)
-		return nil
+		return rawClient.Notify(ctx, s, args)
 	})
 }
