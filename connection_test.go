@@ -268,50 +268,43 @@ func (st sharedTransport) Finalize() {}
 // Close is an implementation of the ConnectionTransport interface.
 func (st sharedTransport) Close() {}
 
-func TestConnectionClientCallError(t *testing.T) {
+func makeConnectionForTest(t *testing.T) (net.Conn, *Connection) {
 	unitTester := &unitTester{
 		doneChan: make(chan bool),
 	}
-
-	p, p2 := net.Pipe()
-	transporter := NewTransport(p, nil, nil)
+	clientConn, serverConn := net.Pipe()
+	transporter := NewTransport(clientConn, nil, testWrapError)
 	st := sharedTransport{transporter}
-
 	output := testLogOutput{t}
 	conn := NewConnectionWithTransport(unitTester, st,
 		testErrorUnwrapper{}, true, testWrapError, output, testLogTags)
+	return serverConn, conn
+}
+
+func TestConnectionClientCallError(t *testing.T) {
+	serverConn, conn := makeConnectionForTest(t)
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- c.Call(context.Background(), "rpc", nil, nil)
+		errCh <- c.Call(context.Background(), "callRpc", nil, nil)
 	}()
-	p2.Close()
+	serverConn.Close()
 	err := <-errCh
 	require.Error(t, err)
 }
 
 func TestConnectionClientNotifyError(t *testing.T) {
-	unitTester := &unitTester{
-		doneChan: make(chan bool),
-	}
-
-	p, p2 := net.Pipe()
-	transporter := NewTransport(p, nil, nil)
-	st := sharedTransport{transporter}
-
-	output := testLogOutput{t}
-	conn := NewConnectionWithTransport(unitTester, st,
-		testErrorUnwrapper{}, true, testWrapError, output, testLogTags)
+	serverConn, conn := makeConnectionForTest(t)
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- c.Notify(context.Background(), "rpc", nil)
+		errCh <- c.Notify(context.Background(), "notifyRpc", nil)
 	}()
-	p2.Close()
+	serverConn.Close()
 	err := <-errCh
 	require.Error(t, err)
 }
