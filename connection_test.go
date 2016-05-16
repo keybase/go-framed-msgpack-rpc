@@ -3,8 +3,11 @@ package rpc
 import (
 	"errors"
 	"fmt"
+	"net"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"golang.org/x/net/context"
 )
@@ -241,4 +244,48 @@ func TestDoCommandThrottle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+type sharedTransport struct {
+	t Transporter
+}
+
+var _ ConnectionTransport = sharedTransport{}
+
+// Dial is an implementation of the ConnectionTransport interface.
+func (st sharedTransport) Dial(ctx context.Context) (Transporter, error) {
+	return st.t, nil
+}
+
+// IsConnected is an implementation of the ConnectionTransport interface.
+func (st sharedTransport) IsConnected() bool {
+	return true
+}
+
+// Finalize is an implementation of the ConnectionTransport interface.
+func (st sharedTransport) Finalize() {}
+
+// Close is an implementation of the ConnectionTransport interface.
+func (st sharedTransport) Close() {}
+
+func TestConnectionClientCallError(t *testing.T) {
+	unitTester := &unitTester{
+		doneChan: make(chan bool),
+	}
+
+	p, p2 := net.Pipe()
+	transporter := NewTransport(p, nil, nil)
+	st := sharedTransport{transporter}
+
+	output := testLogOutput{t}
+	conn := NewConnectionWithTransport(unitTester, st,
+		testErrorUnwrapper{}, true, testWrapError, output, testLogTags)
+	defer conn.Shutdown()
+
+	c := connectionClient{conn}
+	go func() {
+		err := c.Notify(context.Background(), "rpc", nil)
+		require.NoError(t, err)
+	}()
+	p2.Close()
 }
