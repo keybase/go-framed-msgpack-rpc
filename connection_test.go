@@ -3,6 +3,7 @@ package rpc
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"testing"
 	"time"
@@ -246,6 +247,35 @@ func TestDoCommandThrottle(t *testing.T) {
 	}
 }
 
+type testConnectionHandler struct{}
+
+var _ ConnectionHandler = testConnectionHandler{}
+
+func (testConnectionHandler) OnConnect(context.Context, *Connection, GenericClient, *Server) error {
+	return nil
+}
+
+func (testConnectionHandler) OnConnectError(err error, reconnectThrottleDuration time.Duration) {
+}
+
+func (testConnectionHandler) OnDoCommandError(err error, nextTime time.Duration) {
+}
+
+func (testConnectionHandler) OnDisconnected(ctx context.Context, status DisconnectStatus) {
+}
+
+func (testConnectionHandler) ShouldRetry(name string, err error) bool {
+	return false
+}
+
+func (testConnectionHandler) ShouldRetryOnConnect(err error) bool {
+	return false
+}
+
+func (testConnectionHandler) HandlerName() string {
+	return "testConnectionHandler"
+}
+
 type sharedTransport struct {
 	t Transporter
 }
@@ -254,12 +284,15 @@ var _ ConnectionTransport = sharedTransport{}
 
 // Dial is an implementation of the ConnectionTransport interface.
 func (st sharedTransport) Dial(ctx context.Context) (Transporter, error) {
+	if !st.t.IsConnected() {
+		return nil, io.EOF
+	}
 	return st.t, nil
 }
 
 // IsConnected is an implementation of the ConnectionTransport interface.
 func (st sharedTransport) IsConnected() bool {
-	return true
+	return st.t.IsConnected()
 }
 
 // Finalize is an implementation of the ConnectionTransport interface.
@@ -269,14 +302,11 @@ func (st sharedTransport) Finalize() {}
 func (st sharedTransport) Close() {}
 
 func makeConnectionForTest(t *testing.T) (net.Conn, *Connection) {
-	unitTester := &unitTester{
-		doneChan: make(chan bool),
-	}
 	clientConn, serverConn := net.Pipe()
 	transporter := NewTransport(clientConn, nil, testWrapError)
 	st := sharedTransport{transporter}
 	output := testLogOutput{t}
-	conn := NewConnectionWithTransport(unitTester, st,
+	conn := NewConnectionWithTransport(testConnectionHandler{}, st,
 		testErrorUnwrapper{}, true, testWrapError, output, testLogTags)
 	return serverConn, conn
 }
