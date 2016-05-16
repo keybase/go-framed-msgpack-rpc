@@ -285,6 +285,30 @@ func TestConnectionClientCallError(t *testing.T) {
 	c := connectionClient{conn}
 	errCh := make(chan error, 1)
 	go func() {
+		errCh <- c.Call(context.Background(), "rpc", nil, nil)
+	}()
+	p2.Close()
+	err := <-errCh
+	require.Error(t, err)
+}
+
+func TestConnectionClientNotifyError(t *testing.T) {
+	unitTester := &unitTester{
+		doneChan: make(chan bool),
+	}
+
+	p, p2 := net.Pipe()
+	transporter := NewTransport(p, nil, nil)
+	st := sharedTransport{transporter}
+
+	output := testLogOutput{t}
+	conn := NewConnectionWithTransport(unitTester, st,
+		testErrorUnwrapper{}, true, testWrapError, output, testLogTags)
+	defer conn.Shutdown()
+
+	c := connectionClient{conn}
+	errCh := make(chan error, 1)
+	go func() {
 		errCh <- c.Notify(context.Background(), "rpc", nil)
 	}()
 	p2.Close()
