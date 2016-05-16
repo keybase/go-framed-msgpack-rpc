@@ -119,7 +119,7 @@ func (r *receiveHandler) handleReceiveDispatch(req request) error {
 	r.taskBeginCh <- &task{req.SeqNo(), req.CancelFunc()}
 	go func() {
 		req.Serve(r.writer, serveHandler, wrapErrorFunc)
-		r.taskEndCh <- rpc.SeqNo()
+		r.taskEndCh <- req.SeqNo()
 	}()
 	return nil
 }
