@@ -67,6 +67,9 @@ func (r *receiveHandler) taskLoop() {
 			}
 			delete(tasks, seqid)
 		case seqid := <-r.taskEndCh:
+			if cancelFunc, ok := tasks[seqid]; ok {
+				cancelFunc()
+			}
 			delete(tasks, seqid)
 		}
 	}
@@ -114,7 +117,10 @@ func (r *receiveHandler) handleReceiveDispatch(req request) error {
 		return req.Reply(r.writer, nil, wrapError(wrapErrorFunc, se))
 	}
 	r.taskBeginCh <- &task{req.SeqNo(), req.CancelFunc()}
-	go req.Serve(r.writer, serveHandler, wrapErrorFunc)
+	go func() {
+		req.Serve(r.writer, serveHandler, wrapErrorFunc)
+		r.taskEndCh <- rpc.SeqNo()
+	}()
 	return nil
 }
 
@@ -127,7 +133,6 @@ func (r *receiveHandler) receiveResponse(rpc *rpcResponseMessage) (err error) {
 	}
 
 	callResponseCh <- rpc
-	r.taskEndCh <- rpc.SeqNo()
 	return nil
 }
 
