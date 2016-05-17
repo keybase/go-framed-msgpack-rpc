@@ -98,19 +98,6 @@ func (ut *unitTester) Err() error {
 	return nil
 }
 
-type testStatus struct {
-	Code int
-}
-type testUnwrapper struct{}
-
-func testWrapError(err error) interface{} {
-	return &testStatus{}
-}
-
-func testLogTags(ctx context.Context) (map[interface{}]string, bool) {
-	return nil, false
-}
-
 type throttleError struct {
 	Err error
 }
@@ -122,33 +109,6 @@ func (e throttleError) ToStatus() (s testStatus) {
 
 func (e throttleError) Error() string {
 	return e.Err.Error()
-}
-
-type testErrorUnwrapper struct{}
-
-var _ ErrorUnwrapper = testErrorUnwrapper{}
-
-func (eu testErrorUnwrapper) MakeArg() interface{} {
-	return &testStatus{}
-}
-
-func (eu testErrorUnwrapper) UnwrapError(arg interface{}) (appError error, dispatchError error) {
-	s, ok := arg.(*testStatus)
-	if !ok {
-		return nil, errors.New("Error converting arg to testStatus object")
-	}
-	if s == nil || s.Code == 0 {
-		return nil, nil
-	}
-
-	switch s.Code {
-	case 15:
-		appError = throttleError{errors.New("throttle")}
-		break
-	default:
-		panic("Unknown testing error")
-	}
-	return appError, nil
 }
 
 type testLogOutput struct {
