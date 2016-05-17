@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"time"
@@ -76,6 +77,19 @@ func testLogTags(ctx context.Context) (map[interface{}]string, bool) {
 	return nil, false
 }
 
+type throttleError struct {
+	Err error
+}
+
+func (e throttleError) ToStatus() (s testStatus) {
+	s.Code = 15
+	return
+}
+
+func (e throttleError) Error() string {
+	return e.Err.Error()
+}
+
 type testErrorUnwrapper struct{}
 
 var _ ErrorUnwrapper = testErrorUnwrapper{}
@@ -103,11 +117,31 @@ func (eu testErrorUnwrapper) UnwrapError(arg interface{}) (appError error, dispa
 	return appError, nil
 }
 
-func MakeConnectionForTest(output LogOutput) (net.Conn, *Connection) {
+type TestLogger interface {
+	Logf(format string, args ...interface{})
+}
+
+type testLogOutput struct {
+	t TestLogger
+}
+
+func (t testLogOutput) log(ch string, fmts string, args []interface{}) {
+	fmts = fmt.Sprintf("[%s] %s", ch, fmts)
+	t.t.Logf(fmts, args...)
+}
+
+func (t testLogOutput) Info(fmt string, args ...interface{})    { t.log("I", fmt, args) }
+func (t testLogOutput) Error(fmt string, args ...interface{})   { t.log("E", fmt, args) }
+func (t testLogOutput) Debug(fmt string, args ...interface{})   { t.log("D", fmt, args) }
+func (t testLogOutput) Warning(fmt string, args ...interface{}) { t.log("W", fmt, args) }
+func (t testLogOutput) Profile(fmt string, args ...interface{}) { t.log("P", fmt, args) }
+
+func MakeConnectionForTest(t TestLogger) (net.Conn, *Connection) {
 	clientConn, serverConn := net.Pipe()
 	transporter := NewTransport(clientConn, nil, testWrapError)
 	st := singleTransport{transporter}
 	conn := NewConnectionWithTransport(testConnectionHandler{}, st,
-		testErrorUnwrapper{}, true, testWrapError, output, testLogTags)
+		testErrorUnwrapper{}, true, testWrapError,
+		testLogOutput{t}, testLogTags)
 	return serverConn, conn
 }

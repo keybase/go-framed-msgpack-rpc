@@ -98,34 +98,6 @@ func (ut *unitTester) Err() error {
 	return nil
 }
 
-type throttleError struct {
-	Err error
-}
-
-func (e throttleError) ToStatus() (s testStatus) {
-	s.Code = 15
-	return
-}
-
-func (e throttleError) Error() string {
-	return e.Err.Error()
-}
-
-type testLogOutput struct {
-	t *testing.T
-}
-
-func (t testLogOutput) log(ch string, fmts string, args []interface{}) {
-	fmts = fmt.Sprintf("[%s] %s\n", ch, fmts)
-	t.t.Logf(fmts, args...)
-}
-
-func (t testLogOutput) Info(fmt string, args ...interface{})    { t.log("I", fmt, args) }
-func (t testLogOutput) Error(fmt string, args ...interface{})   { t.log("E", fmt, args) }
-func (t testLogOutput) Debug(fmt string, args ...interface{})   { t.log("D", fmt, args) }
-func (t testLogOutput) Warning(fmt string, args ...interface{}) { t.log("W", fmt, args) }
-func (t testLogOutput) Profile(fmt string, args ...interface{}) { t.log("P", fmt, args) }
-
 // Test a basic reconnect flow.
 func TestReconnectBasic(t *testing.T) {
 	unitTester := &unitTester{
@@ -206,7 +178,7 @@ func TestDoCommandThrottle(t *testing.T) {
 }
 
 func TestConnectionClientCallError(t *testing.T) {
-	serverConn, conn := MakeConnectionForTest(testLogOutput{t})
+	serverConn, conn := MakeConnectionForTest(t)
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}
@@ -220,7 +192,7 @@ func TestConnectionClientCallError(t *testing.T) {
 }
 
 func TestConnectionClientNotifyError(t *testing.T) {
-	serverConn, conn := MakeConnectionForTest(testLogOutput{t})
+	serverConn, conn := MakeConnectionForTest(t)
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}
@@ -234,7 +206,7 @@ func TestConnectionClientNotifyError(t *testing.T) {
 }
 
 func TestConnectionClientCallCancel(t *testing.T) {
-	serverConn, conn := MakeConnectionForTest(testLogOutput{t})
+	serverConn, conn := MakeConnectionForTest(t)
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}
@@ -256,7 +228,7 @@ func TestConnectionClientCallCancel(t *testing.T) {
 }
 
 func TestConnectionClientNotifyCancel(t *testing.T) {
-	serverConn, conn := MakeConnectionForTest(testLogOutput{t})
+	serverConn, conn := MakeConnectionForTest(t)
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}
