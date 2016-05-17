@@ -117,6 +117,8 @@ func (eu testErrorUnwrapper) UnwrapError(arg interface{}) (appError error, dispa
 	return appError, nil
 }
 
+// TestLogger is an interface for things, like *testing.T, that have a
+// Logf function.
 type TestLogger interface {
 	Logf(format string, args ...interface{})
 }
@@ -136,6 +138,8 @@ func (t testLogOutput) Debug(fmt string, args ...interface{})   { t.log("D", fmt
 func (t testLogOutput) Warning(fmt string, args ...interface{}) { t.log("W", fmt, args) }
 func (t testLogOutput) Profile(fmt string, args ...interface{}) { t.log("P", fmt, args) }
 
+// MakeConnectionForTest returns a Connection object, and a net.Conn
+// object representing the other end of that connection.
 func MakeConnectionForTest(t TestLogger) (net.Conn, *Connection) {
 	clientConn, serverConn := net.Pipe()
 	transporter := NewTransport(clientConn, nil, testWrapError)
