@@ -246,7 +246,7 @@ func TestDoCommandThrottle(t *testing.T) {
 }
 
 func TestConnectionClientCallError(t *testing.T) {
-	serverConn, conn := makeConnectionForTest(t)
+	serverConn, conn := MakeConnectionForTest(testLogOutput{t})
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}
@@ -260,7 +260,7 @@ func TestConnectionClientCallError(t *testing.T) {
 }
 
 func TestConnectionClientNotifyError(t *testing.T) {
-	serverConn, conn := makeConnectionForTest(t)
+	serverConn, conn := MakeConnectionForTest(testLogOutput{t})
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}
@@ -274,7 +274,7 @@ func TestConnectionClientNotifyError(t *testing.T) {
 }
 
 func TestConnectionClientCallCancel(t *testing.T) {
-	serverConn, conn := makeConnectionForTest(t)
+	serverConn, conn := MakeConnectionForTest(testLogOutput{t})
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}
@@ -296,7 +296,7 @@ func TestConnectionClientCallCancel(t *testing.T) {
 }
 
 func TestConnectionClientNotifyCancel(t *testing.T) {
-	serverConn, conn := makeConnectionForTest(t)
+	serverConn, conn := MakeConnectionForTest(testLogOutput{t})
 	defer conn.Shutdown()
 
 	c := connectionClient{conn}

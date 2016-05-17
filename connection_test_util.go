@@ -3,7 +3,6 @@ package rpc
 import (
 	"io"
 	"net"
-	"testing"
 	"time"
 
 	"golang.org/x/net/context"
@@ -63,11 +62,10 @@ func (st singleTransport) Finalize() {}
 // Close is an implementation of the ConnectionTransport interface.
 func (st singleTransport) Close() {}
 
-func makeConnectionForTest(t *testing.T) (net.Conn, *Connection) {
+func MakeConnectionForTest(output LogOutput) (net.Conn, *Connection) {
 	clientConn, serverConn := net.Pipe()
 	transporter := NewTransport(clientConn, nil, testWrapError)
 	st := singleTransport{transporter}
-	output := testLogOutput{t}
 	conn := NewConnectionWithTransport(testConnectionHandler{}, st,
 		testErrorUnwrapper{}, true, testWrapError, output, testLogTags)
 	return serverConn, conn
