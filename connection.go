@@ -132,7 +132,7 @@ type ConnectionHandler interface {
 type ConnectionTransportTLS struct {
 	rootCerts []byte
 	srvAddr   string
-	srvName   string
+	tlsConfig *tls.Config
 
 	// Protects everything below.
 	mutex           sync.Mutex
@@ -152,20 +152,19 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	var conn net.Conn
 	err := runUnlessCanceled(ctx, func() error {
 		// load CA certificate
-		certs := x509.NewCertPool()
-		if !certs.AppendCertsFromPEM(ct.rootCerts) {
-			return errors.New("Unable to load root certificates")
+		config := ct.tlsConfig
+		if config == nil {
+			certs := x509.NewCertPool()
+			if !certs.AppendCertsFromPEM(ct.rootCerts) {
+				return errors.New("Unable to load root certificates")
+			}
+			config = &tls.Config{RootCAs: certs}
 		}
-
 		// connect
 		var err error
-		config := tls.Config{RootCAs: certs}
-		if ct.srvName != "" {
-			config.ServerName = ct.srvName
-		}
 		conn, err = tls.DialWithDialer(&net.Dialer{
 			KeepAlive: 10 * time.Second,
-		}, "tcp", ct.srvAddr, &config)
+		}, "tcp", ct.srvAddr, config)
 		return err
 	})
 	if err != nil {
@@ -258,17 +257,23 @@ func NewTLSConnection(srvAddr string, rootCerts []byte,
 		connectNow, wef, log, tagsFunc)
 }
 
-// NewTLSConnectionWithServerName returns a connection that tries to connect to the
-// given server address with TLS. You can specify a server name that you expect
-// the certificate to contain.
-func NewTLSConnectionWithServerName(srvAddr string, srvName string, rootCerts []byte,
+func copyTLSConfig(c *tls.Config) *tls.Config {
+	if c == nil {
+		return nil
+	}
+	tmp := *c
+	return &tmp
+}
+
+// NewTLSConnectionWithTLSConfig allows you to specify a RootCA pool and also
+// a serverName (if wanted) via the full Go TLS config object.
+func NewTLSConnectionWithTLSConfig(srvAddr string, tlsConfig *tls.Config,
 	errorUnwrapper ErrorUnwrapper, handler ConnectionHandler,
 	connectNow bool, l LogFactory, wef WrapErrorFunc, log LogOutput,
 	tagsFunc LogTagsFromContext) *Connection {
 	transport := &ConnectionTransportTLS{
-		rootCerts:  rootCerts,
 		srvAddr:    srvAddr,
-		srvName:    srvName,
+		tlsConfig:  copyTLSConfig(tlsConfig),
 		logFactory: l,
 		wef:        wef,
 	}
