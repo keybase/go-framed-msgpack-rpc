@@ -151,9 +151,13 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	Transporter, error) {
 	var conn net.Conn
 	err := runUnlessCanceled(ctx, func() error {
-		// load CA certificate
 		config := ct.tlsConfig
-		if config == nil {
+
+		// If we didn't specify a tls.Config, but we did specify
+		// explicit rootCerts, then populate a new tls.Config here.
+		// Otherwise, we're using the defaults via `nil` tls.Config.
+		if config == nil && ct.rootCerts != nil {
+			// load CA certificate
 			certs := x509.NewCertPool()
 			if !certs.AppendCertsFromPEM(ct.rootCerts) {
 				return errors.New("Unable to load root certificates")
