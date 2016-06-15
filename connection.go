@@ -350,7 +350,7 @@ func (c *Connection) connect(ctx context.Context) error {
 	// connect
 	transport, err := c.transport.Dial(ctx)
 	if err != nil {
-		c.log.Warning("Connection: error dialing transport: %#v", err)
+		c.log.Warning("Connection: error dialing transport: %s", err)
 		return err
 	}
 
@@ -364,7 +364,7 @@ func (c *Connection) connect(ctx context.Context) error {
 	// call the connect handler
 	err = c.handler.OnConnect(ctx, c, client, server)
 	if err != nil {
-		c.log.Warning("Connection: error calling OnConnect handler: %#v", err)
+		c.log.Warning("Connection: error calling OnConnect handler: %s", err)
 		return err
 	}
 
