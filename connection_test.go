@@ -32,12 +32,12 @@ func (ut *unitTester) OnConnect(context.Context, *Connection, GenericClient, *Se
 }
 
 // OnConnectError implements the ConnectionHandler interface.
-func (ut *unitTester) OnConnectError(error, time.Duration) {
+func (ut *unitTester) OnConnectError(context.Context, error, time.Duration) {
 	ut.numConnectErrors++
 }
 
 // OnDoCommandError implements the ConnectionHandler interace
-func (ut *unitTester) OnDoCommandError(error, time.Duration) {
+func (ut *unitTester) OnDoCommandError(context.Context, error, time.Duration) {
 }
 
 // OnDisconnected implements the ConnectionHandler interface.
@@ -46,7 +46,7 @@ func (ut *unitTester) OnDisconnected(context.Context, DisconnectStatus) {
 }
 
 // ShouldRetry implements the ConnectionHandler interface.
-func (ut *unitTester) ShouldRetry(name string, err error) bool {
+func (ut *unitTester) ShouldRetry(ctx context.Context, name string, err error) bool {
 	_, isThrottle := err.(throttleError)
 	return isThrottle
 }
@@ -54,7 +54,7 @@ func (ut *unitTester) ShouldRetry(name string, err error) bool {
 var errCanceled = errors.New("Canceled!")
 
 // ShouldRetryOnConnect implements the ConnectionHandler interface.
-func (ut *unitTester) ShouldRetryOnConnect(err error) bool {
+func (ut *unitTester) ShouldRetryOnConnect(cxt context.Context, err error) bool {
 	return err != errCanceled
 }
 
