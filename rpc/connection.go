@@ -245,20 +245,34 @@ type Connection struct {
 	reconnectedBefore bool
 }
 
+// This struct contains all the connection parameters that are optional. The
+// mandatory parameters are given as positional arguments to the different
+// wrapper functions, along with this struct.
+type ConnectionOpts struct {
+	TagsFunc       LogTagsFromContext
+	Protocols      []Protocol
+	DontConnectNow bool
+	WrapErrorFunc  WrapErrorFunc
+}
+
 // NewTLSConnection returns a connection that tries to connect to the
 // given server address with TLS.
-func NewTLSConnection(srvAddr string, rootCerts []byte,
-	errorUnwrapper ErrorUnwrapper, handler ConnectionHandler,
-	connectNow bool, l LogFactory, wef WrapErrorFunc, log LogOutput,
-	tagsFunc LogTagsFromContext) *Connection {
+func NewTLSConnection(
+	srvAddr string,
+	rootCerts []byte,
+	errorUnwrapper ErrorUnwrapper,
+	handler ConnectionHandler,
+	logFactory LogFactory,
+	logOutput LogOutput,
+	opts ConnectionOpts,
+) *Connection {
 	transport := &ConnectionTransportTLS{
 		rootCerts:  rootCerts,
 		srvAddr:    srvAddr,
-		logFactory: l,
-		wef:        wef,
+		logFactory: logFactory,
+		wef:        opts.WrapErrorFunc,
 	}
-	return NewConnectionWithTransport(handler, transport, errorUnwrapper,
-		connectNow, wef, log, tagsFunc)
+	return newConnectionWithTransportAndProtocols(handler, transport, errorUnwrapper, logOutput, opts)
 }
 
 func copyTLSConfig(c *tls.Config) *tls.Config {
@@ -271,50 +285,39 @@ func copyTLSConfig(c *tls.Config) *tls.Config {
 
 // NewTLSConnectionWithTLSConfig allows you to specify a RootCA pool and also
 // a serverName (if wanted) via the full Go TLS config object.
-func NewTLSConnectionWithTLSConfig(srvAddr string, tlsConfig *tls.Config,
-	errorUnwrapper ErrorUnwrapper, handler ConnectionHandler,
-	connectNow bool, l LogFactory, wef WrapErrorFunc, log LogOutput,
-	tagsFunc LogTagsFromContext) *Connection {
+func NewTLSConnectionWithTLSConfig(
+	srvAddr string,
+	tlsConfig *tls.Config,
+	errorUnwrapper ErrorUnwrapper,
+	handler ConnectionHandler,
+	logFactory LogFactory,
+	logOutput LogOutput,
+	opts ConnectionOpts,
+) *Connection {
 	transport := &ConnectionTransportTLS{
 		srvAddr:    srvAddr,
 		tlsConfig:  copyTLSConfig(tlsConfig),
-		logFactory: l,
-		wef:        wef,
+		logFactory: logFactory,
+		wef:        opts.WrapErrorFunc,
 	}
-	return NewConnectionWithTransport(handler, transport, errorUnwrapper,
-		connectNow, wef, log, tagsFunc)
-}
-
-// NewTLSConnectionWithProtocols returns a connection that tries to connect to
-// the given server address with TLS and registers custom protocols.
-func NewTLSConnectionWithProtocols(srvAddr string, rootCerts []byte,
-	errorUnwrapper ErrorUnwrapper, handler ConnectionHandler,
-	connectNow bool, l LogFactory, wef WrapErrorFunc, log LogOutput,
-	tagsFunc LogTagsFromContext, protocols []Protocol) *Connection {
-	transport := &ConnectionTransportTLS{
-		rootCerts:  rootCerts,
-		srvAddr:    srvAddr,
-		logFactory: l,
-		wef:        wef,
-	}
-	return newConnectionWithTransportAndProtocols(handler, transport, errorUnwrapper,
-		connectNow, wef, log, tagsFunc, protocols)
+	return newConnectionWithTransportAndProtocols(handler, transport, errorUnwrapper, logOutput, opts)
 }
 
 // NewConnectionWithTransport allows for connections with a custom
 // transport.
-func NewConnectionWithTransport(handler ConnectionHandler,
-	transport ConnectionTransport, errorUnwrapper ErrorUnwrapper,
-	connectNow bool, wef WrapErrorFunc, log LogOutput,
-	tagsFunc LogTagsFromContext) *Connection {
-	return newConnectionWithTransportAndProtocols(handler, transport,
-		errorUnwrapper, connectNow, wef, log, tagsFunc, nil)
+func NewConnectionWithTransport(
+	handler ConnectionHandler,
+	transport ConnectionTransport,
+	errorUnwrapper ErrorUnwrapper,
+	logOutput LogOutput,
+	opts ConnectionOpts,
+) *Connection {
+	return newConnectionWithTransportAndProtocols(handler, transport, errorUnwrapper, logOutput, opts)
 }
 
 func newConnectionWithTransportAndProtocols(handler ConnectionHandler,
 	transport ConnectionTransport, errorUnwrapper ErrorUnwrapper,
-	connectNow bool, wef WrapErrorFunc, log LogOutput,
-	tagsFunc LogTagsFromContext, protocols []Protocol) *Connection {
+	log LogOutput, opts ConnectionOpts) *Connection {
 	// retry w/exponential backoff
 	reconnectBackoff := backoff.NewExponentialBackOff()
 	// never give up reconnecting
@@ -329,15 +332,15 @@ func newConnectionWithTransportAndProtocols(handler ConnectionHandler,
 		errorUnwrapper:   errorUnwrapper,
 		reconnectBackoff: reconnectBackoff,
 		doCommandBackoff: backoff.NewExponentialBackOff(),
-		wef:              wef,
-		tagsFunc:         tagsFunc,
+		wef:              opts.WrapErrorFunc,
+		tagsFunc:         opts.TagsFunc,
 		log: connectionLog{
 			LogOutput: log,
 			logPrefix: connectionPrefix,
 		},
-		protocols: protocols,
+		protocols: opts.Protocols,
 	}
-	if connectNow {
+	if !opts.DontConnectNow {
 		// start connecting now
 		connection.getReconnectChan()
 	}
