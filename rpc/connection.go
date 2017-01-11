@@ -228,8 +228,8 @@ type Connection struct {
 	handler          ConnectionHandler
 	transport        ConnectionTransport
 	errorUnwrapper   ErrorUnwrapper
-	reconnectBackoff *backoff.ExponentialBackOff
-	doCommandBackoff *backoff.ExponentialBackOff
+	reconnectBackoff backoff.BackOff
+	doCommandBackoff backoff.BackOff
 	wef              WrapErrorFunc
 	tagsFunc         LogTagsFromContext
 	log              connectionLog
@@ -249,10 +249,12 @@ type Connection struct {
 // mandatory parameters are given as positional arguments to the different
 // wrapper functions, along with this struct.
 type ConnectionOpts struct {
-	TagsFunc       LogTagsFromContext
-	Protocols      []Protocol
-	DontConnectNow bool
-	WrapErrorFunc  WrapErrorFunc
+	TagsFunc         LogTagsFromContext
+	Protocols        []Protocol
+	DontConnectNow   bool
+	WrapErrorFunc    WrapErrorFunc
+	ReconnectBackoff backoff.BackOff
+	CommandBackoff   backoff.BackOff
 }
 
 // NewTLSConnection returns a connection that tries to connect to the
@@ -318,10 +320,20 @@ func NewConnectionWithTransport(
 func newConnectionWithTransportAndProtocols(handler ConnectionHandler,
 	transport ConnectionTransport, errorUnwrapper ErrorUnwrapper,
 	log LogOutput, opts ConnectionOpts) *Connection {
-	// retry w/exponential backoff
-	reconnectBackoff := backoff.NewExponentialBackOff()
-	// never give up reconnecting
-	reconnectBackoff.MaxElapsedTime = 0
+	// use exponential backoffs by default which never give up on reconnecting
+	defaultBackoff := func() backoff.BackOff {
+		b := backoff.NewExponentialBackOff()
+		b.MaxElapsedTime = 0
+		return b
+	}
+	reconnectBackoff := opts.ReconnectBackoff
+	if reconnectBackoff == nil {
+		reconnectBackoff = defaultBackoff()
+	}
+	commandBackoff := opts.CommandBackoff
+	if commandBackoff == nil {
+		commandBackoff = defaultBackoff()
+	}
 	randBytes := make([]byte, 4)
 	rand.Read(randBytes)
 	connectionPrefix := fmt.Sprintf("CONN %s %x", handler.HandlerName(),
@@ -331,7 +343,7 @@ func newConnectionWithTransportAndProtocols(handler ConnectionHandler,
 		transport:        transport,
 		errorUnwrapper:   errorUnwrapper,
 		reconnectBackoff: reconnectBackoff,
-		doCommandBackoff: backoff.NewExponentialBackOff(),
+		doCommandBackoff: commandBackoff,
 		wef:              opts.WrapErrorFunc,
 		tagsFunc:         opts.TagsFunc,
 		log: connectionLog{

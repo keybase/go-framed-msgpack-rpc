@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/stretchr/testify/require"
 
 	"golang.org/x/net/context"
@@ -105,13 +106,15 @@ func TestReconnectBasic(t *testing.T) {
 		errToThrow: errors.New("intentional error to trigger reconnect"),
 	}
 	output := testLogOutput{t}
+	reconnectBackoff := backoff.NewExponentialBackOff()
+	reconnectBackoff.InitialInterval = 5 * time.Millisecond
 	opts := ConnectionOpts{
-		WrapErrorFunc: testWrapError,
-		TagsFunc:      testLogTags,
+		WrapErrorFunc:    testWrapError,
+		TagsFunc:         testLogTags,
+		ReconnectBackoff: reconnectBackoff,
 	}
 	conn := NewConnectionWithTransport(unitTester, unitTester,
 		testErrorUnwrapper{}, output, opts)
-	conn.reconnectBackoff.InitialInterval = 5 * time.Millisecond
 
 	// start connecting now
 	conn.getReconnectChan()
@@ -161,16 +164,17 @@ func TestDoCommandThrottle(t *testing.T) {
 
 	throttleErr := errors.New("throttle")
 	output := testLogOutput{t}
+	commandBackoff := backoff.NewExponentialBackOff()
+	commandBackoff.InitialInterval = 5 * time.Millisecond
 	opts := ConnectionOpts{
-		WrapErrorFunc: testWrapError,
-		TagsFunc:      testLogTags,
+		WrapErrorFunc:  testWrapError,
+		TagsFunc:       testLogTags,
+		CommandBackoff: commandBackoff,
 	}
 	conn := NewConnectionWithTransport(unitTester, unitTester,
 		testErrorUnwrapper{}, output, opts)
 	defer conn.Shutdown()
 	<-unitTester.doneChan
-
-	conn.doCommandBackoff.InitialInterval = 5 * time.Millisecond
 
 	throttle := true
 	ctx := context.Background()
