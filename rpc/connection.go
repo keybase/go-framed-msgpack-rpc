@@ -324,6 +324,7 @@ func newConnectionWithTransportAndProtocols(handler ConnectionHandler,
 	defaultBackoff := func() backoff.BackOff {
 		b := backoff.NewExponentialBackOff()
 		b.MaxElapsedTime = 0
+		b.MaxInterval = 10 * time.Second
 		return b
 	}
 	reconnectBackoff := opts.ReconnectBackoff
