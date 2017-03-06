@@ -106,12 +106,15 @@ func TestReconnectBasic(t *testing.T) {
 		errToThrow: errors.New("intentional error to trigger reconnect"),
 	}
 	output := testLogOutput{t}
-	reconnectBackoff := backoff.NewExponentialBackOff()
-	reconnectBackoff.InitialInterval = 5 * time.Millisecond
+	reconnectBackoffFn := func() backoff.BackOff {
+		reconnectBackoff := backoff.NewExponentialBackOff()
+		reconnectBackoff.InitialInterval = 5 * time.Millisecond
+		return reconnectBackoff
+	}
 	opts := ConnectionOpts{
 		WrapErrorFunc:    testWrapError,
 		TagsFunc:         testLogTags,
-		ReconnectBackoff: reconnectBackoff,
+		ReconnectBackoff: reconnectBackoffFn,
 	}
 	conn := NewConnectionWithTransport(unitTester, unitTester,
 		testErrorUnwrapper{}, output, opts)
@@ -164,12 +167,15 @@ func TestDoCommandThrottle(t *testing.T) {
 
 	throttleErr := errors.New("throttle")
 	output := testLogOutput{t}
-	commandBackoff := backoff.NewExponentialBackOff()
-	commandBackoff.InitialInterval = 5 * time.Millisecond
+	commandBackoffFn := func() backoff.BackOff {
+		commandBackoff := backoff.NewExponentialBackOff()
+		commandBackoff.InitialInterval = 5 * time.Millisecond
+		return commandBackoff
+	}
 	opts := ConnectionOpts{
 		WrapErrorFunc:  testWrapError,
 		TagsFunc:       testLogTags,
-		CommandBackoff: commandBackoff,
+		CommandBackoff: commandBackoffFn,
 	}
 	conn := NewConnectionWithTransport(unitTester, unitTester,
 		testErrorUnwrapper{}, output, opts)
