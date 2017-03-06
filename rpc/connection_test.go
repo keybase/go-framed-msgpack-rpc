@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/keybase/backoff"
 	"github.com/stretchr/testify/require"
 
 	"golang.org/x/net/context"
