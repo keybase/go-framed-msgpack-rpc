@@ -282,13 +282,6 @@ func NewTLSConnection(
 	return newConnectionWithTransportAndProtocols(handler, transport, errorUnwrapper, logOutput, opts)
 }
 
-func copyTLSConfig(c *tls.Config) *tls.Config {
-	if c == nil {
-		return nil
-	}
-	return c.Clone()
-}
-
 // NewTLSConnectionWithTLSConfig allows you to specify a RootCA pool and also
 // a serverName (if wanted) via the full Go TLS config object.
 func NewTLSConnectionWithTLSConfig(
