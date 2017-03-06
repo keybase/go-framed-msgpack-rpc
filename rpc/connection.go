@@ -248,6 +248,11 @@ type Connection struct {
 // This struct contains all the connection parameters that are optional. The
 // mandatory parameters are given as positional arguments to the different
 // wrapper functions, along with this struct.
+//
+// The backoffs are functions that created backoff.BackOffs, rather
+// than backoff instances, since some backoffs can be stateful and not
+// goroutine-safe (e.g., backoff.Exponential).  Connection will call
+// these functions once for each command call and reconnect attempt.
 type ConnectionOpts struct {
 	TagsFunc         LogTagsFromContext
 	Protocols        []Protocol
