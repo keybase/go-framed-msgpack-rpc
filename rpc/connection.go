@@ -228,8 +228,8 @@ type Connection struct {
 	handler          ConnectionHandler
 	transport        ConnectionTransport
 	errorUnwrapper   ErrorUnwrapper
-	reconnectBackoff backoff.BackOff
-	doCommandBackoff backoff.BackOff
+	reconnectBackoff func() backoff.BackOff
+	doCommandBackoff func() backoff.BackOff
 	wef              WrapErrorFunc
 	tagsFunc         LogTagsFromContext
 	log              connectionLog
@@ -253,8 +253,8 @@ type ConnectionOpts struct {
 	Protocols        []Protocol
 	DontConnectNow   bool
 	WrapErrorFunc    WrapErrorFunc
-	ReconnectBackoff backoff.BackOff
-	CommandBackoff   backoff.BackOff
+	ReconnectBackoff func() backoff.BackOff
+	CommandBackoff   func() backoff.BackOff
 }
 
 // NewTLSConnection returns a connection that tries to connect to the
@@ -329,11 +329,11 @@ func newConnectionWithTransportAndProtocols(handler ConnectionHandler,
 	}
 	reconnectBackoff := opts.ReconnectBackoff
 	if reconnectBackoff == nil {
-		reconnectBackoff = defaultBackoff()
+		reconnectBackoff = defaultBackoff
 	}
 	commandBackoff := opts.CommandBackoff
 	if commandBackoff == nil {
-		commandBackoff = defaultBackoff()
+		commandBackoff = defaultBackoff
 	}
 	randBytes := make([]byte, 4)
 	rand.Read(randBytes)
@@ -427,7 +427,7 @@ func (c *Connection) DoCommand(ctx context.Context, name string,
 			}
 			rpcErr = throttleErr
 			return nil
-		}, c.doCommandBackoff, c.handler.OnDoCommandError)
+		}, c.doCommandBackoff(), c.handler.OnDoCommandError)
 
 		// RetryNotify gave up.
 		if throttleErr != nil {
@@ -530,7 +530,7 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 			return nil
 		}
 		return err
-	}, c.reconnectBackoff,
+	}, c.reconnectBackoff(),
 		// give the caller a chance to log any other error or adjust state
 		c.handler.OnConnectError)
 
