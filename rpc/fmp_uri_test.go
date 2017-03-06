@@ -1,6 +1,9 @@
 package rpc
 
-import "testing"
+import (
+	"net"
+	"testing"
+)
 
 type fmpURITest struct {
 	in  string
@@ -9,14 +12,16 @@ type fmpURITest struct {
 	tls bool
 }
 
+var addrErr = net.AddrError{Err: "missing port in address", Addr: "gregor.api.keybase.io"}
+
 var fmpURITests = []fmpURITest{
 	{in: "fmprpc://gregor.api.keybase.io:80", out: &FMPURI{Scheme: fmpSchemeStandard, HostPort: "gregor.api.keybase.io:80", Host: "gregor.api.keybase.io"}},
 	{in: "fmprpc+tls://gregor.api.keybase.io:443", out: &FMPURI{Scheme: fmpSchemeTLS, HostPort: "gregor.api.keybase.io:443", Host: "gregor.api.keybase.io"}, tls: true},
 	{in: "fmprpc+tls://gregor.api.keybase.io:80", out: &FMPURI{Scheme: fmpSchemeTLS, HostPort: "gregor.api.keybase.io:80", Host: "gregor.api.keybase.io"}, tls: true},
 	{in: "fmprpc://gregor.api.keybase.io:443", out: &FMPURI{Scheme: fmpSchemeStandard, HostPort: "gregor.api.keybase.io:443", Host: "gregor.api.keybase.io"}},
 	{in: "https://gregor.api.keybase.io:443", err: "invalid framed msgpack rpc scheme https"},
-	{in: "fmprpc://gregor.api.keybase.io", err: "missing port in address gregor.api.keybase.io"},
-	{in: "fmprpc+tls://gregor.api.keybase.io", err: "missing port in address gregor.api.keybase.io"},
+	{in: "fmprpc://gregor.api.keybase.io", err: addrErr.Error()},
+	{in: "fmprpc+tls://gregor.api.keybase.io", err: addrErr.Error()},
 	{in: "fmprpc+tls://:443", err: "missing host in address :443"},
 }
 
