@@ -286,8 +286,7 @@ func copyTLSConfig(c *tls.Config) *tls.Config {
 	if c == nil {
 		return nil
 	}
-	tmp := *c
-	return &tmp
+	return c.Clone()
 }
 
 // NewTLSConnectionWithTLSConfig allows you to specify a RootCA pool and also
