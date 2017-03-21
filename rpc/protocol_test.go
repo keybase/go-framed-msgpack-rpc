@@ -37,7 +37,7 @@ func prepClient(t *testing.T) (TestClient, net.Conn) {
 	require.Nil(t, err, "a dialer error occurred")
 
 	xp := NewTransport(c, nil, nil)
-	return TestClient{GenericClient: NewClient(xp, nil)}, c
+	return TestClient{GenericClient: NewClient(xp, nil, nil)}, c
 }
 
 func prepTest(t *testing.T) (TestClient, chan error, net.Conn) {
