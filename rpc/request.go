@@ -4,6 +4,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+const RpcNameTag = "msgpack-rpc-call-name"
+
 type request interface {
 	rpcMessage
 	CancelFunc() context.CancelFunc
@@ -30,6 +32,7 @@ type callRequest struct {
 
 func newCallRequest(rpc *rpcCallMessage, log LogInterface) *callRequest {
 	ctx, cancel := context.WithCancel(rpc.Context())
+	ctx = context.WithValue(ctx, RpcNameTag, rpc.Name())
 	return &callRequest{
 		rpcCallMessage: rpc,
 		requestImpl: requestImpl{
