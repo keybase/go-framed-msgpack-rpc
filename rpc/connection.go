@@ -485,7 +485,7 @@ func (c *Connection) waitForConnection(ctx context.Context) error {
 			defer c.mutex.Unlock()
 			if c.isConnectedLocked() {
 				// already connected
-				return nil, 0, nil, false
+				return nil, UsingExistingConnection, nil, false
 			}
 			// kick-off a connection and wait for it to complete
 			// or for the caller to cancel.
