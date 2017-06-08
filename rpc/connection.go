@@ -479,25 +479,24 @@ func (c *Connection) DoCommand(ctx context.Context, name string,
 
 // Blocks until a connnection is ready for use or the context is canceled.
 func (c *Connection) waitForConnection(ctx context.Context) error {
-	reconnectChan, reconnectErrPtr, wait :=
-		func() (chan struct{}, *error, bool) {
+	reconnectChan, disconnectStatus, reconnectErrPtr, wait :=
+		func() (chan struct{}, DisconnectStatus, *error, bool) {
 			c.mutex.Lock()
 			defer c.mutex.Unlock()
 			if c.isConnectedLocked() {
 				// already connected
-				return nil, nil, false
+				return nil, 0, nil, false
 			}
 			// kick-off a connection and wait for it to complete
 			// or for the caller to cancel.
 			reconnectChan, disconnectStatus, reconnectErrPtr :=
 				c.getReconnectChanLocked()
-			c.log.Debug(
-				"Connection: waitForConnection; status: %d", disconnectStatus)
-			return reconnectChan, reconnectErrPtr, true
+			return reconnectChan, disconnectStatus, reconnectErrPtr, true
 		}()
 	if !wait {
 		return nil
 	}
+	c.log.Debug("Connection: waitForConnection; status: %d", disconnectStatus)
 	select {
 	case <-ctx.Done():
 		// caller canceled
