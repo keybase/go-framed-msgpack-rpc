@@ -10,6 +10,9 @@ package resinit
 // https://github.com/keybase/keybase-issues/issues/3022.
 
 // #cgo LDFLAGS: -lresolv
+// #include<sys/types.h>
+// #include<netinet/in.h>
+// #include<arpa/nameser.h>
 // #include<resolv.h>
 import "C"
 
