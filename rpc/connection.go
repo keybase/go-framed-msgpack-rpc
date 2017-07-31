@@ -609,6 +609,9 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 			// A fatal error happened.
 			*reconnectErrPtr = err
 			// short-circuit Retry
+			if err != nil {
+				c.transport.Close()
+			}
 			return nil
 		}
 		return err
