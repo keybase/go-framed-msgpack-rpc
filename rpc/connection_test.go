@@ -99,6 +99,18 @@ func (ut *unitTester) Err() error {
 	return nil
 }
 
+func (ut *unitTester) WaitForDoneOrBust(t *testing.T,
+	timeout time.Duration, opName string) {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-ut.doneChan:
+		break
+	case <-timer.C:
+		t.Fatalf("%s timeout", opName)
+	}
+}
+
 // Test a basic reconnect flow.
 func TestReconnectBasic(t *testing.T) {
 	unitTester := &unitTester{
@@ -156,25 +168,14 @@ func TestForceReconnect(t *testing.T) {
 		testErrorUnwrapper{}, output, opts)
 
 	defer conn.Shutdown()
-	timeout := time.After(2 * time.Second)
-	select {
-	case <-unitTester.doneChan:
-		break
-	case <-timeout:
-		t.Fatalf("initial connect timeout")
-	}
+	unitTester.WaitForDoneOrBust(t, 2*time.Second, "initial connect")
 
+	forceReconnectErrCh := make(chan error)
 	go func() {
-		err := conn.ForceReconnect(context.Background())
-		require.NoError(t, err)
+		forceReconnectErrCh <- conn.ForceReconnect(context.Background())
 	}()
-
-	select {
-	case <-unitTester.doneChan:
-		break
-	case <-timeout:
-		t.Fatalf("reconnect timeout")
-	}
+	unitTester.WaitForDoneOrBust(t, 2*time.Second, "initial connect")
+	require.NoError(t, <-forceReconnectErrCh)
 }
 
 // Test when a user cancels a connection.
