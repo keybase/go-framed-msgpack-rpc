@@ -135,6 +135,48 @@ func TestReconnectBasic(t *testing.T) {
 	}
 }
 
+// Test a basic reconnect flow.
+func TestForceReconnect(t *testing.T) {
+	unitTester := &unitTester{
+		doneChan:   make(chan bool),
+		errToThrow: errors.New("intentional error to trigger reconnect"),
+	}
+	output := testLogOutput{t}
+	reconnectBackoffFn := func() backoff.BackOff {
+		reconnectBackoff := backoff.NewExponentialBackOff()
+		reconnectBackoff.InitialInterval = 5 * time.Millisecond
+		return reconnectBackoff
+	}
+	opts := ConnectionOpts{
+		WrapErrorFunc:    testWrapError,
+		TagsFunc:         testLogTags,
+		ReconnectBackoff: reconnectBackoffFn,
+	}
+	conn := NewConnectionWithTransport(unitTester, unitTester,
+		testErrorUnwrapper{}, output, opts)
+
+	defer conn.Shutdown()
+	timeout := time.After(2 * time.Second)
+	select {
+	case <-unitTester.doneChan:
+		break
+	case <-timeout:
+		t.Fatalf("initial connect timeout")
+	}
+
+	go func() {
+		err := conn.ForceReconnect(context.Background())
+		require.NoError(t, err)
+	}()
+
+	select {
+	case <-unitTester.doneChan:
+		break
+	case <-timeout:
+		t.Fatalf("reconnect timeout")
+	}
+}
+
 // Test when a user cancels a connection.
 func TestReconnectCanceled(t *testing.T) {
 	cancelErr := errCanceled
