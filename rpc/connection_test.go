@@ -99,6 +99,18 @@ func (ut *unitTester) Err() error {
 	return nil
 }
 
+func (ut *unitTester) WaitForDoneOrBust(t *testing.T,
+	timeout time.Duration, opName string) {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-ut.doneChan:
+		break
+	case <-timer.C:
+		t.Fatalf("%s timeout", opName)
+	}
+}
+
 // Test a basic reconnect flow.
 func TestReconnectBasic(t *testing.T) {
 	unitTester := &unitTester{
@@ -133,6 +145,37 @@ func TestReconnectBasic(t *testing.T) {
 	if err := unitTester.Err(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Test a basic reconnect flow.
+func TestForceReconnect(t *testing.T) {
+	unitTester := &unitTester{
+		doneChan:   make(chan bool),
+		errToThrow: errors.New("intentional error to trigger reconnect"),
+	}
+	output := testLogOutput{t}
+	reconnectBackoffFn := func() backoff.BackOff {
+		reconnectBackoff := backoff.NewExponentialBackOff()
+		reconnectBackoff.InitialInterval = 5 * time.Millisecond
+		return reconnectBackoff
+	}
+	opts := ConnectionOpts{
+		WrapErrorFunc:    testWrapError,
+		TagsFunc:         testLogTags,
+		ReconnectBackoff: reconnectBackoffFn,
+	}
+	conn := NewConnectionWithTransport(unitTester, unitTester,
+		testErrorUnwrapper{}, output, opts)
+
+	defer conn.Shutdown()
+	unitTester.WaitForDoneOrBust(t, 2*time.Second, "initial connect")
+
+	forceReconnectErrCh := make(chan error)
+	go func() {
+		forceReconnectErrCh <- conn.ForceReconnect(context.Background())
+	}()
+	unitTester.WaitForDoneOrBust(t, 2*time.Second, "initial connect")
+	require.NoError(t, <-forceReconnectErrCh)
 }
 
 // Test when a user cancels a connection.
