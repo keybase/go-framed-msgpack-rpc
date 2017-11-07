@@ -201,7 +201,7 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 			config = &tls.Config{ServerName: host}
 		}
 
-		ct.log.Debug("dialing %s", addr)
+		ct.log.Debug("Dialing %s", addr)
 		// connect
 		dialer := net.Dialer{
 			KeepAlive: 10 * time.Second,

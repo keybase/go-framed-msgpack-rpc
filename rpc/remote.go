@@ -15,7 +15,7 @@ import (
 type Remote interface {
 	// GetAddress gets an address of the Remote to connect to.
 	GetAddress() string
-	// Peek returns an address of the Remote to connect to without chaning the
+	// Peek returns an address of the Remote to connect to without changing the
 	// internal state. The returned address is what GetAddress() would return
 	// if called.
 	Peek() string
@@ -62,12 +62,12 @@ type prioritizedRoundRobinRemote struct {
 // NewPrioritizedRoundRobinRemote creates a new Remote that include
 // prioritized remote groups. Each call to GetAddress() will round-robin by
 // random order within the first group. If we run out of address within the
-// first group, fallback to second group and do the samething, until we've
+// first group, fallback to second group and do the same thing, until we've
 // iterated all groups where we'll start over from first group.
 //
 // Any successful connecting attempt should result in a call to Reset(). This
-// is generatlly handled by the rpc package itself and shouldn't be worried by
-// the user of rpc package unless noted otherwise.
+// is generally handled by the rpc package itself and shouldn't be worried
+// about by the user of rpc package unless noted otherwise.
 func NewPrioritizedRoundRobinRemote(addressGroups [][]string) (Remote, error) {
 	// filter out empty ones
 	cleaned := make([][]string, 0, len(addressGroups))
@@ -117,7 +117,9 @@ func (r *prioritizedRoundRobinRemote) Reset() {
 // GetAddress implements the Remote interface.
 func (r *prioritizedRoundRobinRemote) GetAddress() string {
 	r.lock.Lock()
-	defer r.lock.Unlock() // If we have run out of addresses, reset to include all addresses and
+	defer r.lock.Unlock()
+
+	// If we have run out of addresses, reset to include all addresses and
 	// start over on next call.
 	if len(r.toIterate) == 0 {
 		r.resetLocked()
