@@ -169,6 +169,11 @@ type ConnectionTransportTLS struct {
 // Test that ConnectionTransportTLS fully implements the ConnectionTransport interface.
 var _ ConnectionTransport = (*ConnectionTransportTLS)(nil)
 
+const (
+	dialerTimeout = 10 * time.Second
+	keepAlive     = 10 * time.Second
+)
+
 // Dial is an implementation of the ConnectionTransport interface.
 func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	Transporter, error) {
@@ -204,7 +209,8 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 		ct.log.Info("Dialing %s", addr)
 		// connect
 		dialer := net.Dialer{
-			KeepAlive: 10 * time.Second,
+			Timeout:   dialerTimeout,
+			KeepAlive: keepAlive,
 		}
 		baseConn, err := dialer.Dial("tcp", addr)
 		if err != nil {
