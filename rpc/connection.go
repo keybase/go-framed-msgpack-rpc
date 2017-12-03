@@ -161,6 +161,7 @@ type ConnectionTransportTLS struct {
 	transport       Transporter
 	stagedTransport Transporter
 	conn            net.Conn
+	dialerTimeout   time.Duration
 	logFactory      LogFactory
 	wef             WrapErrorFunc
 	log             connectionLog
@@ -169,10 +170,7 @@ type ConnectionTransportTLS struct {
 // Test that ConnectionTransportTLS fully implements the ConnectionTransport interface.
 var _ ConnectionTransport = (*ConnectionTransportTLS)(nil)
 
-const (
-	dialerTimeout = 10 * time.Second
-	keepAlive     = 10 * time.Second
-)
+const keepAlive = 10 * time.Second
 
 // Dial is an implementation of the ConnectionTransport interface.
 func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
@@ -209,7 +207,7 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 		ct.log.Info("Dialing %s", addr)
 		// connect
 		dialer := net.Dialer{
-			Timeout:   dialerTimeout,
+			Timeout:   ct.dialerTimeout,
 			KeepAlive: keepAlive,
 		}
 		baseConn, err := dialer.Dial("tcp", addr)
@@ -337,6 +335,9 @@ type ConnectionOpts struct {
 	// before reconnecting. The random backoff timer is fast-forward-able by
 	// passing in a WithFireNow(ctx) into a RPC call.
 	InitialReconnectBackoffWindow time.Duration
+	// DialerTimeout is the Timeout used in net.Dialer when initiating new
+	// connections.
+	DialerTimeout time.Duration
 }
 
 // NewTLSConnection returns a connection that tries to connect to the
@@ -375,10 +376,11 @@ func NewTLSConnectionWithTLSConfig(
 	opts ConnectionOpts,
 ) *Connection {
 	transport := &ConnectionTransportTLS{
-		srvRemote:  srvRemote,
-		tlsConfig:  copyTLSConfig(tlsConfig),
-		logFactory: logFactory,
-		wef:        opts.WrapErrorFunc,
+		srvRemote:     srvRemote,
+		tlsConfig:     copyTLSConfig(tlsConfig),
+		logFactory:    logFactory,
+		wef:           opts.WrapErrorFunc,
+		dialerTimeout: opts.DialerTimeout,
 		log: connectionLog{
 			LogOutput: logOutput,
 			logPrefix: "CONNTSPT",
