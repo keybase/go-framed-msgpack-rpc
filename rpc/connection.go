@@ -338,7 +338,8 @@ type ConnectionOpts struct {
 	// passing in a WithFireNow(ctx) into a RPC call.
 	InitialReconnectBackoffWindow time.Duration
 	// DialerTimeout is the Timeout used in net.Dialer when initiating new
-	// connections.
+	// connections. Zero value is passed as-is to net.Dialer, which means no
+	// timeout. Note that OS may impose its own timeout.
 	DialerTimeout time.Duration
 }
 
