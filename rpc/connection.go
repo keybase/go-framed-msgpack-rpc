@@ -223,10 +223,12 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 			resinit.ResInitIfDNSError(err)
 			return err
 		}
+		ct.log.Info("baseConn: %s; Calling Handshake", baseConn.LocalAddr())
 		conn = tls.Client(baseConn, config)
 		if err := conn.(*tls.Conn).Handshake(); err != nil {
 			return err
 		}
+		ct.log.Info("Handshaken")
 
 		// Disable SIGPIPE on platforms that require it (Darwin). See sigpipe_bsd.go.
 		return DisableSigPipe(baseConn)
