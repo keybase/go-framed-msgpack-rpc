@@ -4,11 +4,14 @@
 package rpc
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"runtime"
+	"strings"
 )
+
+const msgKey string = "msg"
 
 type logField struct {
 	key   string
@@ -22,12 +25,12 @@ func (f logField) Format(s fmt.State, verb rune) {
 }
 
 // connectionLog defines an interface used by connection.go for logging. An
-// implementation typically only uses either of `msg` and `format` field,
-// depending on if the logger is structured or not.
+// implementation that does structural logging may ignore `format` completely
+// if `msgKey` is provided in logField.
 type connectionLog interface {
-	Warning(msg string, format string, fields ...logField)
-	Debug(msg string, format string, fields ...logField)
-	Info(msg string, format string, fields ...logField)
+	Warning(format string, fields ...logField)
+	Debug(format string, fields ...logField)
+	Info(format string, fields ...logField)
 }
 
 type connectionLogUnstructured struct {
@@ -35,7 +38,18 @@ type connectionLogUnstructured struct {
 	logPrefix string
 }
 
-func (l *connectionLogUnstructured) format(f string, lf ...logField) string {
+func newConnectionLogUnstructured(
+	logOutput LogOutput, prefix string) *connectionLogUnstructured {
+	randBytes := make([]byte, 4)
+	rand.Read(randBytes)
+	return &connectionLogUnstructured{
+		LogOutput: logOutput,
+		logPrefix: strings.Join(
+			[]string{prefix, hex.EncodeToString(randBytes)}, " "),
+	}
+}
+
+func formatLogFields(f string, lf ...logField) string {
 	fields := make([]interface{}, 0, len(lf))
 	for _, lf := range lf {
 		fields = append(fields, lf)
@@ -44,18 +58,21 @@ func (l *connectionLogUnstructured) format(f string, lf ...logField) string {
 }
 
 func (l *connectionLogUnstructured) Warning(
-	msg string, format string, fields ...logField) {
-	l.LogOutput.Warning("(%s) %s", l.logPrefix, l.format(format, fields...))
+	format string, fields ...logField) {
+	l.LogOutput.Warning("(%s) %s", l.logPrefix,
+		formatLogFields(format, fields...))
 }
 
 func (l *connectionLogUnstructured) Debug(
-	msg string, format string, fields ...logField) {
-	l.LogOutput.Debug("(%s) %s", l.logPrefix, l.format(format, fields...))
+	format string, fields ...logField) {
+	l.LogOutput.Debug("(%s) %s", l.logPrefix,
+		formatLogFields(format, fields...))
 }
 
 func (l *connectionLogUnstructured) Info(
-	msg string, format string, fields ...logField) {
-	l.LogOutput.Info("(%s) %s", l.logPrefix, l.format(format, fields...))
+	format string, fields ...logField) {
+	l.LogOutput.Info("(%s) %s", l.logPrefix,
+		formatLogFields(format, fields...))
 }
 
 // LogrusEntry and LogrusLogger define methods we need from logrus to avoid
@@ -66,7 +83,7 @@ type LogrusEntry interface {
 	Warning(args ...interface{})
 }
 
-// LogrusLogger maps to *logrus.Logger, but will need an adapter that convers
+// LogrusLogger maps to *logrus.Logger, but will need an adapter that converts
 // map[string]interface{} to logrus.Fields, and adapt logrus.Entry to
 // LogrusEntry.
 type LogrusLogger interface {
@@ -76,7 +93,8 @@ type LogrusLogger interface {
 type connectionLogLogrus struct {
 	log LogrusLogger
 
-	section string
+	section   string
+	randBytes string
 }
 
 func newConnectionLogLogrus(
@@ -84,12 +102,14 @@ func newConnectionLogLogrus(
 	randBytes := make([]byte, 4)
 	rand.Read(randBytes)
 	return &connectionLogLogrus{
-		log:     log,
-		section: section + "-" + hex.EncodeToString(randBytes),
+		log:       log,
+		section:   section,
+		randBytes: hex.EncodeToString(randBytes),
 	}
 }
 
-func (l *connectionLogLogrus) logSkip(fields ...logField) LogrusEntry {
+func (l *connectionLogLogrus) getLogEntryAndExtractMsg(
+	format string, fields []logField) (entry LogrusEntry, msg string) {
 	_, file, line, ok := runtime.Caller(2)
 	if !ok {
 		file, line = "unknown", -1
@@ -99,25 +119,35 @@ func (l *connectionLogLogrus) logSkip(fields ...logField) LogrusEntry {
 		mFields[f.key] = f.value
 	}
 	mFields["section"] = l.section
+	mFields["identifier"] = l.randBytes
 	mFields["file"], mFields["line"] = file, line
-	return l.log.WithFields(mFields)
+
+	if msgI, ok := mFields[msgKey]; ok { // msgKey is present.
+		// Try to cast it to a `string` and use it as msg. If cast fails, just
+		// use "%v" of it as msg.
+		if msg, ok = msgI.(string); !ok {
+			msg = fmt.Sprintf("%v", msgI)
+		}
+	} else {
+		// msgKey isn't present in fields, so just use "<empty>" to help make it
+		// indexable.
+		msg = "<empty>"
+	}
+
+	return l.log.WithFields(mFields), msg
 }
 
-func (l *connectionLogLogrus) Warning(
-	msg string, format string, fields ...logField) {
-	l.logSkip(fields...).Warning(msg)
+func (l *connectionLogLogrus) Warning(format string, fields ...logField) {
+	e, msg := l.getLogEntryAndExtractMsg(format, fields)
+	e.Warning(msg)
 }
 
-func (l *connectionLogLogrus) Debug(
-	msg string, format string, fields ...logField) {
-	// Nasty hack to lift Debug to Info: we can't just do Info everywhere in
-	// this package since they'll leak to CLI in keybase/client. We also can't
-	// just turn on Debug logging on server-side. Since logrus loggers are only
-	// used by server side, we simply override Debug with Info here.
-	l.logSkip(fields...).Info(msg)
+func (l *connectionLogLogrus) Info(format string, fields ...logField) {
+	e, msg := l.getLogEntryAndExtractMsg(format, fields)
+	e.Info(msg)
 }
 
-func (l *connectionLogLogrus) Info(
-	msg string, format string, fields ...logField) {
-	l.logSkip(fields...).Info(msg)
+func (l *connectionLogLogrus) Debug(format string, fields ...logField) {
+	e, msg := l.getLogEntryAndExtractMsg(format, fields)
+	e.Debug(msg)
 }
