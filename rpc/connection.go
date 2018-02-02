@@ -202,7 +202,7 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 			config = &tls.Config{ServerName: host}
 		}
 
-		ct.log.Info("%s %s",
+		ct.log.Debug("%s %s",
 			logField{key: msgKey, value: "Dialing"},
 			logField{key: "remote-addr", value: addr})
 		// connect
@@ -223,14 +223,14 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 			resinit.ResInitIfDNSError(err)
 			return err
 		}
-		ct.log.Info("baseConn: %s; Calling %s",
+		ct.log.Debug("baseConn: %s; Calling %s",
 			logField{key: "local-addr", value: baseConn.LocalAddr()},
 			logField{key: msgKey, value: "Handshake"})
 		conn = tls.Client(baseConn, config)
 		if err := conn.(*tls.Conn).Handshake(); err != nil {
 			return err
 		}
-		ct.log.Info("%s", logField{key: msgKey, value: "Handshaken"})
+		ct.log.Debug("%s", logField{key: msgKey, value: "Handshaken"})
 
 		// Disable SIGPIPE on platforms that require it (Darwin). See sigpipe_bsd.go.
 		return DisableSigPipe(baseConn)
@@ -461,7 +461,7 @@ func newConnectionWithTransportAndProtocols(handler ConnectionHandler,
 
 // connect performs the actual connect() and rpc setup.
 func (c *Connection) connect(ctx context.Context) error {
-	c.log.Info("Connection: %s",
+	c.log.Debug("Connection: %s",
 		logField{key: msgKey, value: "dialing transport"})
 
 	// connect
@@ -498,7 +498,7 @@ func (c *Connection) connect(ctx context.Context) error {
 	c.server = server
 	c.transport.Finalize()
 
-	c.log.Info("Connection: %s", logField{key: msgKey, value: "connected"})
+	c.log.Debug("Connection: %s", logField{key: msgKey, value: "connected"})
 	return nil
 }
 
@@ -568,7 +568,7 @@ func (c *Connection) waitForConnection(
 	if !wait {
 		return nil
 	}
-	c.log.Info("Connection: %s; status: %d",
+	c.log.Debug("Connection: %s; status: %d",
 		logField{key: msgKey, value: "waitForConnection"},
 		logField{key: "disconnectStatus", value: disconnectStatus})
 	select {
@@ -611,7 +611,7 @@ func (c *Connection) IsConnected() bool {
 func (c *Connection) getReconnectChanLocked() (
 	reconnectChan chan struct{}, disconnectStatus DisconnectStatus,
 	reconnectErrPtr *error) {
-	c.log.Info("Connection: %s",
+	c.log.Debug("Connection: %s",
 		logField{key: msgKey, value: "getReconnectChan"})
 	if c.reconnectChan == nil {
 		var ctx context.Context
@@ -650,11 +650,11 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 	if c.initialReconnectBackoffWindow != nil &&
 		disconnectStatus == StartingNonFirstConnection {
 		waitDur := c.randomTimer.Start(c.initialReconnectBackoffWindow())
-		c.log.Info("starting random %s: %s",
+		c.log.Debug("starting random %s: %s",
 			logField{key: msgKey, value: "backoff"},
 			logField{key: "duration", value: waitDur})
 		c.randomTimer.Wait()
-		c.log.Info("%s!", logField{key: msgKey, value: "backoff done"})
+		c.log.Debug("%s!", logField{key: msgKey, value: "backoff done"})
 	}
 	err := backoff.RetryNotify(func() error {
 		// try to connect
