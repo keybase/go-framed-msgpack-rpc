@@ -71,8 +71,8 @@ type transport struct {
 	protocols  *protocolHandler
 	calls      *callContainer
 	log        LogInterface
-	closeOnce  *sync.Once
-	startOnce  *sync.Once
+	closeOnce  sync.Once
+	startOnce  sync.Once
 	stopCh     chan struct{}
 
 	// Filled in right before stopCh is closed.
@@ -89,8 +89,6 @@ func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
 	ret := &transport{
 		cdec:      cdec,
 		log:       log,
-		closeOnce: &sync.Once{},
-		startOnce: &sync.Once{},
 		stopCh:    make(chan struct{}),
 		protocols: newProtocolHandler(wef),
 		calls:     newCallContainer(),
