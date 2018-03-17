@@ -15,6 +15,10 @@ type Client struct {
 	tagsFunc       LogTagsFromContext
 }
 
+type SeqNumberReceiver interface {
+	SetSeqNumber(s SeqNumber)
+}
+
 // NewClient constructs a new client from the given RPC Transporter and the
 // ErrorUnwrapper.
 func NewClient(xp Transporter, u ErrorUnwrapper,

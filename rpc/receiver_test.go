@@ -35,7 +35,7 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 	return r, errCh
 }
 
-func makeCall(seq seqNumber, name string, arg interface{}) *rpcCallMessage {
+func makeCall(seq SeqNumber, name string, arg interface{}) *rpcCallMessage {
 	return &rpcCallMessage{
 		seqno: seq,
 		name:  name,

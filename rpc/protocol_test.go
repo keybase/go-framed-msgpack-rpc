@@ -18,7 +18,7 @@ type longCallResult struct {
 	err error
 }
 
-func prepServer(listener chan error) error {
+func prepServer(listener chan error) (*server, error) {
 	server := &server{port: testPort}
 
 	serverReady := make(chan struct{})
@@ -29,7 +29,7 @@ func prepServer(listener chan error) error {
 	<-serverReady
 	// TODO: Fix the race here -- when serverReady is closed by
 	// server.Run, err is in an indeterminate state.
-	return err
+	return server, err
 }
 
 func prepClient(t *testing.T) (TestClient, net.Conn) {
@@ -40,11 +40,11 @@ func prepClient(t *testing.T) (TestClient, net.Conn) {
 	return TestClient{GenericClient: NewClient(xp, nil, nil)}, c
 }
 
-func prepTest(t *testing.T) (TestClient, chan error, net.Conn) {
+func prepTest(t *testing.T) (TestClient, chan error, net.Conn, *server) {
 	listener := make(chan error)
-	prepServer(listener)
+	srv, _ := prepServer(listener)
 	cli, conn := prepClient(t)
-	return cli, listener, conn
+	return cli, listener, conn, srv
 }
 
 func endTest(t *testing.T, c net.Conn, listener chan error) {
@@ -54,19 +54,23 @@ func endTest(t *testing.T, c net.Conn, listener chan error) {
 }
 
 func TestCall(t *testing.T) {
-	cli, listener, conn := prepTest(t)
+	cli, listener, conn, server := prepTest(t)
 	defer endTest(t, conn, listener)
 
 	B := 34
+	i := 0
 	for A := 10; A < 23; A += 2 {
 		res, err := cli.Add(context.Background(), AddArgs{A: A, B: B})
 		require.Nil(t, err, "an error occurred while adding parameters")
-		require.Equal(t, A+B, res, "Result should be the two parameters added together")
+		require.Equal(t, A+B, res.I, "Result should be the two parameters added together")
+		require.Equal(t, res.seqno, SeqNumber(i), "seqno is coming back through reflection interface")
+		require.Equal(t, res.seqno, server.prot.lastSeqNumber, "server had the right seqno too")
+		i++
 	}
 }
 
 func TestBrokenCall(t *testing.T) {
-	cli, listener, conn := prepTest(t)
+	cli, listener, conn, _ := prepTest(t)
 	defer endTest(t, conn, listener)
 
 	err := cli.BrokenMethod()
@@ -77,7 +81,7 @@ func TestBrokenCall(t *testing.T) {
 }
 
 func TestNotify(t *testing.T) {
-	cli, listener, conn := prepTest(t)
+	cli, listener, conn, _ := prepTest(t)
 	defer endTest(t, conn, listener)
 
 	pi := 31415
@@ -91,7 +95,7 @@ func TestNotify(t *testing.T) {
 }
 
 func TestLongCall(t *testing.T) {
-	cli, listener, conn := prepTest(t)
+	cli, listener, conn, _ := prepTest(t)
 	defer endTest(t, conn, listener)
 
 	longResult, err := cli.LongCall(context.Background())
@@ -100,7 +104,7 @@ func TestLongCall(t *testing.T) {
 }
 
 func TestLongCallCancel(t *testing.T) {
-	cli, listener, conn := prepTest(t)
+	cli, listener, conn, _ := prepTest(t)
 	defer endTest(t, conn, listener)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -135,7 +139,7 @@ func TestLongCallCancel(t *testing.T) {
 }
 
 func TestClosedConnection(t *testing.T) {
-	cli, listener, conn := prepTest(t)
+	cli, listener, conn, _ := prepTest(t)
 	defer endTest(t, conn, listener)
 
 	resultCh := make(chan longCallResult)

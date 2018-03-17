@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"golang.org/x/net/context"
+	"reflect"
 )
 
 type request interface {
@@ -67,10 +68,52 @@ func (r *callRequest) Reply(enc encoder, res interface{}, errArg interface{}) (e
 	return err
 }
 
+func (r *callRequest) passSeqNumber(arg interface{}) {
+
+	// Recall that if the RPC takes an argument of type Foo,
+	// we'll have arg of type *[]Foo, but expressed as an interface{}
+	// So we need to access (*arg)[0] via type reflection magic.
+
+	// Nothing to do if our argument is `nil`
+	if arg == nil {
+		return
+	}
+
+	// Convert from an interface{} to a reflect.Value
+	v := reflect.ValueOf(arg)
+	if v.IsNil() {
+		return
+	}
+
+	// Take *arg to get an Array or Slice.
+	v = reflect.Indirect(v)
+	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
+		return
+	}
+
+	// If the Slice (or Array) has less than 1 element, then no reason to go further.
+	if v.Len() < 1 {
+		return
+	}
+
+	// Take the 0th element of the array, then take a pointer to that value,
+	// and the convert to an interface.
+	tmp := v.Index(0).Addr().Interface()
+
+	// Now we can check (*arg)[0] to see if it's of type SeqNumberReceiver.
+	// If so, then we send it the sequence number of the current RPC.
+	snr, ok := (tmp).(SeqNumberReceiver)
+	if !ok {
+		return
+	}
+	snr.SetSeqNumber(r.SeqNo())
+}
+
 func (r *callRequest) Serve(transmitter encoder, handler *ServeHandlerDescription, wrapErrorFunc WrapErrorFunc) {
 
 	prof := r.log.StartProfiler("serve %s", r.Name())
 	arg := r.Arg()
+	r.passSeqNumber(arg)
 
 	r.LogInvocation(nil)
 	res, err := handler.Handler(r.ctx, arg)

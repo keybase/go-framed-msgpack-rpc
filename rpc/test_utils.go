@@ -12,6 +12,7 @@ import (
 
 type server struct {
 	port int
+	prot *testProtocol
 }
 
 func (s *server) Run(ready chan struct{}, externalListener chan error) (err error) {
@@ -31,7 +32,8 @@ func (s *server) Run(ready chan struct{}, externalListener chan error) (err erro
 		}
 		xp := NewTransport(c, lf, nil)
 		srv := NewServer(xp, nil)
-		srv.Register(createTestProtocol(newTestProtocol(c)))
+		s.prot = newTestProtocol(c)
+		srv.Register(createTestProtocol(s.prot))
 		done := srv.Run()
 		go func() {
 			<-done
@@ -46,6 +48,7 @@ type testProtocol struct {
 	longCallResult int
 	debugTags      CtxRpcTags
 	notifyCh       chan struct{}
+	lastSeqNumber      SeqNumber
 }
 
 func newTestProtocol(c net.Conn) *testProtocol {
@@ -57,8 +60,9 @@ func newTestProtocol(c net.Conn) *testProtocol {
 	}
 }
 
-func (a *testProtocol) Add(args *AddArgs) (ret int, err error) {
-	ret = args.A + args.B
+func (a *testProtocol) Add(_ context.Context, args AddArgs) (ret AddRes, err error) {
+	ret.I = args.A + args.B
+	a.lastSeqNumber = args.seqno
 	return
 }
 
@@ -108,6 +112,20 @@ func (a *testProtocol) LongCallDebugTags(ctx context.Context) (CtxRpcTags, error
 type AddArgs struct {
 	A int
 	B int
+	seqno SeqNumber
+}
+
+func (a *AddArgs) SetSeqNumber(s SeqNumber) {
+	a.seqno = s
+}
+
+type AddRes struct {
+	I int
+	seqno SeqNumber
+}
+
+func (a *AddRes) SetSeqNumber(s SeqNumber) {
+	a.seqno = s
 }
 
 type Constants struct {
@@ -115,7 +133,7 @@ type Constants struct {
 }
 
 type TestInterface interface {
-	Add(*AddArgs) (int, error)
+	Add(context.Context, AddArgs) (AddRes, error)
 	UpdateConstants(*Constants) error
 	GetConstants() (*Constants, error)
 	LongCall(context.Context) (int, error)
@@ -129,14 +147,15 @@ func createTestProtocol(i TestInterface) Protocol {
 		Methods: map[string]ServeHandlerDescription{
 			"add": {
 				MakeArg: func() interface{} {
-					return new(AddArgs)
+					ret := make([]AddArgs, 1)
+					return &ret
 				},
-				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
-					addArgs, ok := args.(*AddArgs)
+				Handler: func(ctx context.Context, args interface{}) (interface{}, error) {
+					typedArgs, ok := args.(*[]AddArgs)
 					if !ok {
-						return nil, NewTypeError((*AddArgs)(nil), args)
+						return nil, NewTypeError((*[]AddArgs)(nil), args)
 					}
-					return i.Add(addArgs)
+					return i.Add(ctx, (*typedArgs)[0])
 				},
 				MethodType: MethodCall,
 			},
@@ -204,8 +223,8 @@ type TestClient struct {
 	GenericClient
 }
 
-func (a TestClient) Add(ctx context.Context, arg AddArgs) (ret int, err error) {
-	err = a.Call(ctx, "test.1.testp.add", arg, &ret)
+func (a TestClient) Add(ctx context.Context, __arg AddArgs) (ret AddRes, err error) {
+	err = a.Call(ctx, "test.1.testp.add", []interface{}{__arg}, &ret)
 	return
 }
 
