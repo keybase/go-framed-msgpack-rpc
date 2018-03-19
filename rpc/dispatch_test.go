@@ -19,7 +19,7 @@ func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher,
 	d := newDispatch(dispatchOut, calls, logFactory.NewLog(nil))
 
 	done := runInBg(func() error {
-		return d.Call(ctx, "abc.hello", new(interface{}), new(interface{}), nil)
+		return d.Call(ctx, "abc.hello", new(interface{}), new(interface{}), nil, nil)
 	})
 
 	// Necessary to ensure the call is far enough along to
@@ -114,7 +114,7 @@ func TestDispatchCallAfterClose(t *testing.T) {
 	d.Close()
 
 	done = runInBg(func() error {
-		return d.Call(context.Background(), "whatever", new(interface{}), new(interface{}), nil)
+		return d.Call(context.Background(), "whatever", new(interface{}), new(interface{}), nil, nil)
 	})
 	err = <-done
 	require.Equal(t, io.EOF, err)
@@ -131,7 +131,7 @@ func TestDispatchCancelEndToEnd(t *testing.T) {
 
 	ch := make(chan error)
 	go func() {
-		err := d.Call(ctx1, "abc.hello", nil, new(interface{}), nil)
+		err := d.Call(ctx1, "abc.hello", nil, new(interface{}), nil, nil)
 		ch <- err
 	}()
 
