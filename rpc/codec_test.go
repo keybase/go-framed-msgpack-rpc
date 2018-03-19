@@ -5,8 +5,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/keybase/go-codec/codec"
+	"github.com/stretchr/testify/require"
 )
 
 // This test determines the behavior of codec with respect to advancing the
