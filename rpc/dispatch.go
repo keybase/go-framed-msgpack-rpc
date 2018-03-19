@@ -93,7 +93,7 @@ func (d *dispatch) Notify(ctx context.Context, name string, arg interface{}, sen
 	if len(rpcTags) > 0 {
 		v = append(v, rpcTags)
 	}
-	errCh := d.writer.EncodeAndWrite(ctx, v, currySendNotifier(sendNotifier, SeqNumber(0)))
+	errCh := d.writer.EncodeAndWrite(ctx, v, currySendNotifier(sendNotifier, SeqNumber(-1)))
 	select {
 	case err := <-errCh:
 		if err == nil {
