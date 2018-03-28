@@ -266,7 +266,7 @@ func (r rpcCancelMessage) Err() error {
 	return r.err
 }
 
-func decodeRPC(l int, d decoder, p *protocolHandler, cc *callContainer) (rpcMessage, error) {
+func decodeRPC(l int, d *decoderWrapper, p *protocolHandler, cc *callContainer) (rpcMessage, error) {
 	typ := MethodInvalid
 	if err := d.Decode(&typ); err != nil {
 		return nil, newRPCDecodeError(typ, "", l, err)
