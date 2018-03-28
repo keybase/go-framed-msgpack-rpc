@@ -24,7 +24,7 @@ func newPacketHandler(reader io.Reader, protocols *protocolHandler, calls *callC
 	return &packetHandler{
 		lengthDecoder: codec.NewDecoder(reader, newCodecMsgpackHandle()),
 		reader:        reader,
-		fieldDecoder:  newDecoderWrapper(),
+		fieldDecoder:  newFieldDecoder(),
 		protocols:     protocols,
 		calls:         calls,
 	}

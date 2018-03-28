@@ -17,7 +17,7 @@ type fieldDecoder struct {
 	fieldNumber int
 }
 
-func newDecoderWrapper() *fieldDecoder {
+func newFieldDecoder() *fieldDecoder {
 	return &fieldDecoder{
 		Decoder:     codec.NewDecoderBytes([]byte{}, newCodecMsgpackHandle()),
 		fieldNumber: 0,
