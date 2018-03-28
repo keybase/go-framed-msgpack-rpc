@@ -13,20 +13,20 @@ type packetizer interface {
 }
 
 type packetHandler struct {
-	dec          *codec.Decoder
-	reader       io.Reader
-	fieldDecoder *fieldDecoder
-	protocols    *protocolHandler
-	calls        *callContainer
+	lengthDecoder *codec.Decoder
+	reader        io.Reader
+	fieldDecoder  *fieldDecoder
+	protocols     *protocolHandler
+	calls         *callContainer
 }
 
 func newPacketHandler(reader io.Reader, protocols *protocolHandler, calls *callContainer) *packetHandler {
 	return &packetHandler{
-		reader:       reader,
-		dec:          codec.NewDecoder(reader, newCodecMsgpackHandle()),
-		fieldDecoder: newDecoderWrapper(),
-		protocols:    protocols,
-		calls:        calls,
+		lengthDecoder: codec.NewDecoder(reader, newCodecMsgpackHandle()),
+		reader:        reader,
+		fieldDecoder:  newDecoderWrapper(),
+		protocols:     protocols,
+		calls:         calls,
 	}
 }
 
@@ -58,7 +58,7 @@ func (p *packetHandler) NextFrame() (rpcMessage, error) {
 func (p *packetHandler) loadNextFrame() ([]byte, error) {
 	// Get the packet length
 	var l int
-	if err := p.dec.Decode(&l); err != nil {
+	if err := p.lengthDecoder.Decode(&l); err != nil {
 		if _, ok := err.(*net.OpError); ok {
 			// If the connection is reset or has been closed on this side,
 			// return EOF
