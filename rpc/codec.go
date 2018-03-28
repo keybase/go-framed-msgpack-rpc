@@ -13,13 +13,13 @@ type encoder interface {
 }
 
 type fieldDecoder struct {
-	*codec.Decoder
+	d           *codec.Decoder
 	fieldNumber int
 }
 
 func newFieldDecoder() *fieldDecoder {
 	return &fieldDecoder{
-		Decoder:     codec.NewDecoderBytes([]byte{}, newCodecMsgpackHandle()),
+		d:           codec.NewDecoderBytes([]byte{}, newCodecMsgpackHandle()),
 		fieldNumber: 0,
 	}
 }
@@ -29,7 +29,7 @@ func (dw *fieldDecoder) Decode(i interface{}) error {
 		dw.fieldNumber++
 	}()
 
-	err := dw.Decoder.Decode(i)
+	err := dw.d.Decode(i)
 	if err != nil {
 		return newRPCMessageFieldDecodeError(dw.fieldNumber, err)
 	}
@@ -38,7 +38,7 @@ func (dw *fieldDecoder) Decode(i interface{}) error {
 
 func (dw *fieldDecoder) ResetBytes(b []byte) {
 	dw.fieldNumber = 0
-	dw.Decoder.ResetBytes(b)
+	dw.d.ResetBytes(b)
 }
 
 func newCodecMsgpackHandle() codec.Handle {
