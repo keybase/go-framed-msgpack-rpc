@@ -27,29 +27,40 @@ func createPacketizerTestProtocol() *protocolHandler {
 	return p
 }
 
-func runPacketizerTest(t *testing.T, v []interface{}) (rpcMessage, error) {
+func TestPacketizerDecodeInvalidFrames(t *testing.T) {
+	// Encode a mix of valid and invalid frames.
+	v1 := []interface{}{MethodCall, 1, "abc.hello", new(interface{})}
+	iv1 := "some string"
+	iv2 := 53
+	v2 := []interface{}{MethodCall, 2, "abc.hello", new(interface{})}
+	iv3 := false
+	v3 := []interface{}{MethodCall, 3, "abc.hello", new(interface{})}
+	iv4 := []interface{}{"some string"}
+
+	frames := []interface{}{v1, iv1, iv2, v2, iv3, v3, iv4}
+
 	var buf bytes.Buffer
 	enc := newFramedMsgpackEncoder(&buf)
+	ctx := context.Background()
+	for _, frame := range frames {
+		err := <-enc.EncodeAndWrite(ctx, frame, nil)
+		require.NoError(t, err)
+	}
+
 	cc := newCallContainer()
-	c := cc.NewCall(context.Background(), "foo.bar", new(interface{}), new(string), nil)
+	c := cc.NewCall(ctx, "foo.bar", new(interface{}), new(string), nil)
 	cc.AddCall(c)
 	pkt := newPacketHandler(&buf, createPacketizerTestProtocol(), cc)
 
-	err := <-enc.EncodeAndWrite(c.ctx, v, nil)
-	require.Nil(t, err, "expected encoding to succeed")
-
-	return pkt.NextFrame()
-}
-
-func TestPacketizerDecodeValid(t *testing.T) {
-	v := []interface{}{MethodCall, 999, "abc.hello", new(interface{})}
-
-	rpc, err := runPacketizerTest(t, v)
+	f1, err := pkt.NextFrame()
 	require.NoError(t, err)
-	c, ok := rpc.(*rpcCallMessage)
-	require.True(t, ok)
-	require.Equal(t, MethodCall, c.Type())
-	require.Equal(t, SeqNumber(999), c.SeqNo())
-	require.Equal(t, "abc.hello", c.Name())
-	require.Equal(t, nil, c.Arg())
+	require.Equal(t, &rpcCallMessage{
+		seqno: 1,
+		name:  "abc.hello",
+		arg:   *new(interface{}),
+	}, f1)
+
+	f2, err := pkt.NextFrame()
+	require.NoError(t, err)
+	require.Equal(t, f2, iv1)
 }
