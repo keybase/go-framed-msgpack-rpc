@@ -15,7 +15,7 @@ type packetizer interface {
 type packetHandler struct {
 	dec          *codec.Decoder
 	reader       io.Reader
-	frameDecoder *decoderWrapper
+	fieldDecoder *fieldDecoder
 	protocols    *protocolHandler
 	calls        *callContainer
 }
@@ -24,7 +24,7 @@ func newPacketHandler(reader io.Reader, protocols *protocolHandler, calls *callC
 	return &packetHandler{
 		reader:       reader,
 		dec:          codec.NewDecoder(reader, newCodecMsgpackHandle()),
-		frameDecoder: newDecoderWrapper(),
+		fieldDecoder: newDecoderWrapper(),
 		protocols:    protocols,
 		calls:        calls,
 	}
@@ -50,9 +50,9 @@ func (p *packetHandler) NextFrame() (rpcMessage, error) {
 	if nb < 0x91 || nb > 0x9f {
 		return nil, NewPacketizerError("wrong message structure prefix (%d)", nb)
 	}
-	p.frameDecoder.ResetBytes(bytes[1:])
+	p.fieldDecoder.ResetBytes(bytes[1:])
 
-	return decodeRPC(nb-0x90, p.frameDecoder, p.protocols, p.calls)
+	return decodeRPC(nb-0x90, p.fieldDecoder, p.protocols, p.calls)
 }
 
 func (p *packetHandler) loadNextFrame() ([]byte, error) {

@@ -12,19 +12,19 @@ type encoder interface {
 	EncodeAndWriteAsync(interface{}) <-chan error
 }
 
-type decoderWrapper struct {
+type fieldDecoder struct {
 	*codec.Decoder
 	fieldNumber int
 }
 
-func newDecoderWrapper() *decoderWrapper {
-	return &decoderWrapper{
+func newDecoderWrapper() *fieldDecoder {
+	return &fieldDecoder{
 		Decoder:     codec.NewDecoderBytes([]byte{}, newCodecMsgpackHandle()),
 		fieldNumber: 0,
 	}
 }
 
-func (dw *decoderWrapper) Decode(i interface{}) error {
+func (dw *fieldDecoder) Decode(i interface{}) error {
 	defer func() {
 		dw.fieldNumber++
 	}()
@@ -36,7 +36,7 @@ func (dw *decoderWrapper) Decode(i interface{}) error {
 	return nil
 }
 
-func (dw *decoderWrapper) ResetBytes(b []byte) {
+func (dw *fieldDecoder) ResetBytes(b []byte) {
 	dw.fieldNumber = 0
 	dw.Decoder.ResetBytes(b)
 }
