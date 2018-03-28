@@ -13,7 +13,7 @@ type packetizer interface {
 }
 
 type packetHandler struct {
-	dec          decoder
+	dec          *codec.Decoder
 	reader       io.Reader
 	frameDecoder *decoderWrapper
 	protocols    *protocolHandler

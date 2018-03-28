@@ -7,10 +7,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-type decoder interface {
-	Decode(interface{}) error
-}
-
 type encoder interface {
 	EncodeAndWrite(context.Context, interface{}, func()) <-chan error
 	EncodeAndWriteAsync(interface{}) <-chan error

@@ -13,7 +13,7 @@ type rpcMessage interface {
 	SeqNo() SeqNumber
 	MinLength() int
 	Err() error
-	DecodeMessage(int, decoder, *protocolHandler, *callContainer) error
+	DecodeMessage(int, *decoderWrapper, *protocolHandler, *callContainer) error
 }
 
 type basicRPCData struct {
@@ -27,7 +27,7 @@ func (r *basicRPCData) Context() context.Context {
 	return r.ctx
 }
 
-func (r *basicRPCData) loadContext(l int, d decoder) error {
+func (r *basicRPCData) loadContext(l int, d *decoderWrapper) error {
 	if l == 0 {
 		return nil
 	}
@@ -51,7 +51,7 @@ func (rpcCallMessage) MinLength() int {
 	return 3
 }
 
-func (r *rpcCallMessage) DecodeMessage(l int, d decoder, p *protocolHandler, _ *callContainer) error {
+func (r *rpcCallMessage) DecodeMessage(l int, d *decoderWrapper, p *protocolHandler, _ *callContainer) error {
 	if r.err = d.Decode(&r.seqno); r.err != nil {
 		return r.err
 	}
@@ -98,7 +98,7 @@ func (r rpcResponseMessage) MinLength() int {
 	return 3
 }
 
-func (r *rpcResponseMessage) DecodeMessage(l int, d decoder, _ *protocolHandler, cc *callContainer) error {
+func (r *rpcResponseMessage) DecodeMessage(l int, d *decoderWrapper, _ *protocolHandler, cc *callContainer) error {
 	var seqNo SeqNumber
 	if r.err = d.Decode(&seqNo); r.err != nil {
 		return r.err
@@ -194,7 +194,7 @@ type rpcNotifyMessage struct {
 	err  error
 }
 
-func (r *rpcNotifyMessage) DecodeMessage(l int, d decoder, p *protocolHandler, _ *callContainer) error {
+func (r *rpcNotifyMessage) DecodeMessage(l int, d *decoderWrapper, p *protocolHandler, _ *callContainer) error {
 	if r.err = d.Decode(&r.name); r.err != nil {
 		return r.err
 	}
@@ -238,7 +238,7 @@ type rpcCancelMessage struct {
 	err   error
 }
 
-func (r *rpcCancelMessage) DecodeMessage(l int, d decoder, p *protocolHandler, _ *callContainer) error {
+func (r *rpcCancelMessage) DecodeMessage(l int, d *decoderWrapper, p *protocolHandler, _ *callContainer) error {
 	if r.err = d.Decode(&r.seqno); r.err != nil {
 		return r.err
 	}
