@@ -57,7 +57,6 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	require.Equal(t, &rpcCallMessage{
 		seqno: 1,
 		name:  "abc.hello",
-		arg:   *new(interface{}),
 	}, f1)
 
 	f2, err := pkt.NextFrame()
