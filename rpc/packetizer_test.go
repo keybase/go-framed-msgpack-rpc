@@ -60,6 +60,6 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	}, f1)
 
 	f2, err := pkt.NextFrame()
-	require.NoError(t, err)
-	require.Equal(t, f2, iv1)
+	require.IsType(t, PacketizerError{}, err)
+	require.Nil(t, f2)
 }
