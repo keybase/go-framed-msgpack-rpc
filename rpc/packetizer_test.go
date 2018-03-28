@@ -62,4 +62,30 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	f2, err := pkt.NextFrame()
 	require.IsType(t, PacketizerError{}, err)
 	require.Nil(t, f2)
+
+	f3, err := pkt.NextFrame()
+	require.IsType(t, PacketizerError{}, err)
+	require.Nil(t, f3)
+
+	f4, err := pkt.NextFrame()
+	require.NoError(t, err)
+	require.Equal(t, &rpcCallMessage{
+		seqno: 2,
+		name:  "abc.hello",
+	}, f4)
+
+	f5, err := pkt.NextFrame()
+	require.IsType(t, PacketizerError{}, err)
+	require.Nil(t, f5)
+
+	f6, err := pkt.NextFrame()
+	require.NoError(t, err)
+	require.Equal(t, &rpcCallMessage{
+		seqno: 3,
+		name:  "abc.hello",
+	}, f6)
+
+	f7, err := pkt.NextFrame()
+	require.IsType(t, RPCDecodeError{}, err)
+	require.Nil(t, f7)
 }
