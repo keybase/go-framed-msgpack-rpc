@@ -30,9 +30,20 @@ func newPacketHandler(reader io.Reader, protocols *protocolHandler, calls *callC
 	}
 }
 
-// NextFrame returns the next message and an error. If an error is
-// returned and it has to do with the framing and not the returned
-// rpcMessage, the connection should be closed.
+// NextFrame returns the next message and an error. The error can be:
+//
+//   - nil, in which case the returned rpcMessage will be non-nil.
+//   - a framing error, i.e. having to do with reading the packet
+//     length or the packet bytes. This is a fatal error, and the
+//     connection must be closed.
+//   - an error while decoding the packet. In theory, we can then
+//     discard the packet and move on to the next one, but the
+//     semantics of doing so isn't clear. Currently we also treat this
+//     as a fatal error.
+//   - an error while decoding the message, in which case the returned
+//     rpcMessage will be non-nil, and its Err() will match this
+//     error. We can then process the error and continue with the next
+//     packet.
 func (p *packetHandler) NextFrame() (rpcMessage, error) {
 	bytes, err := p.loadNextFrame()
 	if err != nil {
