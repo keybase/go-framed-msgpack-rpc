@@ -12,6 +12,7 @@ type encoder interface {
 	EncodeAndWriteAsync(interface{}) <-chan error
 }
 
+// fieldDecoder decodes the fields of a packet.
 type fieldDecoder struct {
 	d           *codec.Decoder
 	fieldNumber int
@@ -24,6 +25,9 @@ func newFieldDecoder() *fieldDecoder {
 	}
 }
 
+// Decode decodes the next field into the given interface. If an error
+// is returned, ResetBytes() must be called on a new packet before
+// this can be called again.
 func (dw *fieldDecoder) Decode(i interface{}) error {
 	defer func() {
 		dw.fieldNumber++
