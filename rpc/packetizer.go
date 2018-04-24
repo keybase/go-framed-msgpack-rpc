@@ -71,6 +71,10 @@ func (p *packetHandler) loadNextFrame() ([]byte, error) {
 	}
 
 	bytes := make([]byte, l)
+	// Note that ReadFull drops the error returned from p.reader
+	// if enough bytes are read. This isn't a big deal, as if it's
+	// a serious error we'll probably run it again on the next
+	// frame read.
 	lenRead, err := io.ReadFull(p.reader, bytes)
 	if err != nil {
 		return nil, err
