@@ -30,6 +30,9 @@ func newPacketHandler(reader io.Reader, protocols *protocolHandler, calls *callC
 	}
 }
 
+// NextFrame returns the next message and an error. If an error is
+// returned and it has to do with the framing and not the returned
+// rpcMessage, the connection should be closed.
 func (p *packetHandler) NextFrame() (rpcMessage, error) {
 	bytes, err := p.loadNextFrame()
 	if err != nil {
