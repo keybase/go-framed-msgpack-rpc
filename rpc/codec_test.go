@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestFieldDecoder makes sure that fieldDecoder is still usable even
+// after Decode returns an error, as long as ResetBytes is called
+// first.
 func TestFieldDecoder(t *testing.T) {
 	i := math.MaxInt32
 	var buf bytes.Buffer
