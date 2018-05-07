@@ -38,7 +38,7 @@ func newPacketHandler(reader io.Reader, protocols *protocolHandler, calls *callC
 //     connection must be closed.
 //   - an error while decoding the packet. In theory, we can then
 //     discard the packet and move on to the next one, but the
-//     semantics of doing so isn't clear. Currently we also treat this
+//     semantics of doing so aren't clear. Currently we also treat this
 //     as a fatal error.
 //   - an error while decoding the message, in which case the returned
 //     rpcMessage will be non-nil, and its Err() will match this
