@@ -13,6 +13,7 @@ import (
 // after Decode returns an error, as long as ResetBytes is called
 // first.
 func TestFieldDecoder(t *testing.T) {
+	// Encode an int into iBytes.
 	i := math.MaxInt32
 	var buf bytes.Buffer
 	err := codec.NewEncoder(&buf, newCodecMsgpackHandle()).Encode(i)
@@ -22,10 +23,15 @@ func TestFieldDecoder(t *testing.T) {
 
 	dec := newFieldDecoder()
 
+	// Try decoding from an empty slice into an int (should fail).
+
 	var targetInt int
 	err = dec.Decode(&targetInt)
 	require.Error(t, err)
 	require.Equal(t, 0, targetInt)
+
+	// Try decoding from iBytes into an int (should succeed, since
+	// we called ResetBytes first).
 
 	dec.ResetBytes(iBytes)
 
@@ -33,9 +39,14 @@ func TestFieldDecoder(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, i, targetInt)
 
+	// Then try decoding into a string (should fail).
+
 	var targetString string
 	err = dec.Decode(&targetString)
 	require.Error(t, err)
+
+	// Then reset again, and try decoding from iBytes into an int
+	// again (should succeed, since we called ResetBytes first).
 
 	dec.ResetBytes(iBytes)
 
