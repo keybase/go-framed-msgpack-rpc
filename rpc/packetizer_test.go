@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -34,9 +35,9 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	v1 := []interface{}{MethodCall, 1, "abc.hello", new(interface{})}
 	iv1 := "some string"
 	iv2 := 53
-	v2 := []interface{}{MethodCall, 2, "abc.hello", new(interface{})}
+	v2 := []interface{}{MethodNotify, "abc.hello", new(interface{})}
 	iv3 := false
-	v3 := []interface{}{MethodCall, 3, "abc.hello", new(interface{})}
+	v3 := []interface{}{MethodResponse, 0, "response err", new(interface{})}
 	iv4 := []interface{}{"some string"}
 
 	frames := []interface{}{v1, iv1, iv2, v2, iv3, v3, iv4}
@@ -71,9 +72,8 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 
 	f4, err := pkt.NextFrame()
 	require.NoError(t, err)
-	require.Equal(t, &rpcCallMessage{
-		seqno: 2,
-		name:  "abc.hello",
+	require.Equal(t, &rpcNotifyMessage{
+		name: "abc.hello",
 	}, f4)
 
 	f5, err := pkt.NextFrame()
@@ -82,9 +82,9 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 
 	f6, err := pkt.NextFrame()
 	require.NoError(t, err)
-	require.Equal(t, &rpcCallMessage{
-		seqno: 3,
-		name:  "abc.hello",
+	require.Equal(t, &rpcResponseMessage{
+		c:           c,
+		responseErr: errors.New("response err"),
 	}, f6)
 
 	f7, err := pkt.NextFrame()
