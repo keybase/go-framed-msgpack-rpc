@@ -9,45 +9,51 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// This test determines the behavior of codec with respect to advancing the
-// Reader when decoding error scenarios. It seems that the codec advances
-// the Reader if Decode fails, but sets its own state to expect a specific
-// type for the next Decode, and thus is functionally the same as not
-// advancing the Reader.
-func TestCodec(t *testing.T) {
+// TestFieldDecoder makes sure that fieldDecoder is still usable even
+// after Decode returns an error, as long as ResetBytes is called
+// first.
+func TestFieldDecoder(t *testing.T) {
+	// Encode an int into iBytes.
+	i := math.MaxInt32
 	var buf bytes.Buffer
-	mh := &codec.MsgpackHandle{WriteExt: true}
-	enc := codec.NewEncoder(&buf, mh)
-	dec := codec.NewDecoder(&buf, mh)
+	err := codec.NewEncoder(&buf, newCodecMsgpackHandle()).Encode(i)
+	require.NoError(t, err)
+	iBytes := buf.Bytes()
+	require.Equal(t, 5, len(iBytes))
 
-	var i int = math.MaxInt32
-	err := enc.Encode(i)
-	require.Nil(t, err, "expected encoding to succeed")
-	require.Equal(t, 5, len(buf.Bytes()), "expected buffer to contain bytes")
+	dec := newFieldDecoder()
+
+	// Try decoding from an empty slice into an int (should fail).
 
 	var targetInt int
 	err = dec.Decode(&targetInt)
-	require.Nil(t, err, "expected decoding to succeed")
-	require.Equal(t, math.MaxInt32, targetInt, "expected codec to successfully decode int")
-	require.Equal(t, 0, len(buf.Bytes()), "expected buffer to be empty")
+	require.Error(t, err)
+	require.Equal(t, 0, targetInt)
+
+	// Try decoding from iBytes into an int (should succeed, since
+	// we called ResetBytes first).
+
+	dec.ResetBytes(iBytes)
+
+	err = dec.Decode(&targetInt)
+	require.NoError(t, err)
+	require.Equal(t, i, targetInt)
+
+	// Then try decoding into a string (should fail).
 
 	var targetString string
-	enc.Encode(i)
-	require.Equal(t, 5, len(buf.Bytes()), "expected buffer to contain bytes")
 	err = dec.Decode(&targetString)
-	require.Error(t, err, "expected error while decoding")
-	require.Contains(t, err.Error(), "Unrecognized descriptor byte", "expected error while decoding")
-	require.Equal(t, 4, len(buf.Bytes()), "expected buffer to have bytes")
-	err = dec.Decode(&targetString)
-	require.Error(t, err, "expected error while decoding")
-	require.Contains(t, err.Error(), "Unrecognized descriptor byte", "expected error while decoding")
-	require.Equal(t, 4, len(buf.Bytes()), "expected buffer to have bytes")
+	require.Error(t, err)
+
+	// Then reset again, and try decoding from iBytes into an int
+	// again (should succeed, since we called ResetBytes first).
+
+	dec.ResetBytes(iBytes)
 
 	targetInt = 0
 	err = dec.Decode(&targetInt)
-	require.Nil(t, err, "expected decoding to succeed")
-	require.Equal(t, math.MaxInt32, targetInt, "expected codec to successfully decode int")
-	require.Equal(t, 0, len(buf.Bytes()), "expected buffer to be empty")
+	require.NoError(t, err)
+	require.Equal(t, i, targetInt)
 }
 
 func TestMap(t *testing.T) {
