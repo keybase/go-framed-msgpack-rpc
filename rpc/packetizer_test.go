@@ -39,8 +39,9 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	iv3 := false
 	v3 := []interface{}{MethodResponse, 0, "response err", new(interface{})}
 	iv4 := []interface{}{"some string"}
+	v4 := []interface{}{MethodCancel, 1, "abc.hello"}
 
-	frames := []interface{}{v1, iv1, iv2, v2, iv3, v3, iv4}
+	frames := []interface{}{v1, iv1, iv2, v2, iv3, v3, iv4, v4}
 
 	var buf bytes.Buffer
 	enc := newFramedMsgpackEncoder(&buf)
@@ -90,4 +91,11 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	f7, err := pkt.NextFrame()
 	require.IsType(t, RPCDecodeError{}, err)
 	require.Nil(t, f7)
+
+	f8, err := pkt.NextFrame()
+	require.NoError(t, err)
+	require.Equal(t, &rpcCancelMessage{
+		seqno: 1,
+		name:  "abc.hello",
+	}, f8)
 }
