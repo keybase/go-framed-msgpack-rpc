@@ -58,9 +58,9 @@ func (p *packetHandler) NextFrame() (rpcMessage, error) {
 
 	// Interpret the byte as the length field of a fixarray of up
 	// to 15 elements: see
-	// https://github.com/msgpack/msgpack/blob/master/spec.md#formats-array .
-	// Do this so we can decode directly into the expected fields
-	// without copying.
+	// https://github.com/msgpack/msgpack/blob/master/spec.md#formats-array
+	// for details. Do this so we can decode directly into the
+	// expected fields without copying.
 	if nb < 0x91 || nb > 0x9f {
 		return nil, NewPacketizerError("wrong message structure prefix (%d)", nb)
 	}
