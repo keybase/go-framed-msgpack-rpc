@@ -90,7 +90,8 @@ func TestMessageDecodeInvalidType(t *testing.T) {
 	v := []interface{}{"hello", SeqNumber(0), "invalid", new(interface{})}
 
 	_, err := runMessageTest(t, v)
-	require.EqualError(t, err, "RPC error. type: -1, method: , length: 4, error: error decoding message field at position 0, error: [pos 1]: Unhandled single-byte unsigned integer value: Unrecognized descriptor byte: a5")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "RPC error. type: -1, method: , length: 4, error: error decoding message field at position 0, error: ")
 }
 
 func TestMessageDecodeInvalidMethodType(t *testing.T) {
