@@ -9,9 +9,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
+    telnet "github.com/reiver/go-telnet"
 )
 
 var testPort int = 8089
+var testHostPort = fmt.Sprintf("127.0.0.1:%d", testPort)
 
 type longCallResult struct {
 	res interface{}
@@ -33,7 +35,7 @@ func prepServer(listener chan error) error {
 }
 
 func prepClient(t *testing.T) (TestClient, net.Conn) {
-	c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
+	c, err := net.Dial("tcp", testHostPort)
 	require.Nil(t, err, "a dialer error occurred")
 
 	xp := NewTransport(c, nil, nil)
@@ -153,3 +155,17 @@ func TestClosedConnection(t *testing.T) {
 	require.EqualError(t, res.err, io.EOF.Error())
 	require.Equal(t, 0, res.res)
 }
+
+func TestKillClient(t *testing.T) {
+	listener := make(chan error)
+	prepServer(listener)
+    defer func() {
+        err := <-listener
+        require.EqualError(t, err, io.EOF.Error(), "expected EOF")
+    }()
+
+    var cli telnet.Caller = telnet.StandardCaller
+    err := telnet.DialToAndCall(testHostPort, caller)
+    require.NoError(t, err)
+}
+
