@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	telnet "github.com/reiver/go-telnet"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
-    telnet "github.com/reiver/go-telnet"
 )
 
 var testPort int = 8089
@@ -159,14 +159,13 @@ func TestClosedConnection(t *testing.T) {
 func TestKillClient(t *testing.T) {
 	listener := make(chan error)
 	prepServer(listener)
-    defer func() {
-        err := <-listener
-        require.EqualError(t, err, io.EOF.Error(), "expected EOF")
-    }()
+	defer func() {
+		err := <-listener
+		require.EqualError(t, err, io.EOF.Error(), "expected EOF")
+	}()
 
-    conn, err := telnet.DialTo(testHostPort)
-    require.NoError(t, err)
-    err = conn.Close()
-    require.NoError(t, err)
+	conn, err := telnet.DialTo(testHostPort)
+	require.NoError(t, err)
+	err = conn.Close()
+	require.NoError(t, err)
 }
-
