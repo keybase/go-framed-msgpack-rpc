@@ -164,8 +164,9 @@ func TestKillClient(t *testing.T) {
         require.EqualError(t, err, io.EOF.Error(), "expected EOF")
     }()
 
-    var cli telnet.Caller = telnet.StandardCaller
-    err := telnet.DialToAndCall(testHostPort, caller)
+    conn, err := telnet.DialTo(testHostPort)
+    require.NoError(t, err)
+    err = conn.Close()
     require.NoError(t, err)
 }
 
