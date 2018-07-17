@@ -166,6 +166,8 @@ func TestKillClient(t *testing.T) {
 
 	conn, err := telnet.DialTo(testHostPort)
 	require.NoError(t, err)
+	_, err = conn.Write([]byte{255, 244})
+	require.NoError(t, err)
 	err = conn.Close()
 	require.NoError(t, err)
 }
