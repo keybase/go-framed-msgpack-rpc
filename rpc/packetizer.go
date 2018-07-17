@@ -80,6 +80,9 @@ func (p *packetHandler) loadNextFrame() ([]byte, error) {
 		}
 		return nil, err
 	}
+	if l < 0 {
+		return nil, PacketizerError{fmt.Sprintf("invalid frame length: %d", l)}
+	}
 
 	bytes := make([]byte, l)
 	// Note that ReadFull drops the error returned from p.reader

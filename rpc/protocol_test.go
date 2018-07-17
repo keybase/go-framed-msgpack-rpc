@@ -12,7 +12,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-var testPort int = 8089
+var testPort = 8089
 var testHostPort = fmt.Sprintf("127.0.0.1:%d", testPort)
 
 type longCallResult struct {
@@ -166,6 +166,8 @@ func TestKillClient(t *testing.T) {
 
 	conn, err := telnet.DialTo(testHostPort)
 	require.NoError(t, err)
+	// Write the control character sequence {IAC, IP} to the connection. This
+	// is analogous to sending a ctrl-C over telnet.
 	_, err = conn.Write([]byte{255, 244})
 	require.NoError(t, err)
 	err = conn.Close()
