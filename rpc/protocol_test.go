@@ -7,11 +7,13 @@ import (
 	"testing"
 	"time"
 
+	telnet "github.com/reiver/go-telnet"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 )
 
-var testPort int = 8089
+var testPort = 8089
+var testHostPort = fmt.Sprintf("127.0.0.1:%d", testPort)
 
 type longCallResult struct {
 	res interface{}
@@ -33,7 +35,7 @@ func prepServer(listener chan error) error {
 }
 
 func prepClient(t *testing.T) (TestClient, net.Conn) {
-	c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
+	c, err := net.Dial("tcp", testHostPort)
 	require.Nil(t, err, "a dialer error occurred")
 
 	xp := NewTransport(c, nil, nil)
@@ -152,4 +154,22 @@ func TestClosedConnection(t *testing.T) {
 	res := <-resultCh
 	require.EqualError(t, res.err, io.EOF.Error())
 	require.Equal(t, 0, res.res)
+}
+
+func TestKillClient(t *testing.T) {
+	listener := make(chan error)
+	prepServer(listener)
+	defer func() {
+		err := <-listener
+		require.EqualError(t, err, io.EOF.Error(), "expected EOF")
+	}()
+
+	conn, err := telnet.DialTo(testHostPort)
+	require.NoError(t, err)
+	// Write the control character sequence {IAC, IP} to the connection. This
+	// is analogous to sending a ctrl-C over telnet.
+	_, err = conn.Write([]byte{255, 244})
+	require.NoError(t, err)
+	err = conn.Close()
+	require.NoError(t, err)
 }
