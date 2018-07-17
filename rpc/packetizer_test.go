@@ -3,6 +3,8 @@ package rpc
 import (
 	"bytes"
 	"errors"
+	"io"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -98,4 +100,23 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 		seqno: 1,
 		name:  "abc.hello",
 	}, f8)
+}
+
+type errReader struct {
+	err error
+}
+
+func (r errReader) Read([]byte) (int, error) {
+	return 0, r.err
+}
+
+func TestPacketizerReaderOpError(t *testing.T) {
+	// Taking advantage here of opErr being a nil *net.OpError,
+	// but a non-nil error when used by errReader.
+	var opErr *net.OpError
+	pkt := newPacketHandler(errReader{opErr}, createPacketizerTestProtocol(), newCallContainer())
+
+	bytes, err := pkt.loadNextFrame()
+	require.Nil(t, bytes)
+	require.Equal(t, io.EOF, err)
 }
