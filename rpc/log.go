@@ -16,6 +16,7 @@ type Profiler interface {
 type LogInterface interface {
 	TransportStart()
 	TransportError(error)
+	// The passed-in slice should not be mutated.
 	FrameRead([]byte)
 	ClientCall(SeqNumber, string, interface{})
 	ServerCall(SeqNumber, string, error, interface{})

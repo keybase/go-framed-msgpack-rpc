@@ -69,8 +69,8 @@ func (p *packetHandler) NextFrame() (rpcMessage, error) {
 		return nil, NewPacketizerError("invalid frame size: %d", len(bytes))
 	}
 
-	// Log the bytes as the last thing, to rule out the
-	// possibility of the logger mutating those bytes.
+	// Log the bytes as the last thing, just in case the logger
+	// mutates those bytes (which it shouldn't).
 	defer func() {
 		p.log.FrameRead(bytes)
 	}()
