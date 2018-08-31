@@ -123,10 +123,9 @@ func TestDispatchCallAfterClose(t *testing.T) {
 
 func TestDispatchCancelEndToEnd(t *testing.T) {
 	dispatchConn, _ := net.Pipe()
-	logFactory := NewSimpleLogFactory(SimpleLogOutput{}, SimpleLogOptions{})
 	enc := newFramedMsgpackEncoder(dispatchConn)
 	cc := newCallContainer()
-	d := newDispatch(enc, cc, logFactory.NewLog(nil))
+	d := newDispatch(enc, cc, newTestLog(t))
 
 	ctx1, cancel1 := context.WithCancel(context.Background())
 
