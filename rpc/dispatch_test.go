@@ -10,7 +10,7 @@ import (
 )
 
 func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher, *callContainer, chan error) {
-	log := SimpleLog{nil, SimpleLogOutput{}, SimpleLogOptions{}}
+	log := newTestLog(t)
 
 	conn1, conn2 := net.Pipe()
 	dispatchOut := newFramedMsgpackEncoder(conn1)

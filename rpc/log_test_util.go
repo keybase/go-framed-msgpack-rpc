@@ -23,3 +23,7 @@ func (t testLogOutput) Debug(fmt string, args ...interface{})                 { 
 func (t testLogOutput) Warning(fmt string, args ...interface{})               { t.log("W", fmt, args) }
 func (t testLogOutput) Profile(fmt string, args ...interface{})               { t.log("P", fmt, args) }
 func (t testLogOutput) CloneWithAddedDepth(depth int) LogOutputWithDepthAdder { return t }
+
+func newTestLog(t TestLogger) SimpleLog {
+	return SimpleLog{nil, testLogOutput{t}, SimpleLogOptions{}}
+}

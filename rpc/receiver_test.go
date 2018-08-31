@@ -17,7 +17,7 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 		protHandler.registerProtocol(*p)
 	}
 
-	log := SimpleLog{nil, SimpleLogOutput{}, SimpleLogOptions{}}
+	log := newTestLog(t)
 	pkt := newPacketHandler(conn1, protHandler, newCallContainer(), log)
 
 	r := newReceiveHandler(receiveOut, protHandler, log)
