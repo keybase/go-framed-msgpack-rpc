@@ -56,7 +56,9 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	cc := newCallContainer()
 	c := cc.NewCall(ctx, "foo.bar", new(interface{}), new(string), nil)
 	cc.AddCall(c)
-	pkt := newPacketHandler(&buf, createPacketizerTestProtocol(), cc)
+
+	log := SimpleLog{nil, SimpleLogOutput{}, SimpleLogOptions{}}
+	pkt := newPacketHandler(&buf, createPacketizerTestProtocol(), cc, log)
 
 	f1, err := pkt.NextFrame()
 	require.NoError(t, err)
@@ -111,10 +113,12 @@ func (r errReader) Read([]byte) (int, error) {
 }
 
 func TestPacketizerReaderOpError(t *testing.T) {
+	log := SimpleLog{nil, SimpleLogOutput{}, SimpleLogOptions{}}
+
 	// Taking advantage here of opErr being a nil *net.OpError,
 	// but a non-nil error when used by errReader.
 	var opErr *net.OpError
-	pkt := newPacketHandler(errReader{opErr}, createPacketizerTestProtocol(), newCallContainer())
+	pkt := newPacketHandler(errReader{opErr}, createPacketizerTestProtocol(), newCallContainer(), log)
 
 	bytes, err := pkt.loadNextFrame()
 	require.Nil(t, bytes)

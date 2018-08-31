@@ -16,6 +16,7 @@ type Profiler interface {
 type LogInterface interface {
 	TransportStart()
 	TransportError(error)
+	FrameBytes([]byte)
 	ClientCall(SeqNumber, string, interface{})
 	ServerCall(SeqNumber, string, error, interface{})
 	ServerReply(SeqNumber, string, error, interface{})
@@ -182,6 +183,11 @@ func (l SimpleLog) TransportError(e error) {
 		l.Out.Debug(l.msg(true, "EOF"))
 	}
 	return
+}
+
+func (s SimpleLog) FrameBytes(bytes []byte) {
+	if s.Opts.ClientTrace() {
+	}
 }
 
 // Call
