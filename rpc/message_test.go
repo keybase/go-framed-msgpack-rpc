@@ -34,9 +34,7 @@ func runMessageTest(t *testing.T, v []interface{}) (rpcMessage, error) {
 	c := cc.NewCall(context.Background(), "foo.bar", new(interface{}), new(string), nil)
 	cc.AddCall(c)
 
-	logFactory := NewSimpleLogFactory(SimpleLogOutput{}, SimpleLogOptions{})
-	log := logFactory.NewLog(nil)
-
+	log := SimpleLog{nil, SimpleLogOutput{}, SimpleLogOptions{}}
 	pkt := newPacketHandler(&buf, createMessageTestProtocol(), cc, log)
 
 	err := <-enc.EncodeAndWrite(c.ctx, v, nil)
