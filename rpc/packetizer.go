@@ -72,6 +72,7 @@ func (p *packetHandler) NextFrame() (rpcMessage, error) {
 	// Log the bytes as the last thing, to rule out the
 	// possibility of the logger mutating those bytes.
 	defer func() {
+		p.log.FrameRead(bytes)
 	}()
 
 	// Attempt to read the fixarray
