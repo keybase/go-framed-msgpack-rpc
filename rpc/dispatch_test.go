@@ -125,7 +125,8 @@ func TestDispatchCancelEndToEnd(t *testing.T) {
 	dispatchConn, _ := net.Pipe()
 	enc := newFramedMsgpackEncoder(dispatchConn)
 	cc := newCallContainer()
-	d := newDispatch(enc, cc, newTestLog(t))
+	log := newTestLog(t)
+	d := newDispatch(enc, cc, log)
 
 	ctx1, cancel1 := context.WithCancel(context.Background())
 
