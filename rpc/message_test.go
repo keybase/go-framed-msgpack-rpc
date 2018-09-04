@@ -33,7 +33,9 @@ func runMessageTest(t *testing.T, v []interface{}) (rpcMessage, error) {
 	cc := newCallContainer()
 	c := cc.NewCall(context.Background(), "foo.bar", new(interface{}), new(string), nil)
 	cc.AddCall(c)
-	pkt := newPacketHandler(&buf, createMessageTestProtocol(), cc)
+
+	log := newTestLog(t)
+	pkt := newPacketHandler(&buf, createMessageTestProtocol(), cc, log)
 
 	err := <-enc.EncodeAndWrite(c.ctx, v, nil)
 	require.Nil(t, err, "expected encoding to succeed")
@@ -91,40 +93,40 @@ func TestMessageDecodeInvalidType(t *testing.T) {
 
 	_, err := runMessageTest(t, v)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "RPC error. type: -1, method: , length: 4, error: error decoding message field at position 0, error: ")
+	require.Contains(t, err.Error(), "RPC error. type: Invalid, method: , length: 4, error: error decoding message field at position 0, error: ")
 }
 
 func TestMessageDecodeInvalidMethodType(t *testing.T) {
 	v := []interface{}{MethodType(999), SeqNumber(0), "invalid", new(interface{})}
 
 	_, err := runMessageTest(t, v)
-	require.EqualError(t, err, "RPC error. type: 999, method: , length: 4, error: invalid RPC type")
+	require.EqualError(t, err, "RPC error. type: Method(999), method: , length: 4, error: invalid RPC type")
 }
 
 func TestMessageDecodeInvalidProtocol(t *testing.T) {
 	v := []interface{}{MethodCall, SeqNumber(0), "nonexistent.broken", new(interface{})}
 
 	_, err := runMessageTest(t, v)
-	require.EqualError(t, err, "RPC error. type: 0, method: nonexistent.broken, length: 4, error: protocol not found: nonexistent")
+	require.EqualError(t, err, "RPC error. type: Call, method: nonexistent.broken, length: 4, error: protocol not found: nonexistent")
 }
 
 func TestMessageDecodeInvalidMethod(t *testing.T) {
 	v := []interface{}{MethodCall, SeqNumber(0), "abc.invalid", new(interface{})}
 
 	_, err := runMessageTest(t, v)
-	require.EqualError(t, err, "RPC error. type: 0, method: abc.invalid, length: 4, error: method 'invalid' not found in protocol 'abc'")
+	require.EqualError(t, err, "RPC error. type: Call, method: abc.invalid, length: 4, error: method 'invalid' not found in protocol 'abc'")
 }
 
 func TestMessageDecodeWrongMessageLength(t *testing.T) {
 	v := []interface{}{MethodCall, SeqNumber(0), "abc.invalid"}
 
 	_, err := runMessageTest(t, v)
-	require.EqualError(t, err, "RPC error. type: 0, method: , length: 3, error: wrong message length")
+	require.EqualError(t, err, "RPC error. type: Call, method: , length: 3, error: wrong message length")
 }
 
 func TestMessageDecodeResponseNilCall(t *testing.T) {
 	v := []interface{}{MethodResponse, SeqNumber(-1), 32, "hi"}
 
 	_, err := runMessageTest(t, v)
-	require.EqualError(t, err, "RPC error. type: 1, method: , length: 4, error: Call not found for sequence number -1")
+	require.EqualError(t, err, "RPC error. type: Response, method: , length: 4, error: Call not found for sequence number -1")
 }

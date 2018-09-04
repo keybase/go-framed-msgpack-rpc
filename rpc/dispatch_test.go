@@ -10,13 +10,14 @@ import (
 )
 
 func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher, *callContainer, chan error) {
+	log := newTestLog(t)
+
 	conn1, conn2 := net.Pipe()
 	dispatchOut := newFramedMsgpackEncoder(conn1)
 	calls := newCallContainer()
-	pkt := newPacketHandler(conn2, createMessageTestProtocol(), calls)
+	pkt := newPacketHandler(conn2, createMessageTestProtocol(), calls, log)
 
-	logFactory := NewSimpleLogFactory(SimpleLogOutput{}, SimpleLogOptions{})
-	d := newDispatch(dispatchOut, calls, logFactory.NewLog(nil))
+	d := newDispatch(dispatchOut, calls, log)
 
 	done := runInBg(func() error {
 		return d.Call(ctx, "abc.hello", new(interface{}), new(interface{}), nil, nil)
@@ -122,10 +123,10 @@ func TestDispatchCallAfterClose(t *testing.T) {
 
 func TestDispatchCancelEndToEnd(t *testing.T) {
 	dispatchConn, _ := net.Pipe()
-	logFactory := NewSimpleLogFactory(SimpleLogOutput{}, SimpleLogOptions{})
 	enc := newFramedMsgpackEncoder(dispatchConn)
 	cc := newCallContainer()
-	d := newDispatch(enc, cc, logFactory.NewLog(nil))
+	log := newTestLog(t)
+	d := newDispatch(enc, cc, log)
 
 	ctx1, cancel1 := context.WithCancel(context.Background())
 

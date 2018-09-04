@@ -16,10 +16,11 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 	if p != nil {
 		protHandler.registerProtocol(*p)
 	}
-	pkt := newPacketHandler(conn1, protHandler, newCallContainer())
-	logFactory := NewSimpleLogFactory(SimpleLogOutput{}, SimpleLogOptions{})
 
-	r := newReceiveHandler(receiveOut, protHandler, logFactory.NewLog(nil))
+	log := newTestLog(t)
+	pkt := newPacketHandler(conn1, protHandler, newCallContainer(), log)
+
+	r := newReceiveHandler(receiveOut, protHandler, log)
 
 	errCh := make(chan error, 1)
 	err := r.Receive(rpc)
