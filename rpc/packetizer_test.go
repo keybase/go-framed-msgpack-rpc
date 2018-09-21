@@ -136,7 +136,7 @@ func TestPacketizerDecodeLargeFrame(t *testing.T) {
 
 	cc := newCallContainer()
 	log := newTestLog(t)
-	pkt := newPacketHandler(buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(buf, createPacketizerTestProtocol(), cc, log)
 
 	_, err := pkt.NextFrame()
 	require.Equal(t, io.EOF, err)

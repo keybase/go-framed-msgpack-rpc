@@ -41,22 +41,10 @@ type Transporter interface {
 	Close()
 }
 
-type connDecoder struct {
-	net.Conn
-	Reader *bufio.Reader
-}
-
-func newConnDecoder(c net.Conn) *connDecoder {
-	return &connDecoder{
-		Conn:   c,
-		Reader: bufio.NewReader(c),
-	}
-}
-
 var _ Transporter = (*transport)(nil)
 
 type transport struct {
-	cdec       *connDecoder
+	c          net.Conn
 	enc        *framedMsgpackEncoder
 	dispatcher dispatcher
 	receiver   receiver
@@ -73,24 +61,24 @@ type transport struct {
 }
 
 func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
-	cdec := newConnDecoder(c)
+	reader := bufio.NewReader(c)
 	if l == nil {
 		l = NewSimpleLogFactory(nil, nil)
 	}
-	log := l.NewLog(cdec.RemoteAddr())
+	log := l.NewLog(c.RemoteAddr())
 
 	ret := &transport{
-		cdec:      cdec,
+		c:         c,
 		log:       log,
 		stopCh:    make(chan struct{}),
 		protocols: newProtocolHandler(wef),
 		calls:     newCallContainer(),
 	}
-	enc := newFramedMsgpackEncoder(ret.cdec)
+	enc := newFramedMsgpackEncoder(c)
 	ret.enc = enc
 	ret.dispatcher = newDispatch(enc, ret.calls, log)
 	ret.receiver = newReceiveHandler(enc, ret.protocols, log)
-	ret.packetizer = newPacketizer(cdec.Reader, ret.protocols, ret.calls, log)
+	ret.packetizer = newPacketizer(reader, ret.protocols, ret.calls, log)
 	return ret
 }
 
@@ -105,7 +93,7 @@ func (t *transport) Close() {
 		// First inform the encoder that it should close
 		encoderClosed := t.enc.Close()
 		// Unblock any remaining writes
-		t.cdec.Close()
+		t.c.Close()
 		// Wait for the encoder to finish handling the now unblocked writes
 		<-encoderClosed
 	})
