@@ -61,7 +61,6 @@ type transport struct {
 }
 
 func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
-	reader := bufio.NewReader(c)
 	if l == nil {
 		l = NewSimpleLogFactory(nil, nil)
 	}
@@ -78,6 +77,7 @@ func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
 	ret.enc = enc
 	ret.dispatcher = newDispatch(enc, ret.calls, log)
 	ret.receiver = newReceiveHandler(enc, ret.protocols, log)
+	reader := bufio.NewReader(c)
 	ret.packetizer = newPacketizer(reader, ret.protocols, ret.calls, log)
 	return ret
 }
