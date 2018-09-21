@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/keybase/go-codec/codec"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 )
@@ -122,5 +123,19 @@ func TestPacketizerReaderOpError(t *testing.T) {
 
 	bytes, err := pkt.loadNextFrame()
 	require.Nil(t, bytes)
+	require.Equal(t, io.EOF, err)
+}
+
+func TestPacketizerDecodeLargeFrame(t *testing.T) {
+	buf := bytes.NewBuffer(nil)
+	e := codec.NewEncoder(buf, newCodecMsgpackHandle())
+	const maxInt = ^uint(0) >> 1
+	e.Encode(maxInt)
+
+	cc := newCallContainer()
+	log := newTestLog(t)
+	pkt := newPacketHandler(buf, createPacketizerTestProtocol(), cc, log)
+
+	_, err := pkt.NextFrame()
 	require.Equal(t, io.EOF, err)
 }
