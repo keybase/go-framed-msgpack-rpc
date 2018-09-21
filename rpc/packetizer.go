@@ -57,12 +57,9 @@ func newPacketizer(reader io.Reader, protocols *protocolHandler, calls *callCont
 //     error. We can then process the error and continue with the next
 //     packet.
 func (p *packetizer) NextFrame() (rpcMessage, error) {
-	bytes, err := p.loadNextFrame()
+	nb, bytes, err := p.loadNextFrame()
 	if err != nil {
 		return nil, err
-	}
-	if len(bytes) < 1 {
-		return nil, NewPacketizerError("invalid frame size: %d", len(bytes))
 	}
 
 	// Log the bytes as the last thing, just in case the logger
@@ -70,9 +67,6 @@ func (p *packetizer) NextFrame() (rpcMessage, error) {
 	defer func() {
 		p.log.FrameRead(bytes)
 	}()
-
-	// Attempt to read the fixarray
-	nb := int(bytes[0])
 
 	// Interpret the byte as the length field of a fixarray of up
 	// to 15 elements: see
@@ -82,12 +76,12 @@ func (p *packetizer) NextFrame() (rpcMessage, error) {
 	if nb < 0x91 || nb > 0x9f {
 		return nil, NewPacketizerError("wrong message structure prefix (%d)", nb)
 	}
-	p.fieldDecoder.ResetBytes(bytes[1:])
+	p.fieldDecoder.ResetBytes(bytes)
 
-	return decodeRPC(nb-0x90, p.fieldDecoder, p.protocols, p.calls)
+	return decodeRPC(int(nb-0x90), p.fieldDecoder, p.protocols, p.calls)
 }
 
-func (p *packetizer) loadNextFrame() ([]byte, error) {
+func (p *packetizer) loadNextFrame() (byte, []byte, error) {
 	// Get the packet length
 	var l int
 	if err := p.lengthDecoder.Decode(&l); err != nil {
@@ -96,25 +90,38 @@ func (p *packetizer) loadNextFrame() ([]byte, error) {
 		// errors, so we have to check p.reader.err instead of
 		// err.
 		if _, ok := p.reader.err.(*net.OpError); ok {
-			return nil, io.EOF
+			return 0, nil, io.EOF
 		}
-		return nil, err
+		return 0, nil, err
 	}
-	if l < 0 {
-		return nil, PacketizerError{fmt.Sprintf("invalid frame length: %d", l)}
+	if l <= 0 {
+		return 0, nil, PacketizerError{fmt.Sprintf("invalid frame length: %d", l)}
 	}
 
-	bytes := make([]byte, l)
+	var nb [1]byte
 	// Note that ReadFull drops the error returned from p.reader
 	// if enough bytes are read. This isn't a big deal, as if it's
 	// a serious error we'll probably run it again on the next
 	// frame read.
-	lenRead, err := io.ReadFull(p.reader, bytes)
+	lenRead, err := io.ReadFull(p.reader, nb[:])
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	if lenRead != l {
-		return nil, fmt.Errorf("Unable to read desired length. Desired: %d, actual: %d", l, lenRead)
+	if lenRead != 1 {
+		return 0, nil, fmt.Errorf("Unable to read desired length. Desired: %d, actual: %d", 1, lenRead)
 	}
-	return bytes, nil
+
+	bytes := make([]byte, l-1)
+	// Note that ReadFull drops the error returned from p.reader
+	// if enough bytes are read. This isn't a big deal, as if it's
+	// a serious error we'll probably run it again on the next
+	// frame read.
+	lenRead, err = io.ReadFull(p.reader, bytes)
+	if err != nil {
+		return 0, nil, err
+	}
+	if lenRead != l-1 {
+		return 0, nil, fmt.Errorf("Unable to read desired length. Desired: %d, actual: %d", l-1, lenRead)
+	}
+	return nb[0], bytes, nil
 }

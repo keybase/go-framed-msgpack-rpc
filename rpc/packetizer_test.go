@@ -121,7 +121,8 @@ func TestPacketizerReaderOpError(t *testing.T) {
 	var opErr *net.OpError
 	pkt := newPacketizer(errReader{opErr}, createPacketizerTestProtocol(), newCallContainer(), log)
 
-	bytes, err := pkt.loadNextFrame()
+	nb, bytes, err := pkt.loadNextFrame()
+	require.Equal(t, byte(0), nb)
 	require.Nil(t, bytes)
 	require.Equal(t, io.EOF, err)
 }
@@ -131,6 +132,7 @@ func TestPacketizerDecodeLargeFrame(t *testing.T) {
 	e := codec.NewEncoder(buf, newCodecMsgpackHandle())
 	const maxInt = ^uint(0) >> 1
 	e.Encode(maxInt)
+	buf.WriteByte(0x0)
 
 	cc := newCallContainer()
 	log := newTestLog(t)
