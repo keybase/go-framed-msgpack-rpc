@@ -5,8 +5,6 @@ import (
 	"io"
 	"net"
 	"sync"
-
-	"github.com/keybase/go-codec/codec"
 )
 
 type WrapErrorFunc func(error) interface{}
@@ -44,19 +42,14 @@ type Transporter interface {
 }
 
 type connDecoder struct {
-	*codec.Decoder
 	net.Conn
 	Reader *bufio.Reader
 }
 
 func newConnDecoder(c net.Conn) *connDecoder {
-	br := bufio.NewReader(c)
-	mh := &codec.MsgpackHandle{WriteExt: true}
-
 	return &connDecoder{
-		Decoder: codec.NewDecoder(br, mh),
-		Conn:    c,
-		Reader:  br,
+		Conn:   c,
+		Reader: bufio.NewReader(c),
 	}
 }
 
