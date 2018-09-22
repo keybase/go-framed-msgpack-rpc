@@ -12,7 +12,7 @@ import (
 // lastErrReader stores the last error returned by its child
 // reader. It's used by loadNextFrame below.
 type lastErrReader struct {
-	reader io.Reader
+	reader *bufio.Reader
 	err    error
 }
 
