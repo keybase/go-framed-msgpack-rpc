@@ -59,7 +59,7 @@ type transport struct {
 	stopErr error
 }
 
-func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
+func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc, maxFrameLength int32) Transporter {
 	if l == nil {
 		l = NewSimpleLogFactory(nil, nil)
 	}
@@ -76,7 +76,7 @@ func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
 	ret.enc = enc
 	ret.dispatcher = newDispatch(enc, ret.calls, log)
 	ret.receiver = newReceiveHandler(enc, ret.protocols, log)
-	ret.packetizer = newPacketizer(c, ret.protocols, ret.calls, log)
+	ret.packetizer = newPacketizer(maxFrameLength, c, ret.protocols, ret.calls, log)
 	return ret
 }
 

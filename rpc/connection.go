@@ -55,6 +55,7 @@ type connTransport struct {
 	uri             *FMPURI
 	l               LogFactory
 	wef             WrapErrorFunc
+	maxFrameLength  int32
 	conn            net.Conn
 	transport       Transporter
 	stagedTransport Transporter
@@ -63,11 +64,12 @@ type connTransport struct {
 var _ ConnectionTransport = (*connTransport)(nil)
 
 // NewConnectionTransport creates a ConnectionTransport for a given FMPURI.
-func NewConnectionTransport(uri *FMPURI, l LogFactory, wef WrapErrorFunc) ConnectionTransport {
+func NewConnectionTransport(uri *FMPURI, l LogFactory, wef WrapErrorFunc, maxFrameLength int32) ConnectionTransport {
 	return &connTransport{
-		uri: uri,
-		l:   l,
-		wef: wef,
+		uri:            uri,
+		l:              l,
+		wef:            wef,
+		maxFrameLength: maxFrameLength,
 	}
 }
 
@@ -98,7 +100,7 @@ func (t *connTransport) Dial(context.Context) (Transporter, error) {
 	if t.stagedTransport != nil {
 		t.stagedTransport.Close()
 	}
-	t.stagedTransport = NewTransport(t.conn, t.l, t.wef)
+	t.stagedTransport = NewTransport(t.conn, t.l, t.wef, t.maxFrameLength)
 	return t.stagedTransport, nil
 }
 
@@ -162,9 +164,10 @@ type ConnectionHandler interface {
 // ConnectionTransportTLS is a ConnectionTransport implementation that
 // uses TLS+rpc.
 type ConnectionTransportTLS struct {
-	rootCerts []byte
-	srvRemote Remote
-	tlsConfig *tls.Config
+	rootCerts      []byte
+	srvRemote      Remote
+	tlsConfig      *tls.Config
+	maxFrameLength int32
 
 	// Protects everything below.
 	mutex           sync.Mutex
@@ -253,7 +256,7 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	if ct.conn != nil {
 		ct.conn.Close()
 	}
-	transport := NewTransport(conn, ct.logFactory, ct.wef)
+	transport := NewTransport(conn, ct.logFactory, ct.wef, ct.maxFrameLength)
 	ct.conn = conn
 	if ct.stagedTransport != nil {
 		ct.stagedTransport.Close()
@@ -354,8 +357,8 @@ type ConnectionOpts struct {
 	DialerTimeout time.Duration
 }
 
-// NewTLSConnectionWithLogrus is like NewTLSConnection, but with a custom
-// logger.
+// NewTLSConnectionWithConnectionLogFactory is like NewTLSConnection,
+// but with a custom logger.
 func NewTLSConnectionWithConnectionLogFactory(
 	srvRemote Remote,
 	rootCerts []byte,
@@ -363,15 +366,17 @@ func NewTLSConnectionWithConnectionLogFactory(
 	handler ConnectionHandler,
 	logFactory LogFactory,
 	connectionLogFactory ConnectionLogFactory,
+	maxFrameLength int32,
 	opts ConnectionOpts,
 ) *Connection {
 	transport := &ConnectionTransportTLS{
-		rootCerts:     rootCerts,
-		srvRemote:     srvRemote,
-		logFactory:    logFactory,
-		wef:           opts.WrapErrorFunc,
-		dialerTimeout: opts.DialerTimeout,
-		log:           connectionLogFactory.Make("conn_tspt"),
+		rootCerts:      rootCerts,
+		srvRemote:      srvRemote,
+		maxFrameLength: maxFrameLength,
+		logFactory:     logFactory,
+		wef:            opts.WrapErrorFunc,
+		dialerTimeout:  opts.DialerTimeout,
+		log:            connectionLogFactory.Make("conn_tspt"),
 	}
 	connLog := connectionLogFactory.Make("conn")
 	return newConnectionWithTransportAndProtocolsWithLog(
@@ -387,15 +392,17 @@ func NewTLSConnection(
 	handler ConnectionHandler,
 	logFactory LogFactory,
 	logOutput LogOutputWithDepthAdder,
+	maxFrameLength int32,
 	opts ConnectionOpts,
 ) *Connection {
 	transport := &ConnectionTransportTLS{
-		rootCerts:     rootCerts,
-		srvRemote:     srvRemote,
-		logFactory:    logFactory,
-		wef:           opts.WrapErrorFunc,
-		dialerTimeout: opts.DialerTimeout,
-		log:           newConnectionLogUnstructured(logOutput, "CONNTSPT"),
+		rootCerts:      rootCerts,
+		srvRemote:      srvRemote,
+		maxFrameLength: maxFrameLength,
+		logFactory:     logFactory,
+		wef:            opts.WrapErrorFunc,
+		dialerTimeout:  opts.DialerTimeout,
+		log:            newConnectionLogUnstructured(logOutput, "CONNTSPT"),
 	}
 	return newConnectionWithTransportAndProtocols(handler, transport, errorUnwrapper, logOutput, opts)
 }
@@ -409,15 +416,17 @@ func NewTLSConnectionWithTLSConfig(
 	handler ConnectionHandler,
 	logFactory LogFactory,
 	logOutput LogOutputWithDepthAdder,
+	maxFrameLength int32,
 	opts ConnectionOpts,
 ) *Connection {
 	transport := &ConnectionTransportTLS{
-		srvRemote:     srvRemote,
-		tlsConfig:     copyTLSConfig(tlsConfig),
-		logFactory:    logFactory,
-		wef:           opts.WrapErrorFunc,
-		dialerTimeout: opts.DialerTimeout,
-		log:           newConnectionLogUnstructured(logOutput, "CONNTSPT"),
+		srvRemote:      srvRemote,
+		tlsConfig:      copyTLSConfig(tlsConfig),
+		maxFrameLength: maxFrameLength,
+		logFactory:     logFactory,
+		wef:            opts.WrapErrorFunc,
+		dialerTimeout:  opts.DialerTimeout,
+		log:            newConnectionLogUnstructured(logOutput, "CONNTSPT"),
 	}
 	return newConnectionWithTransportAndProtocols(handler, transport, errorUnwrapper, logOutput, opts)
 }

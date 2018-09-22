@@ -23,21 +23,23 @@ func (r *lastErrReader) Read(buf []byte) (int, error) {
 }
 
 type packetizer struct {
-	lengthDecoder *codec.Decoder
-	reader        *lastErrReader
-	protocols     *protocolHandler
-	calls         *callContainer
-	log           LogInterface
+	maxFrameLength int32
+	lengthDecoder  *codec.Decoder
+	reader         *lastErrReader
+	protocols      *protocolHandler
+	calls          *callContainer
+	log            LogInterface
 }
 
-func newPacketizer(reader io.Reader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
+func newPacketizer(maxFrameLength int32, reader io.Reader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
 	wrappedReader := &lastErrReader{bufio.NewReader(reader), nil}
 	return &packetizer{
-		lengthDecoder: codec.NewDecoder(wrappedReader, newCodecMsgpackHandle()),
-		reader:        wrappedReader,
-		protocols:     protocols,
-		calls:         calls,
-		log:           log,
+		maxFrameLength: maxFrameLength,
+		lengthDecoder:  codec.NewDecoder(wrappedReader, newCodecMsgpackHandle()),
+		reader:         wrappedReader,
+		protocols:      protocols,
+		calls:          calls,
+		log:            log,
 	}
 }
 
@@ -129,7 +131,9 @@ func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
 		return nil, PacketizerError{fmt.Sprintf("invalid frame length: %d", l)}
 	}
 
-	// TODO: Have an upper bound.
+	if l > p.maxFrameLength {
+		return nil, PacketizerError{fmt.Sprintf("frame length too big: %d > %d", l, p.maxFrameLength)}
+	}
 
 	r := frameReader{p.reader.reader, l, p.log}
 	defer func() {

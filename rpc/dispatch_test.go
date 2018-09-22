@@ -15,7 +15,7 @@ func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher,
 	conn1, conn2 := net.Pipe()
 	dispatchOut := newFramedMsgpackEncoder(conn1)
 	calls := newCallContainer()
-	pkt := newPacketizer(conn2, createMessageTestProtocol(), calls, log)
+	pkt := newPacketizer(testMaxFrameLength, conn2, createMessageTestProtocol(), calls, log)
 
 	d := newDispatch(dispatchOut, calls, log)
 

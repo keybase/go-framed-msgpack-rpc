@@ -123,13 +123,15 @@ type TestLogger interface {
 	Helper()
 }
 
+const testMaxFrameLength = 1024
+
 // MakeConnectionForTest returns a Connection object, and a net.Conn
 // object representing the other end of that connection.
 func MakeConnectionForTest(t TestLogger) (net.Conn, *Connection) {
 	clientConn, serverConn := net.Pipe()
 	logOutput := testLogOutput{t}
 	logFactory := NewSimpleLogFactory(logOutput, nil)
-	transporter := NewTransport(clientConn, logFactory, testWrapError)
+	transporter := NewTransport(clientConn, logFactory, testWrapError, testMaxFrameLength)
 	st := singleTransport{transporter}
 	opts := ConnectionOpts{
 		WrapErrorFunc: testWrapError,

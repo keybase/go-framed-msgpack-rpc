@@ -30,7 +30,7 @@ func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan er
 			externalListener <- io.EOF
 			return err
 		}
-		xp := NewTransport(c, lf, nil)
+		xp := NewTransport(c, lf, nil, testMaxFrameLength)
 		srv := NewServer(xp, nil)
 		srv.Register(createTestProtocol(newTestProtocol(c)))
 		done := srv.Run()

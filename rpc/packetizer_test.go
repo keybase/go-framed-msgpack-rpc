@@ -61,7 +61,7 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	cc.AddCall(c)
 
 	log := newTestLog(t)
-	pkt := newPacketizer(&buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
 
 	f1, err := pkt.NextFrame()
 	require.NoError(t, err)
@@ -121,7 +121,7 @@ func TestPacketizerReaderOpError(t *testing.T) {
 	// Taking advantage here of opErr being a nil *net.OpError,
 	// but a non-nil error when used by errReader.
 	var opErr *net.OpError
-	pkt := newPacketizer(errReader{opErr}, createPacketizerTestProtocol(), newCallContainer(), log)
+	pkt := newPacketizer(testMaxFrameLength, errReader{opErr}, createPacketizerTestProtocol(), newCallContainer(), log)
 
 	msg, err := pkt.NextFrame()
 	require.Nil(t, msg)
@@ -132,12 +132,12 @@ func TestPacketizerReaderOpError(t *testing.T) {
 func TestPacketizerDecodeLargeFrame(t *testing.T) {
 	var buf bytes.Buffer
 	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
-	const maxInt = ^uint32(0) >> 1
+	const maxInt = int32(^uint32(0) >> 1)
 	e.Encode(maxInt)
 
 	cc := newCallContainer()
 	log := newTestLog(t)
-	pkt := newPacketizer(&buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(maxInt, &buf, createPacketizerTestProtocol(), cc, log)
 
 	_, err := pkt.NextFrame()
 	require.Equal(t, io.EOF, err)
