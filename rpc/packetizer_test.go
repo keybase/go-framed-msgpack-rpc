@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"io"
@@ -59,7 +60,7 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	cc.AddCall(c)
 
 	log := newTestLog(t)
-	pkt := newPacketizer(&buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(bufio.NewReader(&buf), createPacketizerTestProtocol(), cc, log)
 
 	f1, err := pkt.NextFrame()
 	require.NoError(t, err)
@@ -113,6 +114,10 @@ func (r errReader) Read([]byte) (int, error) {
 	return 0, r.err
 }
 
+func (r errReader) Discard(int) (int, error) {
+	return 0, r.err
+}
+
 func TestPacketizerReaderOpError(t *testing.T) {
 	log := newTestLog(t)
 
@@ -128,15 +133,15 @@ func TestPacketizerReaderOpError(t *testing.T) {
 }
 
 func TestPacketizerDecodeLargeFrame(t *testing.T) {
-	buf := bytes.NewBuffer(nil)
-	e := codec.NewEncoder(buf, newCodecMsgpackHandle())
+	var buf bytes.Buffer
+	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
 	const maxInt = ^uint32(0) >> 1
 	e.Encode(maxInt)
 	buf.WriteByte(0x0)
 
 	cc := newCallContainer()
 	log := newTestLog(t)
-	pkt := newPacketizer(buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(bufio.NewReader(&buf), createPacketizerTestProtocol(), cc, log)
 
 	_, err := pkt.NextFrame()
 	require.Equal(t, io.EOF, err)
