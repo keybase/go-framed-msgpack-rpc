@@ -104,18 +104,10 @@ func (p *packetizer) loadNextFrame() (byte, int32, error) {
 
 	// TODO: Probably gotta drain here, too.
 
-	var nb [1]byte
-	// Note that ReadFull drops the error returned from p.reader
-	// if enough bytes are read. This isn't a big deal, as if it's
-	// a serious error we'll probably run it again on the next
-	// frame read.
-	lenRead, err := io.ReadFull(p.reader, nb[:])
+	nb, err := p.reader.reader.ReadByte()
 	if err != nil {
 		return 0, 0, err
 	}
-	if lenRead != 1 {
-		return 0, 0, fmt.Errorf("Unable to read desired length. Desired: %d, actual: %d", 1, lenRead)
-	}
 
-	return nb[0], l - 1, nil
+	return nb, l - 1, nil
 }
