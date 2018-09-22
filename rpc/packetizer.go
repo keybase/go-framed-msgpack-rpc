@@ -10,7 +10,7 @@ import (
 )
 
 // lastErrReader stores the last error returned by its child
-// reader. It's used by loadNextFrame below.
+// reader. It's used by NextFrame below.
 type lastErrReader struct {
 	reader *bufio.Reader
 	err    error
@@ -56,10 +56,30 @@ func newPacketizer(reader io.Reader, protocols *protocolHandler, calls *callCont
 //     error. We can then process the error and continue with the next
 //     packet.
 func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
-	nb, l, err := p.loadNextFrame()
+	// Get the packet length
+	var l int32
+	if err := p.lengthDecoder.Decode(&l); err != nil {
+		// If the connection is reset or has been closed on
+		// this side, return EOF. lengthDecoder wraps most
+		// errors, so we have to check p.reader.err instead of
+		// err.
+		if _, ok := p.reader.err.(*net.OpError); ok {
+			return nil, io.EOF
+		}
+		return nil, err
+	}
+	if l <= 0 {
+		return nil, PacketizerError{fmt.Sprintf("invalid frame length: %d", l)}
+	}
+
+	// TODO: Probably gotta drain here, too.
+
+	nb, err := p.reader.reader.ReadByte()
 	if err != nil {
 		return nil, err
 	}
+
+	l--
 
 	// Interpret the byte as the length field of a fixarray of up
 	// to 15 elements: see
@@ -83,31 +103,4 @@ func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
 	}()
 
 	return decodeRPC(int(nb-0x90), p.fieldDecoder, p.protocols, p.calls)
-}
-
-func (p *packetizer) loadNextFrame() (byte, int32, error) {
-	// Get the packet length
-	var l int32
-	if err := p.lengthDecoder.Decode(&l); err != nil {
-		// If the connection is reset or has been closed on
-		// this side, return EOF. lengthDecoder wraps most
-		// errors, so we have to check p.reader.err instead of
-		// err.
-		if _, ok := p.reader.err.(*net.OpError); ok {
-			return 0, 0, io.EOF
-		}
-		return 0, 0, err
-	}
-	if l <= 0 {
-		return 0, 0, PacketizerError{fmt.Sprintf("invalid frame length: %d", l)}
-	}
-
-	// TODO: Probably gotta drain here, too.
-
-	nb, err := p.reader.reader.ReadByte()
-	if err != nil {
-		return 0, 0, err
-	}
-
-	return nb, l - 1, nil
 }
