@@ -49,6 +49,22 @@ type frameReader struct {
 	log       LogInterface
 }
 
+func (l *frameReader) ReadByte() (byte, error) {
+	if l.remaining <= 0 {
+		return 0, io.ErrUnexpectedEOF
+	}
+
+	b, err := l.r.ReadByte()
+	l.remaining--
+
+	if err == nil {
+		// TODO: Figure out what to do here.
+		l.log.FrameRead([]byte{b})
+	}
+
+	return b, err
+}
+
 func (l *frameReader) Read(p []byte) (int, error) {
 	if l.remaining <= 0 {
 		return 0, io.ErrUnexpectedEOF
@@ -126,7 +142,7 @@ func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
 		}
 	}()
 
-	nb, err := p.reader.reader.ReadByte()
+	nb, err := r.ReadByte()
 	if err != nil {
 		return nil, err
 	}
