@@ -131,7 +131,6 @@ func TestPacketizerDecodeLargeFrame(t *testing.T) {
 	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
 	const maxInt = ^uint32(0) >> 1
 	e.Encode(maxInt)
-	buf.WriteByte(0x0)
 
 	cc := newCallContainer()
 	log := newTestLog(t)
