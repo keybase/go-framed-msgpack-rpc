@@ -1,18 +1,13 @@
 package rpc
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"net"
 
 	"github.com/keybase/go-codec/codec"
 )
-
-type discardReader interface {
-	io.Reader
-	// See bufio.(*Reader).Discard.
-	Discard(int) (int, error)
-}
 
 // lastErrReader stores the last error returned by its child
 // reader. It's used by loadNextFrame below.
@@ -35,7 +30,7 @@ type packetizer struct {
 	calls         *callContainer
 }
 
-func newPacketizer(reader discardReader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
+func newPacketizer(reader *bufio.Reader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
 	wrappedReader := &lastErrReader{reader, nil}
 	return &packetizer{
 		lengthDecoder: codec.NewDecoder(wrappedReader, newCodecMsgpackHandle()),

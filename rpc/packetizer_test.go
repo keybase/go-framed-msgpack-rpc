@@ -114,17 +114,13 @@ func (r errReader) Read([]byte) (int, error) {
 	return 0, r.err
 }
 
-func (r errReader) Discard(int) (int, error) {
-	return 0, r.err
-}
-
 func TestPacketizerReaderOpError(t *testing.T) {
 	log := newTestLog(t)
 
 	// Taking advantage here of opErr being a nil *net.OpError,
 	// but a non-nil error when used by errReader.
 	var opErr *net.OpError
-	pkt := newPacketizer(errReader{opErr}, createPacketizerTestProtocol(), newCallContainer(), log)
+	pkt := newPacketizer(bufio.NewReader(errReader{opErr}), createPacketizerTestProtocol(), newCallContainer(), log)
 
 	nb, length, err := pkt.loadNextFrame()
 	require.Equal(t, byte(0), nb)
