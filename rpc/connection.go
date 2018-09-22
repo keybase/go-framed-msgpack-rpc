@@ -185,68 +185,65 @@ const keepAlive = 10 * time.Second
 // Dial is an implementation of the ConnectionTransport interface.
 func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	Transporter, error) {
-	var conn net.Conn
-	err := runUnlessCanceled(ctx, func() error {
-		addr := ct.srvRemote.GetAddress()
-		config := ct.tlsConfig
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			return err
-		}
+	addr := ct.srvRemote.GetAddress()
+	config := ct.tlsConfig
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
 
-		// If we didn't specify a tls.Config, but we did specify
-		// explicit rootCerts, then populate a new tls.Config here.
-		// Otherwise, we're using the defaults via `nil` tls.Config.
-		if config == nil && ct.rootCerts != nil {
-			// load CA certificate
-			certs := x509.NewCertPool()
-			if !certs.AppendCertsFromPEM(ct.rootCerts) {
-				return errors.New("Unable to load root certificates")
-			}
-			config = &tls.Config{
-				RootCAs:    certs,
-				ServerName: host,
-			}
+	// If we didn't specify a tls.Config, but we did specify
+	// explicit rootCerts, then populate a new tls.Config here.
+	// Otherwise, we're using the defaults via `nil` tls.Config.
+	if config == nil && ct.rootCerts != nil {
+		// load CA certificate
+		certs := x509.NewCertPool()
+		if !certs.AppendCertsFromPEM(ct.rootCerts) {
+			return nil, errors.New("Unable to load root certificates")
 		}
-		// Final check to make sure we have a TLS config since tls.Client requires
-		// either ServerName or InsecureSkipVerify to be set.
-		if config == nil {
-			config = &tls.Config{ServerName: host}
+		config = &tls.Config{
+			RootCAs:    certs,
+			ServerName: host,
 		}
+	}
+	// Final check to make sure we have a TLS config since tls.Client requires
+	// either ServerName or InsecureSkipVerify to be set.
+	if config == nil {
+		config = &tls.Config{ServerName: host}
+	}
 
-		ct.log.Debug("%s %s",
-			LogField{Key: ConnectionLogMsgKey, Value: "Dialing"},
-			LogField{Key: "remote-addr", Value: addr})
-		// connect
-		dialer := net.Dialer{
-			Timeout:   ct.dialerTimeout,
-			KeepAlive: keepAlive,
-		}
-		baseConn, err := dialer.Dial("tcp", addr)
-		if err != nil {
-			// If we get a DNS error, it could be because glibc has cached an
-			// old version of /etc/resolv.conf. The res_init() libc function
-			// busts that cache and keeps us from getting stuck in a state
-			// where DNS requests keep failing even though the network is up.
-			// This is similar to what the Rust standard library does:
-			// https://github.com/rust-lang/rust/blob/028569ab1b/src/libstd/sys_common/net.rs#L186-L190
-			// Note that we still propagate the error here, and we expect
-			// callers to retry.
-			resinit.ResInitIfDNSError(err)
-			return err
-		}
-		ct.log.Debug("baseConn: %s; Calling %s",
-			LogField{Key: "local-addr", Value: baseConn.LocalAddr()},
-			LogField{Key: ConnectionLogMsgKey, Value: "Handshake"})
-		conn = tls.Client(baseConn, config)
-		if err := conn.(*tls.Conn).Handshake(); err != nil {
-			return err
-		}
-		ct.log.Debug("%s", LogField{Key: ConnectionLogMsgKey, Value: "Handshaken"})
+	ct.log.Debug("%s %s",
+		LogField{Key: ConnectionLogMsgKey, Value: "Dialing"},
+		LogField{Key: "remote-addr", Value: addr})
+	// connect
+	dialer := net.Dialer{
+		Timeout:   ct.dialerTimeout,
+		KeepAlive: keepAlive,
+	}
+	baseConn, err := dialer.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		// If we get a DNS error, it could be because glibc has cached an
+		// old version of /etc/resolv.conf. The res_init() libc function
+		// busts that cache and keeps us from getting stuck in a state
+		// where DNS requests keep failing even though the network is up.
+		// This is similar to what the Rust standard library does:
+		// https://github.com/rust-lang/rust/blob/028569ab1b/src/libstd/sys_common/net.rs#L186-L190
+		// Note that we still propagate the error here, and we expect
+		// callers to retry.
+		resinit.ResInitIfDNSError(err)
+		return nil, err
+	}
+	ct.log.Debug("baseConn: %s; Calling %s",
+		LogField{Key: "local-addr", Value: baseConn.LocalAddr()},
+		LogField{Key: ConnectionLogMsgKey, Value: "Handshake"})
+	conn := tls.Client(baseConn, config)
+	if err := conn.Handshake(); err != nil {
+		return nil, err
+	}
+	ct.log.Debug("%s", LogField{Key: ConnectionLogMsgKey, Value: "Handshaken"})
 
-		// Disable SIGPIPE on platforms that require it (Darwin). See sigpipe_bsd.go.
-		return DisableSigPipe(baseConn)
-	})
+	// Disable SIGPIPE on platforms that require it (Darwin). See sigpipe_bsd.go.
+	err = DisableSigPipe(baseConn)
 	if err != nil {
 		return nil, err
 	}
