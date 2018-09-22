@@ -8,10 +8,6 @@ import (
 	"github.com/keybase/go-codec/codec"
 )
 
-type packetizer interface {
-	NextFrame() (rpcMessage, error)
-}
-
 // lastErrReader stores the last error returned by its child
 // reader. It's used by loadNextFrame below.
 type lastErrReader struct {
