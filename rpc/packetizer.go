@@ -25,7 +25,6 @@ func (r *lastErrReader) Read(buf []byte) (int, error) {
 type packetizer struct {
 	lengthDecoder *codec.Decoder
 	reader        *lastErrReader
-	fieldDecoder  *fieldDecoder
 	protocols     *protocolHandler
 	calls         *callContainer
 	log           LogInterface
@@ -36,7 +35,6 @@ func newPacketizer(reader io.Reader, protocols *protocolHandler, calls *callCont
 	return &packetizer{
 		lengthDecoder: codec.NewDecoder(wrappedReader, newCodecMsgpackHandle()),
 		reader:        wrappedReader,
-		fieldDecoder:  newFieldDecoder(),
 		protocols:     protocols,
 		calls:         calls,
 		log:           log,
@@ -156,6 +154,5 @@ func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
 		return nil, NewPacketizerError("wrong message structure prefix (0x%x)", nb)
 	}
 
-	p.fieldDecoder.Reset(&r)
-	return decodeRPC(int(nb-0x90), p.fieldDecoder, p.protocols, p.calls)
+	return decodeRPC(int(nb-0x90), &r, p.protocols, p.calls)
 }
