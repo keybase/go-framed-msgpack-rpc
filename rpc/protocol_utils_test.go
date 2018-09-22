@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"testing"
 	"time"
 
 	"golang.org/x/net/context"
@@ -14,7 +15,7 @@ type server struct {
 	port int
 }
 
-func (s *server) Run(t TestLogger, ready chan struct{}, externalListener chan error) (err error) {
+func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan error) (err error) {
 	var listener net.Listener
 	o := testLogOutput{t}
 	lf := NewSimpleLogFactory(o, nil)
