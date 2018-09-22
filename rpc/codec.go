@@ -7,11 +7,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-type encoder interface {
-	EncodeAndWrite(context.Context, interface{}, func()) <-chan error
-	EncodeAndWriteAsync(interface{}) <-chan error
-}
-
 // fieldDecoder decodes the fields of a packet.
 type fieldDecoder struct {
 	d           *codec.Decoder
