@@ -29,13 +29,13 @@ type packetizer struct {
 	calls         *callContainer
 }
 
-type packetReader interface {
+type discardReader interface {
 	io.Reader
 	// See bufio.(*Reader).Discard.
 	Discard(int) (int, error)
 }
 
-func newPacketizer(reader packetReader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
+func newPacketizer(reader discardReader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
 	wrappedReader := &lastErrReader{reader, nil}
 	return &packetizer{
 		lengthDecoder: codec.NewDecoder(wrappedReader, newCodecMsgpackHandle()),
