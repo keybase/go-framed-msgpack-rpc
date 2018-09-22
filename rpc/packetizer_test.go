@@ -130,7 +130,7 @@ func TestPacketizerReaderOpError(t *testing.T) {
 func TestPacketizerDecodeLargeFrame(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	e := codec.NewEncoder(buf, newCodecMsgpackHandle())
-	const maxInt = ^uint(0) >> 1
+	const maxInt = ^uint32(0) >> 1
 	e.Encode(maxInt)
 	buf.WriteByte(0x0)
 
