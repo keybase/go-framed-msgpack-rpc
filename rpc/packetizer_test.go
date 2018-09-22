@@ -33,6 +33,8 @@ func createPacketizerTestProtocol() *protocolHandler {
 
 // TestPacketizerDecodeInvalidFrames makes sure that the packetizer
 // can handle invalid frames and skip over them.
+//
+// TODO: Fail at various stages.
 func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	// Encode a mix of valid and invalid frames.
 	v1 := []interface{}{MethodCall, 1, "abc.hello", new(interface{})}
@@ -126,6 +128,7 @@ func TestPacketizerReaderOpError(t *testing.T) {
 	require.Equal(t, io.EOF, err)
 }
 
+// TODO: Fail at various stages.
 func TestPacketizerDecodeLargeFrame(t *testing.T) {
 	var buf bytes.Buffer
 	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
