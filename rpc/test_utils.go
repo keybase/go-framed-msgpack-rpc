@@ -14,9 +14,9 @@ type server struct {
 	port int
 }
 
-func (s *server) Run(ready chan struct{}, externalListener chan error) (err error) {
+func (s *server) Run(t TestLogger, ready chan struct{}, externalListener chan error) (err error) {
 	var listener net.Listener
-	o := SimpleLogOutput{}
+	o := testLogOutput{t}
 	lf := NewSimpleLogFactory(o, nil)
 	o.Info(fmt.Sprintf("Listening on port %d...", s.port))
 	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil {
