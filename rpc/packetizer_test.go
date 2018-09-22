@@ -121,9 +121,9 @@ func TestPacketizerReaderOpError(t *testing.T) {
 	var opErr *net.OpError
 	pkt := newPacketizer(errReader{opErr}, createPacketizerTestProtocol(), newCallContainer(), log)
 
-	nb, bytes, err := pkt.loadNextFrame()
+	nb, length, err := pkt.loadNextFrame()
 	require.Equal(t, byte(0), nb)
-	require.Nil(t, bytes)
+	require.Equal(t, int32(0), length)
 	require.Equal(t, io.EOF, err)
 }
 
