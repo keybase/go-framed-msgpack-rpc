@@ -56,7 +56,7 @@ func newPacketizer(reader io.Reader, protocols *protocolHandler, calls *callCont
 //     error. We can then process the error and continue with the next
 //     packet.
 func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
-	// Get the packet length
+	// Get the packet length.
 	var l int32
 	if err := p.lengthDecoder.Decode(&l); err != nil {
 		// If the connection is reset or has been closed on
@@ -71,6 +71,8 @@ func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
 	if l <= 0 {
 		return nil, PacketizerError{fmt.Sprintf("invalid frame length: %d", l)}
 	}
+
+	// TODO: Have an upper bound.
 
 	// TODO: Probably gotta drain here, too.
 
