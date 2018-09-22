@@ -30,8 +30,8 @@ type packetizer struct {
 	calls         *callContainer
 }
 
-func newPacketizer(reader *bufio.Reader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
-	wrappedReader := &lastErrReader{reader, nil}
+func newPacketizer(reader io.Reader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
+	wrappedReader := &lastErrReader{bufio.NewReader(reader), nil}
 	return &packetizer{
 		lengthDecoder: codec.NewDecoder(wrappedReader, newCodecMsgpackHandle()),
 		reader:        wrappedReader,

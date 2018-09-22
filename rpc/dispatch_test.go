@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"bufio"
 	"io"
 	"net"
 	"testing"
@@ -16,7 +15,7 @@ func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher,
 	conn1, conn2 := net.Pipe()
 	dispatchOut := newFramedMsgpackEncoder(conn1)
 	calls := newCallContainer()
-	pkt := newPacketizer(bufio.NewReader(conn2), createMessageTestProtocol(), calls, log)
+	pkt := newPacketizer(conn2, createMessageTestProtocol(), calls, log)
 
 	d := newDispatch(dispatchOut, calls, log)
 
