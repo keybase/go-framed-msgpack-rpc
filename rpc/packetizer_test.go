@@ -49,7 +49,7 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	enc := newFramedMsgpackEncoder(&buf)
 	ctx := context.Background()
 	for _, frame := range frames {
-		err := <-enc.EncodeAndWrite(ctx, frame, nil)
+		err := <-enc.encodeAndWriteInternal(ctx, frame, nil)
 		require.NoError(t, err)
 	}
 
