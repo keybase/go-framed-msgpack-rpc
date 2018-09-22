@@ -8,6 +8,12 @@ import (
 	"github.com/keybase/go-codec/codec"
 )
 
+type discardReader interface {
+	io.Reader
+	// See bufio.(*Reader).Discard.
+	Discard(int) (int, error)
+}
+
 // lastErrReader stores the last error returned by its child
 // reader. It's used by loadNextFrame below.
 type lastErrReader struct {
@@ -27,12 +33,6 @@ type packetizer struct {
 	fieldDecoder  *fieldDecoder
 	protocols     *protocolHandler
 	calls         *callContainer
-}
-
-type discardReader interface {
-	io.Reader
-	// See bufio.(*Reader).Discard.
-	Discard(int) (int, error)
 }
 
 func newPacketizer(reader discardReader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
