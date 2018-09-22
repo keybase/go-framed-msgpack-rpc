@@ -28,6 +28,7 @@ type packetizer struct {
 	fieldDecoder  *fieldDecoder
 	protocols     *protocolHandler
 	calls         *callContainer
+	log           LogInterface
 }
 
 func newPacketizer(reader io.Reader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
@@ -35,10 +36,52 @@ func newPacketizer(reader io.Reader, protocols *protocolHandler, calls *callCont
 	return &packetizer{
 		lengthDecoder: codec.NewDecoder(wrappedReader, newCodecMsgpackHandle()),
 		reader:        wrappedReader,
-		fieldDecoder:  newFieldDecoder(log),
+		fieldDecoder:  newFieldDecoder(),
 		protocols:     protocols,
 		calls:         calls,
+		log:           log,
 	}
+}
+
+type frameReader struct {
+	r         *bufio.Reader
+	remaining int32
+	log       LogInterface
+}
+
+func (l *frameReader) Read(p []byte) (int, error) {
+	if l.remaining <= 0 {
+		return 0, io.ErrUnexpectedEOF
+	}
+
+	if len(p) > int(l.remaining) {
+		p = p[:l.remaining]
+	}
+
+	n, err := l.r.Read(p)
+	l.remaining -= int32(n)
+
+	if err == nil {
+		// TODO: Figure out what to do here.
+		l.log.FrameRead(p[:n])
+	}
+
+	return n, err
+}
+
+func (l *frameReader) drain() error {
+	n, err := l.r.Discard(int(l.remaining))
+	l.remaining -= int32(n)
+
+	if err != nil {
+		return err
+	}
+
+	if l.remaining != 0 {
+		return fmt.Errorf("Unexpected remaining %d", l.remaining)
+	}
+
+	return nil
 }
 
 // NextFrame returns the next message and an error. The error can be:
@@ -74,14 +117,19 @@ func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
 
 	// TODO: Have an upper bound.
 
-	// TODO: Probably gotta drain here, too.
+	r := frameReader{p.reader.reader, l, p.log}
+	defer func() {
+		drainErr := r.drain()
+		if drainErr != nil && err == nil {
+			msg = nil
+			err = drainErr
+		}
+	}()
 
 	nb, err := p.reader.reader.ReadByte()
 	if err != nil {
 		return nil, err
 	}
-
-	l--
 
 	// Interpret the byte as the length field of a fixarray of up
 	// to 15 elements: see
@@ -89,20 +137,9 @@ func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
 	// for details. Do this so we can decode directly into the
 	// expected fields without copying.
 	if nb < 0x91 || nb > 0x9f {
-		// TODO: Clean up
-		b := make([]byte, l)
-		_, _ = p.reader.Read(b)
 		return nil, NewPacketizerError("wrong message structure prefix (0x%x)", nb)
 	}
-	p.fieldDecoder.Reset(p.reader, l)
-	defer func() {
-		drainErr := p.fieldDecoder.Drain()
-		// TODO: Figure out right semantics here.
-		if drainErr != nil && err == nil {
-			msg = nil
-			err = drainErr
-		}
-	}()
 
+	p.fieldDecoder.Reset(&r)
 	return decodeRPC(int(nb-0x90), p.fieldDecoder, p.protocols, p.calls)
 }

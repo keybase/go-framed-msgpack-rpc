@@ -9,51 +9,19 @@ import (
 
 // fieldDecoder decodes the fields of a packet.
 type fieldDecoder struct {
-	r           limitedReader
 	d           *codec.Decoder
 	fieldNumber int
 }
 
-func newFieldDecoder(log LogInterface) *fieldDecoder {
+func newFieldDecoder() *fieldDecoder {
 	return &fieldDecoder{
-		r: limitedReader{
-			log: log,
-		},
 		d:           codec.NewDecoder(nil, newCodecMsgpackHandle()),
 		fieldNumber: 0,
 	}
 }
 
-type limitedReader struct {
-	r         io.Reader
-	remaining int32
-	log       LogInterface
-}
-
-func (l *limitedReader) Read(p []byte) (int, error) {
-	if l.remaining <= 0 {
-		return 0, io.ErrUnexpectedEOF
-	}
-
-	if len(p) > int(l.remaining) {
-		p = p[:l.remaining]
-	}
-
-	n, err := l.r.Read(p)
-	l.remaining -= int32(n)
-
-	if err == nil {
-		// TODO: Figure out what to do here.
-		l.log.FrameRead(p[:n])
-	}
-
-	return n, err
-}
-
-func (dw *fieldDecoder) Reset(reader io.Reader, frameLength int32) {
-	dw.r.r = reader
-	dw.r.remaining = frameLength
-	dw.d.Reset(&dw.r)
+func (dw *fieldDecoder) Reset(reader io.Reader) {
+	dw.d.Reset(reader)
 	dw.fieldNumber = 0
 }
 
@@ -70,17 +38,6 @@ func (dw *fieldDecoder) Decode(i interface{}) error {
 		return newRPCMessageFieldDecodeError(dw.fieldNumber, err)
 	}
 	return nil
-}
-
-func (dw *fieldDecoder) Drain() error {
-	if dw.r.remaining <= 0 {
-		return nil
-	}
-
-	b := make([]byte, dw.r.remaining)
-	_, err := dw.r.Read(b)
-	// TODO: Check n
-	return err
 }
 
 func newCodecMsgpackHandle() codec.Handle {

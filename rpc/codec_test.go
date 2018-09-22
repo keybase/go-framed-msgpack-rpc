@@ -21,8 +21,7 @@ func TestFieldDecoder(t *testing.T) {
 	iBytes := buf.Bytes()
 	require.Equal(t, 5, len(iBytes))
 
-	log := newTestLog(t)
-	dec := newFieldDecoder(log)
+	dec := newFieldDecoder()
 
 	// Try decoding from an empty slice into an int (should fail).
 
@@ -34,7 +33,7 @@ func TestFieldDecoder(t *testing.T) {
 	// Try decoding from iBytes into an int (should succeed, since
 	// we called ResetBytes first).
 
-	dec.Reset(bytes.NewBuffer(iBytes), int32(len(iBytes)))
+	dec.Reset(bytes.NewBuffer(iBytes))
 
 	err = dec.Decode(&targetInt)
 	require.NoError(t, err)
@@ -49,7 +48,7 @@ func TestFieldDecoder(t *testing.T) {
 	// Then reset again, and try decoding from iBytes into an int
 	// again (should succeed, since we called ResetBytes first).
 
-	dec.Reset(bytes.NewBuffer(iBytes), int32(len(iBytes)))
+	dec.Reset(bytes.NewBuffer(iBytes))
 
 	targetInt = 0
 	err = dec.Decode(&targetInt)
