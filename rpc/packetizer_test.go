@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"testing"
@@ -128,6 +129,47 @@ func createPacketizerTestProtocol() *protocolHandler {
 	return p
 }
 
+func TestPacketizerDecodeNegativeLength(t *testing.T) {
+	var buf bytes.Buffer
+	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
+	e.Encode(-1)
+
+	cc := newCallContainer()
+	log := newTestLog(t)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+
+	_, err := pkt.NextFrame()
+	require.Equal(t, PacketizerError{"invalid frame length: -1"}, err)
+}
+
+func TestPacketizerDecodeTooLargeLength(t *testing.T) {
+	var buf bytes.Buffer
+	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
+	e.Encode(testMaxFrameLength + 1)
+
+	cc := newCallContainer()
+	log := newTestLog(t)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+
+	_, err := pkt.NextFrame()
+	require.Equal(t, PacketizerError{fmt.Sprintf("frame length too big: %d > %d", testMaxFrameLength+1, testMaxFrameLength)}, err)
+}
+
+func TestPacketizerDecodeShortPacket(t *testing.T) {
+	var buf bytes.Buffer
+	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
+	const maxInt = int32(^uint32(0) >> 1)
+	e.Encode(maxInt)
+
+	cc := newCallContainer()
+	log := newTestLog(t)
+	pkt := newPacketizer(maxInt, &buf, createPacketizerTestProtocol(), cc, log)
+
+	// Shouldn't try to allocate a buffer for the packet.
+	_, err := pkt.NextFrame()
+	require.Equal(t, io.ErrUnexpectedEOF, err)
+}
+
 // TestPacketizerDecodeInvalidFrames makes sure that the packetizer
 // can handle invalid frames and skip over them.
 //
@@ -223,19 +265,4 @@ func TestPacketizerReaderOpError(t *testing.T) {
 	msg, err := pkt.NextFrame()
 	require.Nil(t, msg)
 	require.Equal(t, io.EOF, err)
-}
-
-// TODO: Fail at various stages.
-func TestPacketizerDecodeLargeFrame(t *testing.T) {
-	var buf bytes.Buffer
-	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
-	const maxInt = int32(^uint32(0) >> 1)
-	e.Encode(maxInt)
-
-	cc := newCallContainer()
-	log := newTestLog(t)
-	pkt := newPacketizer(maxInt, &buf, createPacketizerTestProtocol(), cc, log)
-
-	_, err := pkt.NextFrame()
-	require.Equal(t, io.ErrUnexpectedEOF, err)
 }
