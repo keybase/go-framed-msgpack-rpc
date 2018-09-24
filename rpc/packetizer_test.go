@@ -29,7 +29,7 @@ func TestFrameReaderReadByte(t *testing.T) {
 	require.Equal(t, byte(0x2), b)
 
 	b, err = frameReader.ReadByte()
-	require.Equal(t, io.EOF, err)
+	require.Equal(t, io.ErrUnexpectedEOF, err)
 	require.Equal(t, byte(0), b)
 
 	buf.WriteByte(0x3)
@@ -39,8 +39,8 @@ func TestFrameReaderReadByte(t *testing.T) {
 	require.Equal(t, byte(0x3), b)
 
 	b, err = frameReader.ReadByte()
-	require.Equal(t, io.EOF, err)
-	require.Equal(t, 0, b)
+	require.Equal(t, io.ErrUnexpectedEOF, err)
+	require.Equal(t, byte(0), b)
 }
 
 func createPacketizerTestProtocol() *protocolHandler {
@@ -171,5 +171,5 @@ func TestPacketizerDecodeLargeFrame(t *testing.T) {
 	pkt := newPacketizer(maxInt, &buf, createPacketizerTestProtocol(), cc, log)
 
 	_, err := pkt.NextFrame()
-	require.Equal(t, io.EOF, err)
+	require.Equal(t, io.ErrUnexpectedEOF, err)
 }
