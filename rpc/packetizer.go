@@ -93,10 +93,13 @@ func (l *frameReader) drain() error {
 	n, err := l.r.Discard(int(l.remaining))
 	l.remaining -= int32(n)
 
-	if err != nil {
+	if l.remaining != 0 && err == io.EOF {
+		return io.ErrUnexpectedEOF
+	} else if err != nil {
 		return err
 	}
 
+	// Shouldn't happen, but handle it anyway.
 	if l.remaining != 0 {
 		return fmt.Errorf("Unexpected remaining %d", l.remaining)
 	}

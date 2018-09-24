@@ -85,7 +85,7 @@ func TestFrameReaderRead(t *testing.T) {
 	require.Equal(t, 0, n)
 }
 
-func TestFrameReaderDrain(t *testing.T) {
+func TestFrameReaderDrainSuccess(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{0x1, 0x2, 0x3})
 	bufReader := bufio.NewReader(buf)
 
@@ -94,6 +94,18 @@ func TestFrameReaderDrain(t *testing.T) {
 
 	err := frameReader.drain()
 	require.NoError(t, err)
+	require.Equal(t, 0, buf.Len())
+}
+
+func TestFrameReaderDrainFailure(t *testing.T) {
+	buf := bytes.NewBuffer([]byte{0x1, 0x2, 0x3})
+	bufReader := bufio.NewReader(buf)
+
+	log := newTestLog(t)
+	frameReader := frameReader{bufReader, 4, log}
+
+	err := frameReader.drain()
+	require.Equal(t, io.ErrUnexpectedEOF, err)
 	require.Equal(t, 0, buf.Len())
 }
 
