@@ -57,6 +57,8 @@ func (l *frameReader) ReadByte() (byte, error) {
 	}
 
 	b, err := l.r.ReadByte()
+	// ReadByte() returning a non-nil error is equivalent to
+	// Read() returning (0, err).
 	if err == nil {
 		l.remaining--
 		l.log.FrameRead([]byte{b})
@@ -78,12 +80,12 @@ func (l *frameReader) Read(p []byte) (int, error) {
 
 	n, err := l.r.Read(p)
 	l.remaining -= int32(n)
-
-	if err == nil {
-		// TODO: Figure out what to do here.
+	if n > 0 {
 		l.log.FrameRead(p[:n])
 	}
-
+	if err == io.EOF {
+		err = io.ErrUnexpectedEOF
+	}
 	return n, err
 }
 

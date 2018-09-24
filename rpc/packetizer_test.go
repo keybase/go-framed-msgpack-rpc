@@ -49,6 +49,42 @@ func TestFrameReaderReadByte(t *testing.T) {
 	require.Equal(t, int32(0), frameReader.remaining)
 }
 
+func TestFrameReaderRead(t *testing.T) {
+	buf := bytes.NewBuffer([]byte{0x1, 0x2, 0x3})
+	bufReader := bufio.NewReader(buf)
+
+	log := newTestLog(t)
+	frameReader := frameReader{bufReader, 3, log}
+
+	n, err := frameReader.Read(nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, n)
+
+	// Full read.
+	b := make([]byte, 2)
+	n, err = frameReader.Read(b)
+	require.NoError(t, err)
+	require.Equal(t, 2, n)
+	require.Equal(t, []byte{0x1, 0x2}, b)
+
+	// Partial read -- bufio.Reader doesn't return EOF.
+	n, err = frameReader.Read(b)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	require.Equal(t, []byte{0x3}, b[:1])
+
+	// Empty read at end.
+	n, err = frameReader.Read(b)
+	require.Equal(t, err, io.EOF)
+	require.Equal(t, 0, n)
+
+	// Empty read not at end.
+	frameReader.remaining = 1
+	n, err = frameReader.Read(b)
+	require.Equal(t, err, io.ErrUnexpectedEOF)
+	require.Equal(t, 0, n)
+}
+
 func createPacketizerTestProtocol() *protocolHandler {
 	p := newProtocolHandler(nil)
 	p.registerProtocol(Protocol{
