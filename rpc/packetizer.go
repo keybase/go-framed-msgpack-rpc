@@ -135,11 +135,11 @@ func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
 		return nil, err
 	}
 	if l <= 0 {
-		return nil, PacketizerError{fmt.Sprintf("invalid frame length: %d", l)}
+		return nil, NewPacketizerError("invalid frame length: %d", l)
 	}
 
 	if l > p.maxFrameLength {
-		return nil, PacketizerError{fmt.Sprintf("frame length too big: %d > %d", l, p.maxFrameLength)}
+		return nil, NewPacketizerError("frame length too big: %d > %d", l, p.maxFrameLength)
 	}
 
 	r := frameReader{p.reader.reader, l, p.log}
