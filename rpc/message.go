@@ -3,7 +3,6 @@ package rpc
 import (
 	"errors"
 	"fmt"
-	"io"
 
 	"github.com/keybase/go-codec/codec"
 	"golang.org/x/net/context"
@@ -274,7 +273,7 @@ type fieldDecoder struct {
 	fieldNumber int
 }
 
-func newFieldDecoder(reader io.Reader) *fieldDecoder {
+func newFieldDecoder(reader *frameReader) *fieldDecoder {
 	return &fieldDecoder{
 		d:           codec.NewDecoder(reader, newCodecMsgpackHandle()),
 		fieldNumber: 0,
@@ -294,7 +293,7 @@ func (dw *fieldDecoder) Decode(i interface{}) error {
 	return nil
 }
 
-func decodeRPC(l int, r io.Reader, p *protocolHandler, cc *callContainer) (rpcMessage, error) {
+func decodeRPC(l int, r *frameReader, p *protocolHandler, cc *callContainer) (rpcMessage, error) {
 	decoder := newFieldDecoder(r)
 
 	typ := MethodInvalid
