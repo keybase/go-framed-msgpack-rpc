@@ -43,6 +43,8 @@ func newPacketizer(maxFrameLength int32, reader io.Reader, protocols *protocolHa
 	}
 }
 
+// frameReader is a wrapper around a *bufio.Reader that reads a single
+// frame with known size.
 type frameReader struct {
 	r         *bufio.Reader
 	remaining int32

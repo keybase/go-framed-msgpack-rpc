@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"io"
@@ -11,6 +12,36 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 )
+
+func TestFrameReaderReadByte(t *testing.T) {
+	buf := bytes.NewBuffer([]byte{0x1, 0x2})
+	bufReader := bufio.NewReader(buf)
+
+	log := newTestLog(t)
+	frameReader := frameReader{bufReader, 3, log}
+
+	b, err := frameReader.ReadByte()
+	require.NoError(t, err)
+	require.Equal(t, byte(0x1), b)
+
+	b, err = frameReader.ReadByte()
+	require.NoError(t, err)
+	require.Equal(t, byte(0x2), b)
+
+	b, err = frameReader.ReadByte()
+	require.Equal(t, io.EOF, err)
+	require.Equal(t, byte(0), b)
+
+	buf.WriteByte(0x3)
+
+	b, err = frameReader.ReadByte()
+	require.NoError(t, err)
+	require.Equal(t, byte(0x3), b)
+
+	b, err = frameReader.ReadByte()
+	require.Equal(t, io.EOF, err)
+	require.Equal(t, 0, b)
+}
 
 func createPacketizerTestProtocol() *protocolHandler {
 	p := newProtocolHandler(nil)
