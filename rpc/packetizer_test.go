@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"testing"
@@ -139,7 +138,7 @@ func TestPacketizerDecodeNegativeLength(t *testing.T) {
 	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
 
 	_, err := pkt.NextFrame()
-	require.Equal(t, PacketizerError{"invalid frame length: -1"}, err)
+	require.Equal(t, NewPacketizerError("invalid frame length: -1"), err)
 }
 
 func TestPacketizerDecodeTooLargeLength(t *testing.T) {
@@ -152,7 +151,7 @@ func TestPacketizerDecodeTooLargeLength(t *testing.T) {
 	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
 
 	_, err := pkt.NextFrame()
-	require.Equal(t, PacketizerError{fmt.Sprintf("frame length too big: %d > %d", testMaxFrameLength+1, testMaxFrameLength)}, err)
+	require.Equal(t, NewPacketizerError("frame length too big: %d > %d", testMaxFrameLength+1, testMaxFrameLength), err)
 }
 
 func TestPacketizerDecodeShortPacket(t *testing.T) {
@@ -181,7 +180,7 @@ func TestPacketizerDecodeBadLengthField(t *testing.T) {
 	pkt := newPacketHandler(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
 
 	_, err := pkt.NextFrame()
-	require.Equal(t, PacketizerError{"wrong message structure prefix (0x90)"}, err)
+	require.Equal(t, NewPacketizerError("wrong message structure prefix (0x90)"), err)
 }
 
 // TestPacketizerDecodeInvalidFrames makes sure that the packetizer
