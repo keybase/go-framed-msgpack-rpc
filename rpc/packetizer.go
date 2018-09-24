@@ -59,7 +59,6 @@ func (l *frameReader) ReadByte() (byte, error) {
 	b, err := l.r.ReadByte()
 	if err == nil {
 		l.remaining--
-		// TODO: Figure out what to do here.
 		l.log.FrameRead([]byte{b})
 	} else if err == io.EOF {
 		err = io.ErrUnexpectedEOF
