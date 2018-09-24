@@ -170,6 +170,20 @@ func TestPacketizerDecodeShortPacket(t *testing.T) {
 	require.Equal(t, io.ErrUnexpectedEOF, err)
 }
 
+func TestPacketizerDecodeBadLengthField(t *testing.T) {
+	var buf bytes.Buffer
+	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
+	e.Encode(testMaxFrameLength)
+	buf.WriteByte(0x90)
+
+	cc := newCallContainer()
+	log := newTestLog(t)
+	pkt := newPacketHandler(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+
+	_, err := pkt.NextFrame()
+	require.Equal(t, PacketizerError{"wrong message structure prefix (0x90)"}, err)
+}
+
 // TestPacketizerDecodeInvalidFrames makes sure that the packetizer
 // can handle invalid frames and skip over them.
 //
