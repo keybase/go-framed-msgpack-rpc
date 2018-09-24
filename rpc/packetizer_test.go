@@ -85,6 +85,18 @@ func TestFrameReaderRead(t *testing.T) {
 	require.Equal(t, 0, n)
 }
 
+func TestFrameReaderDrain(t *testing.T) {
+	buf := bytes.NewBuffer([]byte{0x1, 0x2, 0x3})
+	bufReader := bufio.NewReader(buf)
+
+	log := newTestLog(t)
+	frameReader := frameReader{bufReader, 3, log}
+
+	err := frameReader.drain()
+	require.NoError(t, err)
+	require.Equal(t, 0, buf.Len())
+}
+
 func createPacketizerTestProtocol() *protocolHandler {
 	p := newProtocolHandler(nil)
 	p.registerProtocol(Protocol{
