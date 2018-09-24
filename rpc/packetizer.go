@@ -53,7 +53,7 @@ type frameReader struct {
 
 func (l *frameReader) ReadByte() (byte, error) {
 	if l.remaining <= 0 {
-		return 0, io.ErrUnexpectedEOF
+		return 0, io.EOF
 	}
 
 	b, err := l.r.ReadByte()
@@ -70,7 +70,7 @@ func (l *frameReader) ReadByte() (byte, error) {
 
 func (l *frameReader) Read(p []byte) (int, error) {
 	if l.remaining <= 0 {
-		return 0, io.ErrUnexpectedEOF
+		return 0, io.EOF
 	}
 
 	if len(p) > int(l.remaining) {

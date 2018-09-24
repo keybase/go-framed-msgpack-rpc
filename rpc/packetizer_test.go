@@ -39,7 +39,7 @@ func TestFrameReaderReadByte(t *testing.T) {
 	require.Equal(t, byte(0x3), b)
 
 	b, err = frameReader.ReadByte()
-	require.Equal(t, io.ErrUnexpectedEOF, err)
+	require.Equal(t, io.EOF, err)
 	require.Equal(t, byte(0), b)
 }
 
