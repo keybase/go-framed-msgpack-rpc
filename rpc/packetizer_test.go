@@ -23,24 +23,30 @@ func TestFrameReaderReadByte(t *testing.T) {
 	b, err := frameReader.ReadByte()
 	require.NoError(t, err)
 	require.Equal(t, byte(0x1), b)
+	require.Equal(t, int32(2), frameReader.remaining)
 
 	b, err = frameReader.ReadByte()
 	require.NoError(t, err)
 	require.Equal(t, byte(0x2), b)
+	require.Equal(t, int32(1), frameReader.remaining)
 
 	b, err = frameReader.ReadByte()
 	require.Equal(t, io.ErrUnexpectedEOF, err)
 	require.Equal(t, byte(0), b)
+	// Shouldn't decrease.
+	require.Equal(t, int32(1), frameReader.remaining)
 
 	buf.WriteByte(0x3)
 
 	b, err = frameReader.ReadByte()
 	require.NoError(t, err)
 	require.Equal(t, byte(0x3), b)
+	require.Equal(t, int32(0), frameReader.remaining)
 
 	b, err = frameReader.ReadByte()
 	require.Equal(t, io.EOF, err)
 	require.Equal(t, byte(0), b)
+	require.Equal(t, int32(0), frameReader.remaining)
 }
 
 func createPacketizerTestProtocol() *protocolHandler {
