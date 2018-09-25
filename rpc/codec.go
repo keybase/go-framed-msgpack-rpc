@@ -7,11 +7,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-type encoder interface {
-	EncodeAndWrite(context.Context, interface{}, func()) <-chan error
-	EncodeAndWriteAsync(interface{}) <-chan error
-}
-
 // fieldDecoder decodes the fields of a packet.
 type fieldDecoder struct {
 	d           *codec.Decoder
@@ -97,8 +92,10 @@ func (e *framedMsgpackEncoder) encodeFrame(i interface{}) ([]byte, error) {
 	return append(length, content...), nil
 }
 
-func (e *framedMsgpackEncoder) EncodeAndWrite(ctx context.Context, i interface{}, sendNotifier func()) <-chan error {
-	bytes, err := e.encodeFrame(i)
+// encodeAndWriteInternal is called directly by tests that need to
+// write invalid frames.
+func (e *framedMsgpackEncoder) encodeAndWriteInternal(ctx context.Context, frame interface{}, sendNotifier func()) <-chan error {
+	bytes, err := e.encodeFrame(frame)
 	ch := make(chan error, 1)
 	if err != nil {
 		ch <- err
@@ -114,8 +111,12 @@ func (e *framedMsgpackEncoder) EncodeAndWrite(ctx context.Context, i interface{}
 	return ch
 }
 
-func (e *framedMsgpackEncoder) EncodeAndWriteAsync(i interface{}) <-chan error {
-	bytes, err := e.encodeFrame(i)
+func (e *framedMsgpackEncoder) EncodeAndWrite(ctx context.Context, frame []interface{}, sendNotifier func()) <-chan error {
+	return e.encodeAndWriteInternal(ctx, frame, sendNotifier)
+}
+
+func (e *framedMsgpackEncoder) EncodeAndWriteAsync(frame []interface{}) <-chan error {
+	bytes, err := e.encodeFrame(frame)
 	ch := make(chan error, 1)
 	if err != nil {
 		ch <- err

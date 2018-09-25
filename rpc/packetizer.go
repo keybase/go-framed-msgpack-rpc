@@ -8,10 +8,6 @@ import (
 	"github.com/keybase/go-codec/codec"
 )
 
-type packetizer interface {
-	NextFrame() (rpcMessage, error)
-}
-
 // lastErrReader stores the last error returned by its child
 // reader. It's used by loadNextFrame below.
 type lastErrReader struct {
@@ -25,7 +21,7 @@ func (r *lastErrReader) Read(buf []byte) (int, error) {
 	return n, err
 }
 
-type packetHandler struct {
+type packetizer struct {
 	lengthDecoder *codec.Decoder
 	reader        *lastErrReader
 	fieldDecoder  *fieldDecoder
@@ -34,9 +30,9 @@ type packetHandler struct {
 	log           LogInterface
 }
 
-func newPacketHandler(reader io.Reader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetHandler {
+func newPacketHandler(reader io.Reader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
 	wrappedReader := &lastErrReader{reader, nil}
-	return &packetHandler{
+	return &packetizer{
 		lengthDecoder: codec.NewDecoder(wrappedReader, newCodecMsgpackHandle()),
 		reader:        wrappedReader,
 		fieldDecoder:  newFieldDecoder(),
@@ -60,7 +56,7 @@ func newPacketHandler(reader io.Reader, protocols *protocolHandler, calls *callC
 //     rpcMessage will be non-nil, and its Err() will match this
 //     error. We can then process the error and continue with the next
 //     packet.
-func (p *packetHandler) NextFrame() (rpcMessage, error) {
+func (p *packetizer) NextFrame() (rpcMessage, error) {
 	bytes, err := p.loadNextFrame()
 	if err != nil {
 		return nil, err
@@ -91,7 +87,7 @@ func (p *packetHandler) NextFrame() (rpcMessage, error) {
 	return decodeRPC(nb-0x90, p.fieldDecoder, p.protocols, p.calls)
 }
 
-func (p *packetHandler) loadNextFrame() ([]byte, error) {
+func (p *packetizer) loadNextFrame() ([]byte, error) {
 	// Get the packet length
 	var l int
 	if err := p.lengthDecoder.Decode(&l); err != nil {

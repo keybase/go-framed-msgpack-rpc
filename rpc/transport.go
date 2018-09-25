@@ -67,7 +67,7 @@ type transport struct {
 	enc        *framedMsgpackEncoder
 	dispatcher dispatcher
 	receiver   receiver
-	packetizer packetizer
+	packetizer *packetizer
 	protocols  *protocolHandler
 	calls      *callContainer
 	log        LogInterface
