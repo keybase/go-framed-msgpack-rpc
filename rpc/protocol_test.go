@@ -85,8 +85,9 @@ func TestCallLargeFrame(t *testing.T) {
 
 	var padding [testMaxFrameLength]byte
 	_, err := cli.Add(context.Background(), AddArgs{A: 1, B: 1, Padding: padding[:]})
-	require.EqualError(t, err, "something something")
+	require.EqualError(t, err, "frame length too big: 1062 > 1024")
 
+	// Shouldn't close the whole connection.
 	_, err = cli.Add(context.Background(), AddArgs{A: 1, B: 1})
 	require.NoError(t, err)
 }

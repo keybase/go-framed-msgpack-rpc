@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/keybase/go-codec/codec"
@@ -58,6 +59,9 @@ func (e *framedMsgpackEncoder) encodeFrame(i interface{}) ([]byte, error) {
 	content, err := encodeToBytes(enc, i)
 	if err != nil {
 		return nil, err
+	}
+	if len(content) > int(e.maxFrameLength) {
+		return nil, fmt.Errorf("frame length too big: %d > %d", len(content), e.maxFrameLength)
 	}
 	length, err := encodeToBytes(enc, len(content))
 	if err != nil {
