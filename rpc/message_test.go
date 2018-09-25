@@ -38,7 +38,7 @@ func runMessageTest(t *testing.T, v []interface{}) (rpcMessage, error) {
 	pkt := newPacketizer(testMaxFrameLength, &buf, createMessageTestProtocol(), cc, log)
 
 	err := <-enc.EncodeAndWrite(c.ctx, v, nil)
-	require.Nil(t, err, "expected encoding to succeed")
+	require.NoError(t, err, "expected encoding to succeed")
 
 	return pkt.NextFrame()
 }
@@ -47,7 +47,7 @@ func TestMessageDecodeValid(t *testing.T) {
 	v := []interface{}{MethodCall, 999, "abc.hello", new(interface{})}
 
 	rpc, err := runMessageTest(t, v)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	c, ok := rpc.(*rpcCallMessage)
 	require.True(t, ok)
 	require.Equal(t, MethodCall, c.Type())
@@ -61,7 +61,7 @@ func TestMessageDecodeValidExtraParams(t *testing.T) {
 	v := []interface{}{MethodCall, 999, "abc.hello", new(interface{}), tags, "foo"}
 
 	rpc, err := runMessageTest(t, v)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	c, ok := rpc.(*rpcCallMessage)
 	require.True(t, ok)
 	require.Equal(t, MethodCall, c.Type())
@@ -77,7 +77,7 @@ func TestMessageDecodeValidResponse(t *testing.T) {
 	v := []interface{}{MethodResponse, SeqNumber(0), nil, "hi"}
 
 	rpc, err := runMessageTest(t, v)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	r, ok := rpc.(*rpcResponseMessage)
 	require.True(t, ok)
 	require.Equal(t, MethodResponse, r.Type())

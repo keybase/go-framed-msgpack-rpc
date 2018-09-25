@@ -36,7 +36,7 @@ func prepServer(t *testing.T, listener chan error) error {
 
 func prepClient(t *testing.T) (TestClient, net.Conn) {
 	c, err := net.Dial("tcp", testHostPort)
-	require.Nil(t, err, "a dialer error occurred")
+	require.NoError(t, err, "a dialer error occurred")
 
 	lf := NewSimpleLogFactory(testLogOutput{t}, nil)
 	xp := NewTransport(c, lf, nil, testMaxFrameLength)
@@ -63,7 +63,7 @@ func TestCall(t *testing.T) {
 	B := 34
 	for A := 10; A < 23; A += 2 {
 		res, err := cli.Add(context.Background(), AddArgs{A: A, B: B})
-		require.Nil(t, err, "an error occurred while adding parameters")
+		require.NoError(t, err, "an error occurred while adding parameters")
 		require.Equal(t, A+B, res, "Result should be the two parameters added together")
 	}
 }
@@ -86,10 +86,10 @@ func TestNotify(t *testing.T) {
 	pi := 31415
 
 	err := cli.UpdateConstants(context.Background(), Constants{Pi: pi})
-	require.Nil(t, err, "Unexpected error on notify: %v", err)
+	require.NoError(t, err, "Unexpected error on notify: %v", err)
 
 	constants, err := cli.GetConstants(context.Background())
-	require.Nil(t, err, "Unexpected error on GetConstants: %v", err)
+	require.NoError(t, err, "Unexpected error on GetConstants: %v", err)
 	require.Equal(t, pi, constants.Pi, "we set the constant properly via Notify")
 }
 
@@ -98,7 +98,7 @@ func TestLongCall(t *testing.T) {
 	defer endTest(t, conn, listener)
 
 	longResult, err := cli.LongCall(context.Background())
-	require.Nil(t, err, "call should have succeeded")
+	require.NoError(t, err, "call should have succeeded")
 	require.Equal(t, longResult, 100, "call should have succeeded")
 }
 

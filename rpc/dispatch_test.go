@@ -49,7 +49,7 @@ func TestDispatchSuccessfulCall(t *testing.T) {
 
 	sendResponse(c, nil)
 	err := <-done
-	require.Nil(t, err, "Expected no error")
+	require.NoError(t, err, "Expected no error")
 
 	d.Close()
 }
