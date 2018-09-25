@@ -20,13 +20,13 @@ type longCallResult struct {
 	err error
 }
 
-func prepServer(listener chan error) error {
+func prepServer(t *testing.T, listener chan error) error {
 	server := &server{port: testPort}
 
 	serverReady := make(chan struct{})
 	var err error
 	go func() {
-		err = server.Run(serverReady, listener)
+		err = server.Run(t, serverReady, listener)
 	}()
 	<-serverReady
 	// TODO: Fix the race here -- when serverReady is closed by
@@ -38,13 +38,14 @@ func prepClient(t *testing.T) (TestClient, net.Conn) {
 	c, err := net.Dial("tcp", testHostPort)
 	require.Nil(t, err, "a dialer error occurred")
 
-	xp := NewTransport(c, nil, nil)
+	lf := NewSimpleLogFactory(testLogOutput{t}, nil)
+	xp := NewTransport(c, lf, nil)
 	return TestClient{GenericClient: NewClient(xp, nil, nil)}, c
 }
 
 func prepTest(t *testing.T) (TestClient, chan error, net.Conn) {
 	listener := make(chan error)
-	prepServer(listener)
+	prepServer(t, listener)
 	cli, conn := prepClient(t)
 	return cli, listener, conn
 }
@@ -158,7 +159,7 @@ func TestClosedConnection(t *testing.T) {
 
 func TestKillClient(t *testing.T) {
 	listener := make(chan error)
-	prepServer(listener)
+	prepServer(t, listener)
 	defer func() {
 		err := <-listener
 		require.EqualError(t, err, io.EOF.Error(), "expected EOF")
