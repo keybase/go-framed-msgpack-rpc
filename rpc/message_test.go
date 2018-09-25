@@ -29,7 +29,7 @@ func createMessageTestProtocol() *protocolHandler {
 
 func runMessageTest(t *testing.T, v []interface{}) (rpcMessage, error) {
 	var buf bytes.Buffer
-	enc := newFramedMsgpackEncoder(&buf)
+	enc := newFramedMsgpackEncoder(testMaxFrameLength, &buf)
 	cc := newCallContainer()
 	c := cc.NewCall(context.Background(), "foo.bar", new(interface{}), new(string), nil)
 	cc.AddCall(c)

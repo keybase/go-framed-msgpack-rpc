@@ -72,7 +72,7 @@ func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc, maxFrameLength in
 		protocols: newProtocolHandler(wef),
 		calls:     newCallContainer(),
 	}
-	enc := newFramedMsgpackEncoder(c)
+	enc := newFramedMsgpackEncoder(maxFrameLength, c)
 	ret.enc = enc
 	ret.dispatcher = newDispatch(enc, ret.calls, log)
 	ret.receiver = newReceiveHandler(enc, ret.protocols, log)
