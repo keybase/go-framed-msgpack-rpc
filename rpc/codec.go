@@ -7,37 +7,9 @@ import (
 	"golang.org/x/net/context"
 )
 
-// fieldDecoder decodes the fields of a packet.
-type fieldDecoder struct {
-	d           *codec.Decoder
-	fieldNumber int
-}
-
-func newFieldDecoder() *fieldDecoder {
-	return &fieldDecoder{
-		d:           codec.NewDecoderBytes([]byte{}, newCodecMsgpackHandle()),
-		fieldNumber: 0,
-	}
-}
-
-// Decode decodes the next field into the given interface. If an error
-// is returned, ResetBytes() must be called on a new packet before
-// this can be called again.
-func (dw *fieldDecoder) Decode(i interface{}) error {
-	defer func() {
-		dw.fieldNumber++
-	}()
-
-	err := dw.d.Decode(i)
-	if err != nil {
-		return newRPCMessageFieldDecodeError(dw.fieldNumber, err)
-	}
-	return nil
-}
-
-func (dw *fieldDecoder) ResetBytes(b []byte) {
-	dw.fieldNumber = 0
-	dw.d.ResetBytes(b)
+type encoder interface {
+	EncodeAndWrite(context.Context, interface{}, func()) <-chan error
+	EncodeAndWriteAsync(interface{}) <-chan error
 }
 
 func newCodecMsgpackHandle() codec.Handle {

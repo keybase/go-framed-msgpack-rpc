@@ -1,15 +1,113 @@
 package rpc
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"io"
 	"net"
 	"testing"
 
+	"github.com/keybase/go-codec/codec"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 )
+
+func TestFrameReaderReadByte(t *testing.T) {
+	buf := bytes.NewBuffer([]byte{0x1, 0x2})
+	bufReader := bufio.NewReader(buf)
+
+	log := newTestLog(t)
+	frameReader := frameReader{bufReader, 3, log}
+
+	b, err := frameReader.ReadByte()
+	require.NoError(t, err)
+	require.Equal(t, byte(0x1), b)
+	require.Equal(t, int32(2), frameReader.remaining)
+
+	b, err = frameReader.ReadByte()
+	require.NoError(t, err)
+	require.Equal(t, byte(0x2), b)
+	require.Equal(t, int32(1), frameReader.remaining)
+
+	b, err = frameReader.ReadByte()
+	require.Equal(t, io.ErrUnexpectedEOF, err)
+	require.Equal(t, byte(0), b)
+	// Shouldn't decrease.
+	require.Equal(t, int32(1), frameReader.remaining)
+
+	buf.WriteByte(0x3)
+
+	b, err = frameReader.ReadByte()
+	require.NoError(t, err)
+	require.Equal(t, byte(0x3), b)
+	require.Equal(t, int32(0), frameReader.remaining)
+
+	b, err = frameReader.ReadByte()
+	require.Equal(t, io.EOF, err)
+	require.Equal(t, byte(0), b)
+	require.Equal(t, int32(0), frameReader.remaining)
+}
+
+func TestFrameReaderRead(t *testing.T) {
+	buf := bytes.NewBuffer([]byte{0x1, 0x2, 0x3})
+	bufReader := bufio.NewReader(buf)
+
+	log := newTestLog(t)
+	frameReader := frameReader{bufReader, 3, log}
+
+	n, err := frameReader.Read(nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, n)
+
+	// Full read.
+	b := make([]byte, 2)
+	n, err = frameReader.Read(b)
+	require.NoError(t, err)
+	require.Equal(t, 2, n)
+	require.Equal(t, []byte{0x1, 0x2}, b)
+
+	// Partial read -- bufio.Reader doesn't return EOF.
+	n, err = frameReader.Read(b)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	require.Equal(t, []byte{0x3}, b[:1])
+
+	// Empty read at end.
+	n, err = frameReader.Read(b)
+	require.Equal(t, err, io.EOF)
+	require.Equal(t, 0, n)
+
+	// Empty read not at end.
+	frameReader.remaining = 1
+	n, err = frameReader.Read(b)
+	require.Equal(t, err, io.ErrUnexpectedEOF)
+	require.Equal(t, 0, n)
+}
+
+func TestFrameReaderDrainSuccess(t *testing.T) {
+	buf := bytes.NewBuffer([]byte{0x1, 0x2, 0x3})
+	bufReader := bufio.NewReader(buf)
+
+	log := newTestLog(t)
+	frameReader := frameReader{bufReader, 3, log}
+
+	err := frameReader.drain()
+	require.NoError(t, err)
+	require.Equal(t, 0, buf.Len())
+}
+
+func TestFrameReaderDrainFailure(t *testing.T) {
+	buf := bytes.NewBuffer([]byte{0x1, 0x2, 0x3})
+	bufReader := bufio.NewReader(buf)
+
+	log := newTestLog(t)
+	frameReader := frameReader{bufReader, 4, log}
+
+	err := frameReader.drain()
+	require.Equal(t, io.ErrUnexpectedEOF, err)
+	require.Equal(t, 0, buf.Len())
+}
 
 func createPacketizerTestProtocol() *protocolHandler {
 	p := newProtocolHandler(nil)
@@ -28,6 +126,61 @@ func createPacketizerTestProtocol() *protocolHandler {
 		},
 	})
 	return p
+}
+
+func TestPacketizerDecodeNegativeLength(t *testing.T) {
+	var buf bytes.Buffer
+	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
+	e.Encode(-1)
+
+	cc := newCallContainer()
+	log := newTestLog(t)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+
+	_, err := pkt.NextFrame()
+	require.Equal(t, NewPacketizerError("invalid frame length: -1"), err)
+}
+
+func TestPacketizerDecodeTooLargeLength(t *testing.T) {
+	var buf bytes.Buffer
+	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
+	e.Encode(testMaxFrameLength + 1)
+
+	cc := newCallContainer()
+	log := newTestLog(t)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+
+	_, err := pkt.NextFrame()
+	require.Equal(t, NewPacketizerError("frame length too big: %d > %d", testMaxFrameLength+1, testMaxFrameLength), err)
+}
+
+func TestPacketizerDecodeShortPacket(t *testing.T) {
+	var buf bytes.Buffer
+	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
+	const maxInt = int32(^uint32(0) >> 1)
+	e.Encode(maxInt)
+
+	cc := newCallContainer()
+	log := newTestLog(t)
+	pkt := newPacketizer(maxInt, &buf, createPacketizerTestProtocol(), cc, log)
+
+	// Shouldn't try to allocate a buffer for the packet.
+	_, err := pkt.NextFrame()
+	require.Equal(t, io.ErrUnexpectedEOF, err)
+}
+
+func TestPacketizerDecodeBadLengthField(t *testing.T) {
+	var buf bytes.Buffer
+	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
+	e.Encode(testMaxFrameLength)
+	buf.WriteByte(0x90)
+
+	cc := newCallContainer()
+	log := newTestLog(t)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+
+	_, err := pkt.NextFrame()
+	require.Equal(t, NewPacketizerError("wrong message structure prefix (0x90)"), err)
 }
 
 // TestPacketizerDecodeInvalidFrames makes sure that the packetizer
@@ -58,7 +211,7 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	cc.AddCall(c)
 
 	log := newTestLog(t)
-	pkt := newPacketizer(&buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
 
 	f1, err := pkt.NextFrame()
 	require.NoError(t, err)
@@ -118,9 +271,9 @@ func TestPacketizerReaderOpError(t *testing.T) {
 	// Taking advantage here of opErr being a nil *net.OpError,
 	// but a non-nil error when used by errReader.
 	var opErr *net.OpError
-	pkt := newPacketizer(errReader{opErr}, createPacketizerTestProtocol(), newCallContainer(), log)
+	pkt := newPacketizer(testMaxFrameLength, errReader{opErr}, createPacketizerTestProtocol(), newCallContainer(), log)
 
-	bytes, err := pkt.loadNextFrame()
-	require.Nil(t, bytes)
+	msg, err := pkt.NextFrame()
+	require.Nil(t, msg)
 	require.Equal(t, io.EOF, err)
 }

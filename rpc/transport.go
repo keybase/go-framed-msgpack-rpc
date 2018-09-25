@@ -1,12 +1,9 @@
 package rpc
 
 import (
-	"bufio"
 	"io"
 	"net"
 	"sync"
-
-	"github.com/keybase/go-codec/codec"
 )
 
 type WrapErrorFunc func(error) interface{}
@@ -43,27 +40,10 @@ type Transporter interface {
 	Close()
 }
 
-type connDecoder struct {
-	*codec.Decoder
-	net.Conn
-	Reader *bufio.Reader
-}
-
-func newConnDecoder(c net.Conn) *connDecoder {
-	br := bufio.NewReader(c)
-	mh := &codec.MsgpackHandle{WriteExt: true}
-
-	return &connDecoder{
-		Decoder: codec.NewDecoder(br, mh),
-		Conn:    c,
-		Reader:  br,
-	}
-}
-
 var _ Transporter = (*transport)(nil)
 
 type transport struct {
-	cdec       *connDecoder
+	c          net.Conn
 	enc        *framedMsgpackEncoder
 	dispatcher dispatcher
 	receiver   receiver
@@ -79,25 +59,24 @@ type transport struct {
 	stopErr error
 }
 
-func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc) Transporter {
-	cdec := newConnDecoder(c)
+func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc, maxFrameLength int32) Transporter {
 	if l == nil {
 		l = NewSimpleLogFactory(nil, nil)
 	}
-	log := l.NewLog(cdec.RemoteAddr())
+	log := l.NewLog(c.RemoteAddr())
 
 	ret := &transport{
-		cdec:      cdec,
+		c:         c,
 		log:       log,
 		stopCh:    make(chan struct{}),
 		protocols: newProtocolHandler(wef),
 		calls:     newCallContainer(),
 	}
-	enc := newFramedMsgpackEncoder(ret.cdec)
+	enc := newFramedMsgpackEncoder(c)
 	ret.enc = enc
 	ret.dispatcher = newDispatch(enc, ret.calls, log)
 	ret.receiver = newReceiveHandler(enc, ret.protocols, log)
-	ret.packetizer = newPacketizer(cdec.Reader, ret.protocols, ret.calls, log)
+	ret.packetizer = newPacketizer(maxFrameLength, c, ret.protocols, ret.calls, log)
 	return ret
 }
 
@@ -112,7 +91,7 @@ func (t *transport) Close() {
 		// First inform the encoder that it should close
 		encoderClosed := t.enc.Close()
 		// Unblock any remaining writes
-		t.cdec.Close()
+		t.c.Close()
 		// Wait for the encoder to finish handling the now unblocked writes
 		<-encoderClosed
 	})
