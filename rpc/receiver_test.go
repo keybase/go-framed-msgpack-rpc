@@ -10,7 +10,7 @@ import (
 
 func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan error) {
 	conn1, conn2 := net.Pipe()
-	receiveOut := newFramedMsgpackEncoder(conn2)
+	receiveOut := newFramedMsgpackEncoder(testMaxFrameLength, conn2)
 
 	protHandler := createMessageTestProtocol()
 	if p != nil {

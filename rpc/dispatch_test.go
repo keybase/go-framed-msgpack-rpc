@@ -13,7 +13,7 @@ func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher,
 	log := newTestLog(t)
 
 	conn1, conn2 := net.Pipe()
-	dispatchOut := newFramedMsgpackEncoder(conn1)
+	dispatchOut := newFramedMsgpackEncoder(testMaxFrameLength, conn1)
 	calls := newCallContainer()
 	pkt := newPacketizer(testMaxFrameLength, conn2, createMessageTestProtocol(), calls, log)
 
@@ -123,7 +123,7 @@ func TestDispatchCallAfterClose(t *testing.T) {
 
 func TestDispatchCancelEndToEnd(t *testing.T) {
 	dispatchConn, _ := net.Pipe()
-	enc := newFramedMsgpackEncoder(dispatchConn)
+	enc := newFramedMsgpackEncoder(testMaxFrameLength, dispatchConn)
 	cc := newCallContainer()
 	log := newTestLog(t)
 	d := newDispatch(enc, cc, log)

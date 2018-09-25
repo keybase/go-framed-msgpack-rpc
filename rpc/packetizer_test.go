@@ -199,7 +199,7 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	frames := []interface{}{v1, iv1, iv2, v2, iv3, v3, iv4, v4}
 
 	var buf bytes.Buffer
-	enc := newFramedMsgpackEncoder(&buf)
+	enc := newFramedMsgpackEncoder(testMaxFrameLength, &buf)
 	ctx := context.Background()
 	for _, frame := range frames {
 		err := <-enc.encodeAndWriteInternal(ctx, frame, nil)

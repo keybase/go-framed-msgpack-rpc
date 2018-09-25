@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/keybase/go-codec/codec"
@@ -26,38 +27,43 @@ type writeBundle struct {
 }
 
 type framedMsgpackEncoder struct {
-	handle   codec.Handle
-	writer   io.Writer
-	writeCh  chan writeBundle
-	doneCh   chan struct{}
-	closedCh chan struct{}
+	maxFrameLength int32
+	handle         codec.Handle
+	writer         io.Writer
+	writeCh        chan writeBundle
+	doneCh         chan struct{}
+	closedCh       chan struct{}
 }
 
-func newFramedMsgpackEncoder(writer io.Writer) *framedMsgpackEncoder {
+func newFramedMsgpackEncoder(maxFrameLength int32, writer io.Writer) *framedMsgpackEncoder {
 	e := &framedMsgpackEncoder{
-		handle:   newCodecMsgpackHandle(),
-		writer:   writer,
-		writeCh:  make(chan writeBundle),
-		doneCh:   make(chan struct{}),
-		closedCh: make(chan struct{}),
+		maxFrameLength: maxFrameLength,
+		handle:         newCodecMsgpackHandle(),
+		writer:         writer,
+		writeCh:        make(chan writeBundle),
+		doneCh:         make(chan struct{}),
+		closedCh:       make(chan struct{}),
 	}
 	go e.writerLoop()
 	return e
 }
 
-func (e *framedMsgpackEncoder) encodeToBytes(enc *codec.Encoder, i interface{}) (v []byte, err error) {
+func encodeToBytes(enc *codec.Encoder, i interface{}) (v []byte, err error) {
 	enc.ResetBytes(&v)
 	err = enc.Encode(i)
 	return v, err
 }
 
 func (e *framedMsgpackEncoder) encodeFrame(i interface{}) ([]byte, error) {
-	enc := codec.NewEncoderBytes(&[]byte{}, e.handle)
-	content, err := e.encodeToBytes(enc, i)
+	enc := codec.NewEncoderBytes(nil, e.handle)
+	content, err := encodeToBytes(enc, i)
 	if err != nil {
 		return nil, err
 	}
-	length, err := e.encodeToBytes(enc, len(content))
+	if len(content) > int(e.maxFrameLength) {
+		return nil, fmt.Errorf("frame length too big: %d > %d", len(content), e.maxFrameLength)
+	}
+	length, err := encodeToBytes(enc, len(content))
 	if err != nil {
 		return nil, err
 	}
