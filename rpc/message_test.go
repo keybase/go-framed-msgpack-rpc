@@ -35,7 +35,7 @@ func runMessageTest(t *testing.T, v []interface{}) (rpcMessage, error) {
 	cc.AddCall(c)
 
 	log := newTestLog(t)
-	pkt := newPacketHandler(&buf, createMessageTestProtocol(), cc, log)
+	pkt := newPacketizer(&buf, createMessageTestProtocol(), cc, log)
 
 	err := <-enc.EncodeAndWrite(c.ctx, v, nil)
 	require.Nil(t, err, "expected encoding to succeed")

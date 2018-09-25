@@ -30,7 +30,7 @@ type packetizer struct {
 	log           LogInterface
 }
 
-func newPacketHandler(reader io.Reader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
+func newPacketizer(reader io.Reader, protocols *protocolHandler, calls *callContainer, log LogInterface) *packetizer {
 	wrappedReader := &lastErrReader{reader, nil}
 	return &packetizer{
 		lengthDecoder: codec.NewDecoder(wrappedReader, newCodecMsgpackHandle()),

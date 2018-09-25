@@ -18,7 +18,7 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 	}
 
 	log := newTestLog(t)
-	pkt := newPacketHandler(conn1, protHandler, newCallContainer(), log)
+	pkt := newPacketizer(conn1, protHandler, newCallContainer(), log)
 
 	r := newReceiveHandler(receiveOut, protHandler, log)
 
