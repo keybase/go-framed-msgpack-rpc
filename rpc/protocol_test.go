@@ -79,6 +79,15 @@ func TestBrokenCall(t *testing.T) {
 	require.EqualError(t, err, "protocol not found: test.2.testp")
 }
 
+func TestCallLargeFrame(t *testing.T) {
+	cli, listener, conn := prepTest(t)
+	defer endTest(t, conn, listener)
+
+	var padding [testMaxFrameLength]byte
+	_, err := cli.Add(context.Background(), AddArgs{A: 1, B: 1, Padding: padding[:]})
+	require.NoError(t, err)
+}
+
 func TestNotify(t *testing.T) {
 	cli, listener, conn := prepTest(t)
 	defer endTest(t, conn, listener)

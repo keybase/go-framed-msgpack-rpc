@@ -107,8 +107,9 @@ func (a *testProtocol) LongCallDebugTags(ctx context.Context) (CtxRpcTags, error
 // begin autogen code
 
 type AddArgs struct {
-	A int
-	B int
+	A       int
+	B       int
+	Padding []byte
 }
 
 type Constants struct {
