@@ -177,7 +177,7 @@ func TestPacketizerDecodeBadLengthField(t *testing.T) {
 
 	cc := newCallContainer()
 	log := newTestLog(t)
-	pkt := newPacketHandler(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
 
 	_, err := pkt.NextFrame()
 	require.Equal(t, NewPacketizerError("wrong message structure prefix (0x90)"), err)
