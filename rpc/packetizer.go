@@ -107,6 +107,8 @@ func (l *frameReader) drain() error {
 	return nil
 }
 
+var _ io.Reader = (*frameReader)(nil)
+
 // NextFrame returns the next message and an error. The error can be:
 //
 //   - nil, in which case the returned rpcMessage will be non-nil.
