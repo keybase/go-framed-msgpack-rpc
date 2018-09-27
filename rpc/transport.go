@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -59,17 +60,16 @@ type transport struct {
 	stopErr error
 }
 
-// DefaultMaxFrameLength (100 MiB) is the default value for the
-// maxFrameLength in NewTransporter.
+// DefaultMaxFrameLength (100 MiB) is a reasonable default value for
+// the maxFrameLength parameter in NewTransporter.
 const DefaultMaxFrameLength = 100 * 1024 * 1024
 
 // NewTransporter creates a new Transporter from the given connection
-// and parameters. If maxFrameLength is not positive, it is set to
-// DefaultMaxFrameLength. Both sides of a connection should use the
-// same number for maxFrameLength.
+// and parameters. Both sides of a connection should use the same
+// number for maxFrameLength.
 func NewTransport(c net.Conn, l LogFactory, wef WrapErrorFunc, maxFrameLength int32) Transporter {
 	if maxFrameLength <= 0 {
-		maxFrameLength = DefaultMaxFrameLength
+		panic(fmt.Sprintf("maxFrameLength must be positive: got %d", maxFrameLength))
 	}
 
 	if l == nil {
