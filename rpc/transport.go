@@ -59,8 +59,8 @@ type transport struct {
 	stopErr error
 }
 
-// DefaultMaxFrameLength is the default value for the maxFrameLength
-// in Newtransporter.
+// DefaultMaxFrameLength (100 MiB) is the default value for the
+// maxFrameLength in NewTransporter.
 const DefaultMaxFrameLength = 100 * 1024 * 1024
 
 // NewTransporter creates a new Transporter from the given connection
