@@ -688,6 +688,7 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 		c.randomTimer.Wait()
 		c.log.Debug("%s!", LogField{Key: ConnectionLogMsgKey, Value: "backoff done"})
 	}
+	c.log.Debug("RetryNotify %s", LogField{Key: ConnectionLogMsgKey, Value: "beginning"})
 	err := backoff.RetryNotify(func() (err error) {
 		defer func() {
 			c.log.Debug("RetryNotify result: %s", LogField{Key: ConnectionLogMsgKey, Value: err})
