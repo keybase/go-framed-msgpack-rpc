@@ -699,6 +699,7 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 		case <-ctx.Done():
 			// context was canceled by Shutdown() or a user action
 			*reconnectErrPtr = ctx.Err()
+			c.log.Debug("RetryNotify context canceled: %s", LogField{Key: ConnectionLogMsgKey, Value: ctx.Err()})
 			// short-circuit Retry
 			return nil
 		default:
@@ -706,6 +707,7 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 		if !c.handler.ShouldRetryOnConnect(err) {
 			// A fatal error happened.
 			*reconnectErrPtr = err
+			c.log.Debug("RetryNotify ShouldRetryOnConnect: %s", LogField{Key: ConnectionLogMsgKey, Value: err})
 			// short-circuit Retry
 			return nil
 		}
