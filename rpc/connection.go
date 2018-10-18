@@ -688,9 +688,12 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 		c.randomTimer.Wait()
 		c.log.Debug("%s!", LogField{Key: ConnectionLogMsgKey, Value: "backoff done"})
 	}
-	err := backoff.RetryNotify(func() error {
+	err := backoff.RetryNotify(func() (err error) {
+		defer func() {
+			c.log.Debug("RetryNotify result: %s", LogField{Key: ConnectionLogMsgKey, Value: err})
+		}()
 		// try to connect
-		err := c.connect(ctx)
+		err = c.connect(ctx)
 		select {
 		case <-ctx.Done():
 			// context was canceled by Shutdown() or a user action
