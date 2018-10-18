@@ -691,7 +691,7 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 	c.log.Debug("RetryNotify %s", LogField{Key: ConnectionLogMsgKey, Value: "beginning"})
 	err := backoff.RetryNotify(func() (err error) {
 		defer func() {
-			c.log.Debug("RetryNotify result: %s", LogField{Key: ConnectionLogMsgKey, Value: err})
+			c.log.Debug("RetryNotify operation result: %s", LogField{Key: ConnectionLogMsgKey, Value: err})
 		}()
 		// try to connect
 		err = c.connect(ctx)
@@ -713,6 +713,7 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 	}, c.reconnectBackoff(),
 		// give the caller a chance to log any other error or adjust state
 		c.handler.OnConnectError)
+	c.log.Debug("RetryNotify complete %s", LogField{Key: ConnectionLogMsgKey, Value: err})
 
 	if err != nil {
 		// this shouldn't happen, but just in case.
