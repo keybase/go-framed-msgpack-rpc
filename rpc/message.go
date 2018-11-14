@@ -13,6 +13,7 @@ type rpcMessage interface {
 	Name() string
 	SeqNo() SeqNumber
 	MinLength() int
+	Compression() CompressionType
 	Err() error
 	DecodeMessage(int, *fieldDecoder, *protocolHandler, *callContainer) error
 }
@@ -89,6 +90,47 @@ func (r rpcCallMessage) Err() error {
 	return r.err
 }
 
+func (r rpcCallMessage) Compression() CompressionType {
+	return CompressionNone
+}
+
+type rpcCallCompressedMessage struct {
+	rpcCallMessage
+	ctype CompressionType
+}
+
+func (rpcCallCompressedMessage) MinLength() int {
+	return 4
+}
+
+func (r *rpcCallCompressedMessage) DecodeMessage(l int, d *fieldDecoder, p *protocolHandler, _ *callContainer) error {
+	if r.err = d.Decode(&r.seqno); r.err != nil {
+		return r.err
+	}
+	if r.err = d.Decode(&r.ctype); r.err != nil {
+		return r.err
+	}
+	if r.err = d.Decode(&r.name); r.err != nil {
+		return r.err
+	}
+	if r.arg, r.err = p.getArg(r.name); r.err != nil {
+		return r.err
+	}
+	if r.err = d.Decode(r.arg); r.err != nil {
+		return r.err
+	}
+	r.err = r.loadContext(l-r.MinLength(), d)
+	return r.err
+}
+
+func (r rpcCallCompressedMessage) Type() MethodType {
+	return MethodCallCompressed
+}
+
+func (r rpcCallCompressedMessage) Compression() CompressionType {
+	return r.ctype
+}
+
 type rpcResponseMessage struct {
 	c           *call
 	err         error
@@ -150,6 +192,10 @@ func (r *rpcResponseMessage) DecodeMessage(l int, d *fieldDecoder, _ *protocolHa
 
 func (r rpcResponseMessage) Type() MethodType {
 	return MethodResponse
+}
+
+func (r rpcResponseMessage) Compression() CompressionType {
+	return CompressionNone
 }
 
 func (r rpcResponseMessage) SeqNo() SeqNumber {
@@ -217,6 +263,10 @@ func (r rpcNotifyMessage) Type() MethodType {
 	return MethodNotify
 }
 
+func (r rpcNotifyMessage) Compression() CompressionType {
+	return CompressionNone
+}
+
 func (r rpcNotifyMessage) SeqNo() SeqNumber {
 	return -1
 }
@@ -253,6 +303,10 @@ func (rpcCancelMessage) MinLength() int {
 
 func (r rpcCancelMessage) Type() MethodType {
 	return MethodCancel
+}
+
+func (r rpcCancelMessage) Compression() CompressionType {
+	return CompressionNone
 }
 
 func (r rpcCancelMessage) SeqNo() SeqNumber {
@@ -311,6 +365,8 @@ func decodeRPC(l int, r *frameReader, p *protocolHandler, cc *callContainer) (rp
 		data = &rpcNotifyMessage{}
 	case MethodCancel:
 		data = &rpcCancelMessage{}
+	case MethodCallCompressed:
+		data = &rpcCallCompressedMessage{}
 	default:
 		return nil, newRPCDecodeError(typ, "", l, errors.New("invalid RPC type"))
 	}

@@ -55,7 +55,7 @@ func (r *callRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg i
 		errArg,
 		res,
 	}
-	errCh := enc.EncodeAndWrite(r.ctx, v, nil)
+	errCh := enc.EncodeAndWrite(r.ctx, r.Compression(), v, nil)
 	select {
 	case err := <-errCh:
 		if err != nil {
@@ -70,6 +70,63 @@ func (r *callRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg i
 func (r *callRequest) Serve(transmitter *framedMsgpackEncoder, handler *ServeHandlerDescription, wrapErrorFunc WrapErrorFunc) {
 
 	prof := r.log.StartProfiler("serve %s", r.Name())
+	arg := r.Arg()
+
+	r.LogInvocation(nil)
+	res, err := handler.Handler(r.ctx, arg)
+	prof.Stop()
+	r.LogCompletion(res, err)
+
+	r.Reply(transmitter, res, wrapError(wrapErrorFunc, err))
+}
+
+type callCompressedRequest struct {
+	*rpcCallCompressedMessage
+	requestImpl
+}
+
+func newCallCompressedRequest(rpc *rpcCallCompressedMessage, log LogInterface) *callCompressedRequest {
+	ctx, cancel := context.WithCancel(rpc.Context())
+	return &callCompressedRequest{
+		rpcCallCompressedMessage: rpc,
+		requestImpl: requestImpl{
+			ctx:        ctx,
+			cancelFunc: cancel,
+			log:        log,
+		},
+	}
+}
+
+func (r *callCompressedRequest) LogInvocation(err error) {
+	r.log.ServerCallCompressed(r.SeqNo(), r.Name(), err, r.Arg(), r.Compression())
+}
+
+func (r *callCompressedRequest) LogCompletion(res interface{}, err error) {
+	r.log.ServerReplyCompressed(r.SeqNo(), r.Name(), err, res, r.Compression())
+}
+
+func (r *callCompressedRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg interface{}) (err error) {
+	v := []interface{}{
+		MethodResponse,
+		r.SeqNo(),
+		errArg,
+		res,
+	}
+	errCh := enc.EncodeAndWrite(r.ctx, r.Compression(), v, nil)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			r.log.Warning("Reply error for %d: %s", r.SeqNo(), err.Error())
+		}
+	case <-r.ctx.Done():
+		r.log.Info("Call canceled after reply sent. Seq: %d", r.SeqNo())
+	}
+	return err
+}
+
+func (r *callCompressedRequest) Serve(transmitter *framedMsgpackEncoder, handler *ServeHandlerDescription, wrapErrorFunc WrapErrorFunc) {
+
+	prof := r.log.StartProfiler("serve-compressed %s", r.Name())
 	arg := r.Arg()
 
 	r.LogInvocation(nil)

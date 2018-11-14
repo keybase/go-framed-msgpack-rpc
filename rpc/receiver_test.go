@@ -101,7 +101,7 @@ func TestCloseReceiver(t *testing.T) {
 					waitCh <- c.Err()
 					return nil, c.Err()
 				},
-				MethodType: MethodCall,
+				MethodTypes: []MethodType{MethodCall},
 			},
 		},
 	}

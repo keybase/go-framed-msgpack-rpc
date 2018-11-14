@@ -256,6 +256,20 @@ func TestConnectionClientCallError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestConnectionClientCallCompressedError(t *testing.T) {
+	serverConn, conn := MakeConnectionForTest(t)
+	defer conn.Shutdown()
+
+	c := connectionClient{conn}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- c.CallCompressed(context.Background(), "callRpc", nil, nil, CompressionGzip)
+	}()
+	serverConn.Close()
+	err := <-errCh
+	require.Error(t, err)
+}
+
 func TestConnectionClientNotifyError(t *testing.T) {
 	serverConn, conn := MakeConnectionForTest(t)
 	defer conn.Shutdown()

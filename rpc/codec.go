@@ -9,8 +9,8 @@ import (
 )
 
 type encoder interface {
-	EncodeAndWrite(context.Context, interface{}, func()) <-chan error
-	EncodeAndWriteAsync(interface{}) <-chan error
+	EncodeAndWrite(context.Context, CompressionType, interface{}, func()) <-chan error
+	EncodeAndWriteAsync(CompressionType, interface{}) <-chan error
 }
 
 func newCodecMsgpackHandle() codec.Handle {
@@ -54,8 +54,19 @@ func encodeToBytes(enc *codec.Encoder, i interface{}) (v []byte, err error) {
 	return v, err
 }
 
-func (e *framedMsgpackEncoder) encodeFrame(i interface{}) ([]byte, error) {
+func (e *framedMsgpackEncoder) encodeFrame(ctype CompressionType, i interface{}) ([]byte, error) {
 	enc := codec.NewEncoderBytes(nil, e.handle)
+
+	// See if we can detect the method type passed in. For ResponseCompressed
+	// we should gzip the response (excluding the method type so we can decode
+	// it properly)
+	iArr, ok := i.([]interface{})
+	if ok && len(iArr) > 0 {
+		_, ok := iArr[0].(MethodType)
+		if ok {
+			// TODO ctype
+		}
+	}
 	content, err := encodeToBytes(enc, i)
 	if err != nil {
 		return nil, err
@@ -72,8 +83,9 @@ func (e *framedMsgpackEncoder) encodeFrame(i interface{}) ([]byte, error) {
 
 // encodeAndWriteInternal is called directly by tests that need to
 // write invalid frames.
-func (e *framedMsgpackEncoder) encodeAndWriteInternal(ctx context.Context, frame interface{}, sendNotifier func()) <-chan error {
-	bytes, err := e.encodeFrame(frame)
+func (e *framedMsgpackEncoder) encodeAndWriteInternal(ctx context.Context, ctype CompressionType,
+	frame interface{}, sendNotifier func()) <-chan error {
+	bytes, err := e.encodeFrame(ctype, frame)
 	ch := make(chan error, 1)
 	if err != nil {
 		ch <- err
@@ -89,12 +101,13 @@ func (e *framedMsgpackEncoder) encodeAndWriteInternal(ctx context.Context, frame
 	return ch
 }
 
-func (e *framedMsgpackEncoder) EncodeAndWrite(ctx context.Context, frame []interface{}, sendNotifier func()) <-chan error {
-	return e.encodeAndWriteInternal(ctx, frame, sendNotifier)
+func (e *framedMsgpackEncoder) EncodeAndWrite(ctx context.Context, ctype CompressionType,
+	frame []interface{}, sendNotifier func()) <-chan error {
+	return e.encodeAndWriteInternal(ctx, ctype, frame, sendNotifier)
 }
 
-func (e *framedMsgpackEncoder) EncodeAndWriteAsync(frame []interface{}) <-chan error {
-	bytes, err := e.encodeFrame(frame)
+func (e *framedMsgpackEncoder) EncodeAndWriteAsync(ctype CompressionType, frame []interface{}) <-chan error {
+	bytes, err := e.encodeFrame(ctype, frame)
 	ch := make(chan error, 1)
 	if err != nil {
 		ch <- err

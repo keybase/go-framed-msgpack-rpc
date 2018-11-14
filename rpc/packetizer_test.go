@@ -121,7 +121,7 @@ func createPacketizerTestProtocol() *protocolHandler {
 				Handler: func(context.Context, interface{}) (interface{}, error) {
 					return nil, nil
 				},
-				MethodType: MethodCall,
+				MethodTypes: []MethodType{MethodCall, MethodCallCompressed},
 			},
 		},
 	})
@@ -202,12 +202,12 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	enc := newFramedMsgpackEncoder(testMaxFrameLength, &buf)
 	ctx := context.Background()
 	for _, frame := range frames {
-		err := <-enc.encodeAndWriteInternal(ctx, frame, nil)
+		err := <-enc.encodeAndWriteInternal(ctx, CompressionNone, frame, nil)
 		require.NoError(t, err)
 	}
 
 	cc := newCallContainer()
-	c := cc.NewCall(ctx, "foo.bar", new(interface{}), new(string), nil)
+	c := cc.NewCall(ctx, "foo.bar", new(interface{}), new(string), CompressionNone, nil)
 	cc.AddCall(c)
 
 	log := newTestLog(t)
