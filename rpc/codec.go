@@ -74,9 +74,9 @@ func (e *framedMsgpackEncoder) compressResponse(ctype CompressionType, res inter
 	return i, nil
 }
 
-func (e *framedMsgpackEncoder) encodeFrame(i interface{}) (content []byte, err error) {
+func (e *framedMsgpackEncoder) encodeFrame(i interface{}) ([]byte, error) {
 	enc := codec.NewEncoderBytes(nil, e.handle)
-	content, err = encodeToBytes(enc, i)
+	content, err := encodeToBytes(enc, i)
 	if err != nil {
 		return nil, err
 	}

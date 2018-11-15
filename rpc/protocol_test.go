@@ -119,10 +119,7 @@ func TestCallCompressed(t *testing.T) {
 	cli, listener, conn := prepTest(t)
 	defer endTest(t, conn, listener)
 
-	pi := 31415
-	constants := Constants{Pi: pi}
-	err := cli.UpdateConstants(context.Background(), constants)
-	require.NoError(t, err, "Unexpected error on notify: %v", err)
+	ctx := context.Background()
 
 	nargs := NArgs{N: 50}
 	verifyRes := func(res []*Constants, err error) {
@@ -130,12 +127,11 @@ func TestCallCompressed(t *testing.T) {
 		require.Len(t, res, nargs.N)
 		for i := 0; i < nargs.N; i++ {
 			require.NotNil(t, res[i])
-			require.Equal(t, constants, *res[i])
+			require.Equal(t, Constants{}, *res[i])
 		}
 	}
 
 	// Try normal CLI (CallCompressed w/CompressionGzip)
-	ctx := context.Background()
 	res, err := cli.GetNConstants(ctx, nargs)
 	verifyRes(res, err)
 

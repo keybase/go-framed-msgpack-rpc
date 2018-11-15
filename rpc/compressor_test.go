@@ -10,8 +10,8 @@ func TestGzip(t *testing.T) {
 	c := newCompressorCacher()
 
 	// Make sure we don't make multiple instances of compressors
-	_ = c.getCompressor(CompressionGzip)
 	gz := c.getCompressor(CompressionGzip)
+	c.getCompressor(CompressionGzip)
 	none := c.getCompressor(CompressionNone)
 	require.Nil(t, none)
 	require.Len(t, c.algs, 2)
