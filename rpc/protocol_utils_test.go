@@ -155,7 +155,6 @@ func createTestProtocol(i TestInterface) Protocol {
 					}
 					return i.Add(addArgs)
 				},
-				MethodTypes: []MethodType{MethodCall, MethodCallCompressed},
 			},
 			"GetConstants": {
 				MakeArg: func() interface{} {
@@ -164,7 +163,6 @@ func createTestProtocol(i TestInterface) Protocol {
 				Handler: func(_ context.Context, _ interface{}) (interface{}, error) {
 					return i.GetConstants()
 				},
-				MethodTypes: []MethodType{MethodCall, MethodCallCompressed},
 			},
 			"GetNConstants": {
 				MakeArg: func() interface{} {
@@ -177,7 +175,6 @@ func createTestProtocol(i TestInterface) Protocol {
 					}
 					return i.GetNConstants(nargs)
 				},
-				MethodTypes: []MethodType{MethodCall, MethodCallCompressed},
 			},
 			"updateConstants": {
 				MakeArg: func() interface{} {
@@ -191,7 +188,6 @@ func createTestProtocol(i TestInterface) Protocol {
 					err := i.UpdateConstants(constants)
 					return nil, err
 				},
-				MethodTypes: []MethodType{MethodNotify},
 			},
 			"LongCall": {
 				MakeArg: func() interface{} {
@@ -200,7 +196,6 @@ func createTestProtocol(i TestInterface) Protocol {
 				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
 					return i.LongCall(ctx)
 				},
-				MethodTypes: []MethodType{MethodCall, MethodCallCompressed},
 			},
 			"LongCallResult": {
 				MakeArg: func() interface{} {
@@ -209,7 +204,6 @@ func createTestProtocol(i TestInterface) Protocol {
 				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
 					return i.LongCallResult(ctx)
 				},
-				MethodTypes: []MethodType{MethodCall, MethodCallCompressed},
 			},
 			"LongCallDebugTags": {
 				MakeArg: func() interface{} {
@@ -218,7 +212,6 @@ func createTestProtocol(i TestInterface) Protocol {
 				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
 					return i.LongCallDebugTags(ctx)
 				},
-				MethodTypes: []MethodType{MethodCall, MethodCallCompressed},
 			},
 		},
 	}

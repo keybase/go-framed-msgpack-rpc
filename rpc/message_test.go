@@ -20,7 +20,6 @@ func createMessageTestProtocol() *protocolHandler {
 				Handler: func(context.Context, interface{}) (interface{}, error) {
 					return nil, nil
 				},
-				MethodTypes: []MethodType{MethodCall, MethodCallCompressed},
 			},
 		},
 	})

@@ -8,9 +8,8 @@ import (
 )
 
 type ServeHandlerDescription struct {
-	MakeArg     func() interface{}
-	Handler     func(ctx context.Context, arg interface{}) (ret interface{}, err error)
-	MethodTypes []MethodType
+	MakeArg func() interface{}
+	Handler func(ctx context.Context, arg interface{}) (ret interface{}, err error)
 }
 
 type MethodType int
