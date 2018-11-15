@@ -272,10 +272,12 @@ func (s SimpleLog) trace(which string, objname string, verbose bool, q SeqNumber
 		fmts += " method=%s;"
 		args = append(args, meth)
 	}
-	fmts += " err=%s;"
 	if ctype != nil {
 		fmts += " ctype=%s;"
+		args = append(args, ctype)
 	}
+
+	fmts += " err=%s;"
 	var es string
 	if err == nil {
 		es = "null"

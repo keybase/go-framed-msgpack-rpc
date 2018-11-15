@@ -74,6 +74,16 @@ func (a *testProtocol) GetConstants() (*Constants, error) {
 	return &a.constants, nil
 }
 
+func (a *testProtocol) GetNConstants(nargs *NArgs) (ret []*Constants, err error) {
+	if nargs == nil {
+		return nil, nil
+	}
+	for i := 0; i < nargs.N; i++ {
+		ret = append(ret, &a.constants)
+	}
+	return ret, nil
+}
+
 func (a *testProtocol) LongCall(ctx context.Context) (int, error) {
 	defer func() {
 		close(a.notifyCh)
@@ -112,6 +122,10 @@ type AddArgs struct {
 	Padding []byte
 }
 
+type NArgs struct {
+	N int
+}
+
 type Constants struct {
 	Pi int
 }
@@ -120,6 +134,7 @@ type TestInterface interface {
 	Add(*AddArgs) (int, error)
 	UpdateConstants(*Constants) error
 	GetConstants() (*Constants, error)
+	GetNConstants(*NArgs) ([]*Constants, error)
 	LongCall(context.Context) (int, error)
 	LongCallResult(context.Context) (int, error)
 	LongCallDebugTags(context.Context) (CtxRpcTags, error)
@@ -148,6 +163,19 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 				Handler: func(_ context.Context, _ interface{}) (interface{}, error) {
 					return i.GetConstants()
+				},
+				MethodTypes: []MethodType{MethodCall, MethodCallCompressed},
+			},
+			"GetNConstants": {
+				MakeArg: func() interface{} {
+					return new(NArgs)
+				},
+				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
+					nargs, ok := args.(*NArgs)
+					if !ok {
+						return nil, NewTypeError((*NArgs)(nil), args)
+					}
+					return i.GetNConstants(nargs)
 				},
 				MethodTypes: []MethodType{MethodCall, MethodCallCompressed},
 			},
@@ -208,40 +236,42 @@ type TestClient struct {
 
 func (a TestClient) Add(ctx context.Context, arg AddArgs) (ret int, err error) {
 	err = a.Call(ctx, "test.1.testp.add", arg, &ret)
-	return
+	return ret, err
 }
 
 func (a TestClient) BrokenMethod() (err error) {
-	err = a.Call(context.Background(), "test.1.testp.broken", nil, nil)
-	return
+	return a.Call(context.Background(), "test.1.testp.broken", nil, nil)
 }
 
-func (a TestClient) BrokenProtocol() (err error) {
-	err = a.Call(context.Background(), "test.2.testp.broken", nil, nil)
-	return
+func (a TestClient) BrokenProtocol() error {
+	return a.Call(context.Background(), "test.2.testp.broken", nil, nil)
 }
 
-func (a TestClient) UpdateConstants(ctx context.Context, arg Constants) (err error) {
-	err = a.Notify(ctx, "test.1.testp.updateConstants", arg)
-	return
+func (a TestClient) UpdateConstants(ctx context.Context, arg Constants) error {
+	return a.Notify(ctx, "test.1.testp.updateConstants", arg)
 }
 
 func (a TestClient) GetConstants(ctx context.Context) (ret Constants, err error) {
 	err = a.Call(ctx, "test.1.testp.GetConstants", nil, &ret)
-	return
+	return ret, err
+}
+
+func (a TestClient) GetNConstants(ctx context.Context, nargs NArgs) (ret []*Constants, err error) {
+	err = a.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &ret, CompressionGzip)
+	return ret, err
 }
 
 func (a TestClient) LongCall(ctx context.Context) (ret int, err error) {
 	err = a.Call(ctx, "test.1.testp.LongCall", nil, &ret)
-	return
+	return ret, err
 }
 
 func (a TestClient) LongCallResult(ctx context.Context) (ret int, err error) {
 	err = a.Call(ctx, "test.1.testp.LongCallResult", nil, &ret)
-	return
+	return ret, err
 }
 
 func (a TestClient) LongCallDebugTags(ctx context.Context) (ret CtxRpcTags, err error) {
 	err = a.Call(ctx, "test.1.testp.LongCallDebugTags", nil, &ret)
-	return
+	return ret, err
 }

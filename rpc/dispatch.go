@@ -72,7 +72,7 @@ func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res i
 	if len(rpcTags) > 0 {
 		v = append(v, rpcTags)
 	}
-	errCh := d.writer.EncodeAndWrite(ctx, ctype, v, currySendNotifier(sendNotifier, c.seqid))
+	errCh := d.writer.EncodeAndWrite(ctx, v, currySendNotifier(sendNotifier, c.seqid))
 
 	// Wait for result from encode
 	select {
@@ -106,8 +106,7 @@ func (d *dispatch) Notify(ctx context.Context, name string, arg interface{}, sen
 	if len(rpcTags) > 0 {
 		v = append(v, rpcTags)
 	}
-	errCh := d.writer.EncodeAndWrite(ctx, CompressionNone,
-		v, currySendNotifier(sendNotifier, SeqNumber(-1)))
+	errCh := d.writer.EncodeAndWrite(ctx, v, currySendNotifier(sendNotifier, SeqNumber(-1)))
 	select {
 	case err := <-errCh:
 		if err == nil {
@@ -128,7 +127,7 @@ func (d *dispatch) Close() {
 
 func (d *dispatch) handleCancel(c *call) error {
 	d.log.ClientCancel(c.seqid, c.method, nil)
-	errCh := d.writer.EncodeAndWriteAsync(CompressionNone, []interface{}{MethodCancel, c.seqid, c.method})
+	errCh := d.writer.EncodeAndWriteAsync([]interface{}{MethodCancel, c.seqid, c.method})
 	select {
 	case err := <-errCh:
 		if err != nil {

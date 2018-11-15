@@ -16,13 +16,12 @@ type ServeHandlerDescription struct {
 type MethodType int
 
 const (
-	MethodInvalid            MethodType = -1
-	MethodCall               MethodType = 0
-	MethodResponse           MethodType = 1
-	MethodNotify             MethodType = 2
-	MethodCancel             MethodType = 3
-	MethodCallCompressed     MethodType = 4
-	MethodResponseCompressed MethodType = 5
+	MethodInvalid        MethodType = -1
+	MethodCall           MethodType = 0
+	MethodResponse       MethodType = 1
+	MethodNotify         MethodType = 2
+	MethodCancel         MethodType = 3
+	MethodCallCompressed MethodType = 4
 )
 
 func (t MethodType) String() string {
@@ -39,8 +38,6 @@ func (t MethodType) String() string {
 		return "Cancel"
 	case MethodCallCompressed:
 		return "CallCompressed"
-	case MethodResponseCompressed:
-		return "ResponseCompressed"
 	default:
 		return fmt.Sprintf("Method(%d)", t)
 	}
@@ -61,6 +58,15 @@ func (t CompressionType) String() string {
 		return "gzip"
 	default:
 		return fmt.Sprintf("Compression(%d)", t)
+	}
+}
+
+func (t CompressionType) NewCompressor() compressor {
+	switch t {
+	case CompressionGzip:
+		return newGzipCompressor()
+	default:
+		return nil
 	}
 }
 

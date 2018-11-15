@@ -55,7 +55,7 @@ func (r *callRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg i
 		errArg,
 		res,
 	}
-	errCh := enc.EncodeAndWrite(r.ctx, r.Compression(), v, nil)
+	errCh := enc.EncodeAndWrite(r.ctx, v, nil)
 	select {
 	case err := <-errCh:
 		if err != nil {
@@ -106,13 +106,17 @@ func (r *callCompressedRequest) LogCompletion(res interface{}, err error) {
 }
 
 func (r *callCompressedRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg interface{}) (err error) {
+	res, err = enc.compressResponse(r.Compression(), res)
+	if err != nil {
+		return err
+	}
 	v := []interface{}{
 		MethodResponse,
 		r.SeqNo(),
 		errArg,
 		res,
 	}
-	errCh := enc.EncodeAndWrite(r.ctx, r.Compression(), v, nil)
+	errCh := enc.EncodeAndWrite(r.ctx, v, nil)
 	select {
 	case err := <-errCh:
 		if err != nil {
