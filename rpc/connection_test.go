@@ -107,7 +107,7 @@ func (ut *unitTester) WaitForDoneOrBust(t *testing.T,
 	case <-ut.doneChan:
 		break
 	case <-timer.C:
-		t.Fatalf("%s timeout", opName)
+		require.Fail(t, "%s timeout", opName)
 	}
 }
 
@@ -142,9 +142,8 @@ func TestReconnectBasic(t *testing.T) {
 	case <-timeout:
 		break
 	}
-	if err := unitTester.Err(); err != nil {
-		t.Fatal(err)
-	}
+	err := unitTester.Err()
+	require.NoError(t, err)
 }
 
 // Test a basic reconnect flow.
@@ -197,9 +196,7 @@ func TestReconnectCanceled(t *testing.T) {
 	// Test that any command fails with the expected error.
 	err := conn.DoCommand(context.Background(), "test",
 		func(GenericClient) error { return nil })
-	if err != cancelErr {
-		t.Fatalf("Error wasn't InputCanceled: %v", err)
-	}
+	require.Equal(t, err, cancelErr)
 }
 
 // Test DoCommand with throttling.
@@ -236,10 +233,7 @@ func TestDoCommandThrottle(t *testing.T) {
 		}
 		return nil
 	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 }
 
 func TestConnectionClientCallError(t *testing.T) {
