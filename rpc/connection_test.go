@@ -107,7 +107,7 @@ func (ut *unitTester) WaitForDoneOrBust(t *testing.T,
 	case <-ut.doneChan:
 		break
 	case <-timer.C:
-		require.Fail(t, "%s timeout", opName)
+		require.Fail(t, fmt.Sprintf("%s timeout", opName))
 	}
 }
 
