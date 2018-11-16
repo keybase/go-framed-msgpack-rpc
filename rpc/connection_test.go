@@ -138,9 +138,7 @@ func TestReconnectBasic(t *testing.T) {
 	timeout := time.After(2 * time.Second)
 	select {
 	case <-unitTester.doneChan:
-		break
 	case <-timeout:
-		break
 	}
 	err := unitTester.Err()
 	require.NoError(t, err)
@@ -165,15 +163,23 @@ func TestForceReconnect(t *testing.T) {
 	}
 	conn := NewConnectionWithTransport(unitTester, unitTester,
 		testErrorUnwrapper{}, output, opts)
+	ch := make(chan struct{})
+	conn.setReconnectCompleteForTest(ch)
 
 	defer conn.Shutdown()
-	unitTester.WaitForDoneOrBust(t, 2*time.Second, "initial connect")
+	unitTester.WaitForDoneOrBust(t, 2*time.Second, "initial reconnect")
+
+	select {
+	case <-ch:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "intial reconnect never completed")
+	}
 
 	forceReconnectErrCh := make(chan error)
 	go func() {
 		forceReconnectErrCh <- conn.ForceReconnect(context.Background())
 	}()
-	unitTester.WaitForDoneOrBust(t, 2*time.Second, "initial connect")
+	unitTester.WaitForDoneOrBust(t, 2*time.Second, "forced reconnect")
 	require.NoError(t, <-forceReconnectErrCh)
 }
 
