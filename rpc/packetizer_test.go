@@ -121,7 +121,6 @@ func createPacketizerTestProtocol() *protocolHandler {
 				Handler: func(context.Context, interface{}) (interface{}, error) {
 					return nil, nil
 				},
-				MethodType: MethodCall,
 			},
 		},
 	})
@@ -207,7 +206,7 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	}
 
 	cc := newCallContainer()
-	c := cc.NewCall(ctx, "foo.bar", new(interface{}), new(string), nil)
+	c := cc.NewCall(ctx, "foo.bar", new(interface{}), new(string), CompressionNone, nil)
 	cc.AddCall(c)
 
 	log := newTestLog(t)

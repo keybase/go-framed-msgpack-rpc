@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher, *callContainer, chan error) {
+func dispatchTestCallWithContextAndCompressionType(t *testing.T, ctx context.Context, ctype CompressionType) (dispatcher, *callContainer, chan error) {
 	log := newTestLog(t)
 
 	conn1, conn2 := net.Pipe()
@@ -20,7 +20,8 @@ func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher,
 	d := newDispatch(dispatchOut, calls, log)
 
 	done := runInBg(func() error {
-		return d.Call(ctx, "abc.hello", new(interface{}), new(interface{}), nil, nil)
+		return d.Call(ctx, "abc.hello", new(interface{}), new(interface{}),
+			ctype, nil, nil)
 	})
 
 	// Necessary to ensure the call is far enough along to
@@ -28,6 +29,10 @@ func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher,
 	_, decoderErr := pkt.NextFrame()
 	require.Nil(t, decoderErr, "Expected no error")
 	return d, calls, done
+}
+
+func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher, *callContainer, chan error) {
+	return dispatchTestCallWithContextAndCompressionType(t, ctx, CompressionNone)
 }
 
 func dispatchTestCall(t *testing.T) (dispatcher, *callContainer, chan error) {
@@ -54,12 +59,28 @@ func TestDispatchSuccessfulCall(t *testing.T) {
 	d.Close()
 }
 
+func TestDispatchSuccessfulCallCompressed(t *testing.T) {
+	ctype := CompressionGzip
+	d, calls, done := dispatchTestCallWithContextAndCompressionType(t, context.Background(), ctype)
+
+	c := calls.RetrieveCall(0)
+	require.NotNil(t, c, "Expected c not to be nil")
+	require.Equal(t, ctype, c.ctype)
+
+	sendResponse(c, nil)
+	err := <-done
+	require.NoError(t, err, "Expected no error")
+
+	d.Close()
+}
+
 func TestDispatchCanceledBeforeResult(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	d, calls, done := dispatchTestCallWithContext(t, ctx)
 
 	c := calls.RetrieveCall(0)
 	require.NotNil(t, c, "Expected c not to be nil")
+	require.Equal(t, CompressionNone, c.ctype)
 
 	cancel()
 
@@ -115,7 +136,8 @@ func TestDispatchCallAfterClose(t *testing.T) {
 	d.Close()
 
 	done = runInBg(func() error {
-		return d.Call(context.Background(), "whatever", new(interface{}), new(interface{}), nil, nil)
+		return d.Call(context.Background(), "whatever", new(interface{}), new(interface{}),
+			CompressionNone, nil, nil)
 	})
 	err = <-done
 	require.Equal(t, io.EOF, err)
@@ -132,7 +154,8 @@ func TestDispatchCancelEndToEnd(t *testing.T) {
 
 	ch := make(chan error)
 	go func() {
-		err := d.Call(ctx1, "abc.hello", nil, new(interface{}), nil, nil)
+		err := d.Call(ctx1, "abc.hello", nil, new(interface{}),
+			CompressionNone, nil, nil)
 		ch <- err
 	}()
 

@@ -107,7 +107,7 @@ func (ut *unitTester) WaitForDoneOrBust(t *testing.T,
 	case <-ut.doneChan:
 		break
 	case <-timer.C:
-		t.Fatalf("%s timeout", opName)
+		require.Fail(t, fmt.Sprintf("%s timeout", opName))
 	}
 }
 
@@ -138,13 +138,10 @@ func TestReconnectBasic(t *testing.T) {
 	timeout := time.After(2 * time.Second)
 	select {
 	case <-unitTester.doneChan:
-		break
 	case <-timeout:
-		break
 	}
-	if err := unitTester.Err(); err != nil {
-		t.Fatal(err)
-	}
+	err := unitTester.Err()
+	require.NoError(t, err)
 }
 
 // Test a basic reconnect flow.
@@ -166,15 +163,23 @@ func TestForceReconnect(t *testing.T) {
 	}
 	conn := NewConnectionWithTransport(unitTester, unitTester,
 		testErrorUnwrapper{}, output, opts)
+	ch := make(chan struct{})
+	conn.setReconnectCompleteForTest(ch)
 
 	defer conn.Shutdown()
-	unitTester.WaitForDoneOrBust(t, 2*time.Second, "initial connect")
+	unitTester.WaitForDoneOrBust(t, 2*time.Second, "initial reconnect")
+
+	select {
+	case <-ch:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "intial reconnect never completed")
+	}
 
 	forceReconnectErrCh := make(chan error)
 	go func() {
 		forceReconnectErrCh <- conn.ForceReconnect(context.Background())
 	}()
-	unitTester.WaitForDoneOrBust(t, 2*time.Second, "initial connect")
+	unitTester.WaitForDoneOrBust(t, 2*time.Second, "forced reconnect")
 	require.NoError(t, <-forceReconnectErrCh)
 }
 
@@ -197,9 +202,7 @@ func TestReconnectCanceled(t *testing.T) {
 	// Test that any command fails with the expected error.
 	err := conn.DoCommand(context.Background(), "test",
 		func(GenericClient) error { return nil })
-	if err != cancelErr {
-		t.Fatalf("Error wasn't InputCanceled: %v", err)
-	}
+	require.Equal(t, err, cancelErr)
 }
 
 // Test DoCommand with throttling.
@@ -236,10 +239,7 @@ func TestDoCommandThrottle(t *testing.T) {
 		}
 		return nil
 	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 }
 
 func TestConnectionClientCallError(t *testing.T) {
@@ -250,6 +250,20 @@ func TestConnectionClientCallError(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- c.Call(context.Background(), "callRpc", nil, nil)
+	}()
+	serverConn.Close()
+	err := <-errCh
+	require.Error(t, err)
+}
+
+func TestConnectionClientCallCompressedError(t *testing.T) {
+	serverConn, conn := MakeConnectionForTest(t)
+	defer conn.Shutdown()
+
+	c := connectionClient{conn}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- c.CallCompressed(context.Background(), "callRpc", nil, nil, CompressionGzip)
 	}()
 	serverConn.Close()
 	err := <-errCh

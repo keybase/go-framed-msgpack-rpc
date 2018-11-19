@@ -115,6 +115,36 @@ func TestLongCall(t *testing.T) {
 	require.Equal(t, longResult, 100, "call should have succeeded")
 }
 
+func TestCallCompressed(t *testing.T) {
+	cli, listener, conn := prepTest(t)
+	defer endTest(t, conn, listener)
+
+	ctx := context.Background()
+
+	nargs := NArgs{N: 50}
+	verifyRes := func(res []*Constants, err error) {
+		require.NoError(t, err, "call should have succeeded")
+		require.Len(t, res, nargs.N)
+		for i := 0; i < nargs.N; i++ {
+			require.NotNil(t, res[i])
+			require.Equal(t, Constants{}, *res[i])
+		}
+	}
+
+	// Try normal CLI (CallCompressed w/CompressionGzip)
+	res, err := cli.GetNConstants(ctx, nargs)
+	verifyRes(res, err)
+
+	// Also test CallCompressed w/CompressionNone and regular Call work identically
+	res = []*Constants{}
+	err = cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, CompressionNone)
+	verifyRes(res, err)
+
+	res = []*Constants{}
+	err = cli.Call(ctx, "test.1.testp.GetNConstants", nargs, &res)
+	verifyRes(res, err)
+}
+
 func TestLongCallCancel(t *testing.T) {
 	cli, listener, conn := prepTest(t)
 	defer endTest(t, conn, listener)
