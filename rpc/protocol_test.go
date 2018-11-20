@@ -61,10 +61,18 @@ func TestCall(t *testing.T) {
 	defer endTest(t, conn, listener)
 
 	B := 34
-	for A := 10; A < 23; A += 2 {
-		res, err := cli.Add(context.Background(), AddArgs{A: A, B: B})
-		require.NoError(t, err, "an error occurred while adding parameters")
-		require.Equal(t, A+B, res, "Result should be the two parameters added together")
+	numRuns := 15
+	done := make(chan int)
+	for A := 0; A < numRuns; A++ {
+		go func(A, B int) {
+			res, err := cli.Add(context.Background(), AddArgs{A: A, B: B})
+			require.NoError(t, err, "an error occurred while adding parameters")
+			require.Equal(t, A+B, res, "Result should be the two parameters added together")
+			done <- 0
+		}(A, B)
+	}
+	for i := 0; i < numRuns; i++ {
+		<-done
 	}
 }
 
@@ -132,12 +140,22 @@ func TestCallCompressed(t *testing.T) {
 	}
 
 	// Try normal CLI (CallCompressed w/CompressionGzip)
-	res, err := cli.GetNConstants(ctx, nargs)
-	verifyRes(res, err)
+	numRuns := 15
+	done := make(chan int)
+	for i := 0; i < numRuns; i++ {
+		go func(i int) {
+			res, err := cli.GetNConstants(ctx, nargs)
+			verifyRes(res, err)
+			done <- i
+		}(i)
+	}
+	for i := 0; i < numRuns; i++ {
+		<-done
+	}
 
 	// Also test CallCompressed w/CompressionNone and regular Call work identically
-	res = []*Constants{}
-	err = cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, CompressionNone)
+	res := []*Constants{}
+	err := cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, CompressionNone)
 	verifyRes(res, err)
 
 	res = []*Constants{}
