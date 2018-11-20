@@ -27,7 +27,7 @@ func dispatchTestCallWithContextAndCompressionType(t *testing.T, ctx context.Con
 	// Necessary to ensure the call is far enough along to
 	// be ready to respond
 	_, decoderErr := pkt.NextFrame()
-	require.Nil(t, decoderErr, "Expected no error")
+	require.NoError(t, decoderErr, "Expected no error")
 	return d, calls, done
 }
 

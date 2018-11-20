@@ -30,7 +30,7 @@ func runMessageTest(t *testing.T, ctype CompressionType, v []interface{}) (rpcMe
 	var buf bytes.Buffer
 	enc := newFramedMsgpackEncoder(testMaxFrameLength, &buf)
 	cc := newCallContainer()
-	c := cc.NewCall(context.Background(), "foo.bar", new(interface{}), new(string), CompressionNone, nil)
+	c := cc.NewCall(context.Background(), "foo.bar", new(interface{}), new(string), ctype, nil)
 	cc.AddCall(c)
 
 	log := newTestLog(t)
