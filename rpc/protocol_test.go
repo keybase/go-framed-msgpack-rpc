@@ -118,7 +118,10 @@ func TestLongCall(t *testing.T) {
 	cli, listener, conn := prepTest(t)
 	defer endTest(t, conn, listener)
 
-	longResult, err := cli.LongCall(context.Background())
+	ctx := context.Background()
+	ctx = AddRpcTagsToContext(ctx, CtxRpcTags{"hello": []string{"world"}})
+
+	longResult, err := cli.LongCall(ctx)
 	require.NoError(t, err, "call should have succeeded")
 	require.Equal(t, longResult, 100, "call should have succeeded")
 }
@@ -128,6 +131,7 @@ func TestCallCompressed(t *testing.T) {
 	defer endTest(t, conn, listener)
 
 	ctx := context.Background()
+	ctx = AddRpcTagsToContext(ctx, CtxRpcTags{"hello": []string{"world"}})
 
 	nargs := NArgs{N: 50}
 	verifyRes := func(res []*Constants, err error) {
