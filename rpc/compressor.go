@@ -13,11 +13,6 @@ type compressor interface {
 	Decompress([]byte) ([]byte, error)
 }
 
-type gzipCreateReaderRes struct {
-	reader *gzip.Reader
-	err    error
-}
-
 type gzipCompressor struct {
 	readerPool sync.Pool
 	writerPool sync.Pool
