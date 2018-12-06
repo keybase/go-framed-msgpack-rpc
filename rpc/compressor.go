@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"io/ioutil"
 	"sync"
 )
 
@@ -13,53 +14,41 @@ type compressor interface {
 }
 
 type gzipCompressor struct {
-	writerLock  sync.Mutex
-	readerLock  sync.Mutex
-	gzipWriters []*gzip.Writer
-	gzipReaders []*gzip.Reader
+	readerPool sync.Pool
+	writerPool sync.Pool
 }
 
 var _ compressor = (*gzipCompressor)(nil)
 
 func newGzipCompressor() *gzipCompressor {
-	return &gzipCompressor{}
+	return &gzipCompressor{
+		writerPool: sync.Pool{
+			New: func() interface{} {
+				return gzip.NewWriter(ioutil.Discard)
+			},
+		},
+		readerPool: sync.Pool{
+			New: func() interface{} {
+				return new(gzip.Reader)
+			},
+		},
+	}
 }
 
 func (c *gzipCompressor) getGzipWriter(writer io.Writer) (*gzip.Writer, func()) {
-	c.writerLock.Lock()
-	defer c.writerLock.Unlock()
-	var gzipWriter *gzip.Writer
-	if len(c.gzipWriters) == 0 {
-		gzipWriter = gzip.NewWriter(writer)
-	} else {
-		gzipWriter = c.gzipWriters[0]
-		c.gzipWriters = c.gzipWriters[1:]
-		gzipWriter.Reset(writer)
-	}
+	gzipWriter := c.writerPool.Get().(*gzip.Writer)
+	gzipWriter.Reset(writer)
 	return gzipWriter, func() {
-		c.writerLock.Lock()
-		c.gzipWriters = append(c.gzipWriters, gzipWriter)
-		c.writerLock.Unlock()
+		c.writerPool.Put(gzipWriter)
 	}
 }
 func (c *gzipCompressor) getGzipReader(reader io.Reader) (*gzip.Reader, func(), error) {
-	c.readerLock.Lock()
-	defer c.readerLock.Unlock()
-	var err error
-	var gzipReader *gzip.Reader
-	if len(c.gzipReaders) == 0 {
-		if gzipReader, err = gzip.NewReader(reader); err != nil {
-			return nil, func() {}, err
-		}
-	} else {
-		gzipReader = c.gzipReaders[0]
-		c.gzipReaders = c.gzipReaders[1:]
-		gzipReader.Reset(reader)
+	gzipReader := c.readerPool.Get().(*gzip.Reader)
+	if err := gzipReader.Reset(reader); err != nil {
+		return nil, func() {}, err
 	}
 	return gzipReader, func() {
-		c.readerLock.Lock()
-		c.gzipReaders = append(c.gzipReaders, gzipReader)
-		c.readerLock.Unlock()
+		c.readerPool.Put(gzipReader)
 	}, nil
 }
 
@@ -72,9 +61,6 @@ func (c *gzipCompressor) Compress(data []byte) ([]byte, error) {
 	if _, err := writer.Write(data); err != nil {
 		return nil, err
 	}
-	if err := writer.Flush(); err != nil {
-		return nil, err
-	}
 	if err := writer.Close(); err != nil {
 		return nil, err
 	}
@@ -83,7 +69,7 @@ func (c *gzipCompressor) Compress(data []byte) ([]byte, error) {
 
 func (c *gzipCompressor) Decompress(data []byte) ([]byte, error) {
 
-	in := bytes.NewBuffer(data)
+	in := bytes.NewReader(data)
 	reader, reclaim, err := c.getGzipReader(in)
 	if err != nil {
 		return nil, err
