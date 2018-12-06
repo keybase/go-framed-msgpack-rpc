@@ -16,18 +16,12 @@ type compressor interface {
 type gzipCompressor struct {
 	readerPool sync.Pool
 	writerPool sync.Pool
-	bufPool    sync.Pool
 }
 
 var _ compressor = (*gzipCompressor)(nil)
 
 func newGzipCompressor() *gzipCompressor {
 	return &gzipCompressor{
-		bufPool: sync.Pool{
-			New: func() interface{} {
-				return new(bytes.Buffer)
-			},
-		},
 		writerPool: sync.Pool{
 			New: func() interface{} {
 				return gzip.NewWriter(ioutil.Discard)
