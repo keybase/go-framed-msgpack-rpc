@@ -29,13 +29,13 @@ func (c *gzipCompressor) getGzipWriter(writer io.Writer) (*gzip.Writer, func()) 
 	c.writerLock.Lock()
 	defer c.writerLock.Unlock()
 	var gzipWriter *gzip.Writer
-	if c.gzipWriters == nil {
+	if len(c.gzipWriters) == 0 {
 		gzipWriter = gzip.NewWriter(writer)
 	} else {
 		gzipWriter = c.gzipWriters[0]
 		c.gzipWriters = c.gzipWriters[1:]
+		gzipWriter.Reset(writer)
 	}
-	gzipWriter.Reset(writer)
 	return gzipWriter, func() {
 		c.writerLock.Lock()
 		c.gzipWriters = append(c.gzipWriters, gzipWriter)
@@ -47,7 +47,7 @@ func (c *gzipCompressor) getGzipReader(reader io.Reader) (*gzip.Reader, func(), 
 	defer c.readerLock.Unlock()
 	var err error
 	var gzipReader *gzip.Reader
-	if c.gzipReaders == nil {
+	if len(c.gzipReaders) == 0 {
 		if gzipReader, err = gzip.NewReader(reader); err != nil {
 			return nil, func() {}, err
 		}
