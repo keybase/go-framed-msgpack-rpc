@@ -54,8 +54,8 @@ func (c *gzipCompressor) getGzipReader(reader io.Reader) (*gzip.Reader, func(), 
 	} else {
 		gzipReader = c.gzipReaders[0]
 		c.gzipReaders = c.gzipReaders[1:]
+		gzipReader.Reset(reader)
 	}
-	gzipReader.Reset(reader)
 	return gzipReader, func() {
 		c.readerLock.Lock()
 		c.gzipReaders = append(c.gzipReaders, gzipReader)
