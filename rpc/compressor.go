@@ -3,6 +3,7 @@ package rpc
 import (
 	"bytes"
 	"compress/gzip"
+	"io"
 	"sync"
 )
 
@@ -11,7 +12,12 @@ type compressor interface {
 	Decompress([]byte) ([]byte, error)
 }
 
-type gzipCompressor struct{}
+type gzipCompressor struct {
+	writerLock sync.Mutex
+	readerLock sync.Mutex
+	gzipWriter *gzip.Writer
+	gzipReader *gzip.Reader
+}
 
 var _ compressor = (*gzipCompressor)(nil)
 
@@ -19,10 +25,35 @@ func newGzipCompressor() *gzipCompressor {
 	return &gzipCompressor{}
 }
 
+func (c *gzipCompressor) getGzipWriter(writer io.Writer) *gzip.Writer {
+	c.writerLock.Lock()
+	defer c.writerLock.Unlock()
+	if c.gzipWriter == nil {
+		c.gzipWriter = gzip.NewWriter(writer)
+		return c.gzipWriter
+	}
+	c.gzipWriter.Reset(writer)
+	return c.gzipWriter
+}
+func (c *gzipCompressor) getGzipReader(reader io.Reader) (*gzip.Reader, error) {
+	c.readerLock.Lock()
+	defer c.readerLock.Unlock()
+	var err error
+	if c.gzipReader == nil {
+		if c.gzipReader, err = gzip.NewReader(reader); err != nil {
+			c.gzipReader = nil // just make sure
+			return nil, err
+		}
+		return c.gzipReader, nil
+	}
+	c.gzipReader.Reset(reader)
+	return c.gzipReader, nil
+}
+
 func (c *gzipCompressor) Compress(data []byte) ([]byte, error) {
 
 	var buf bytes.Buffer
-	writer := gzip.NewWriter(&buf)
+	writer := c.getGzipWriter(&buf)
 
 	if _, err := writer.Write(data); err != nil {
 		return nil, err
@@ -39,7 +70,7 @@ func (c *gzipCompressor) Compress(data []byte) ([]byte, error) {
 func (c *gzipCompressor) Decompress(data []byte) ([]byte, error) {
 
 	in := bytes.NewBuffer(data)
-	reader, err := gzip.NewReader(in)
+	reader, err := c.getGzipReader(in)
 	if err != nil {
 		return nil, err
 	}
