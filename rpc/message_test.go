@@ -57,17 +57,19 @@ func TestMessageDecodeValid(t *testing.T) {
 }
 
 func TestMessageDecodeValidCompressed(t *testing.T) {
-	v := []interface{}{MethodCallCompressed, 999, CompressionGzip, "abc.hello", new(interface{})}
+	doWithAllCompressionTypes(func(ctype CompressionType) {
+		v := []interface{}{MethodCallCompressed, 999, ctype, "abc.hello", new(interface{})}
 
-	rpc, err := runMessageTest(t, CompressionGzip, v)
-	require.NoError(t, err)
-	c, ok := rpc.(*rpcCallCompressedMessage)
-	require.True(t, ok)
-	require.Equal(t, MethodCallCompressed, c.Type())
-	require.Equal(t, CompressionGzip, c.Compression())
-	require.Equal(t, SeqNumber(999), c.SeqNo())
-	require.Equal(t, "abc.hello", c.Name())
-	require.Equal(t, nil, c.Arg())
+		rpc, err := runMessageTest(t, ctype, v)
+		require.NoError(t, err)
+		c, ok := rpc.(*rpcCallCompressedMessage)
+		require.True(t, ok)
+		require.Equal(t, MethodCallCompressed, c.Type())
+		require.Equal(t, ctype, c.Compression())
+		require.Equal(t, SeqNumber(999), c.SeqNo())
+		require.Equal(t, "abc.hello", c.Name())
+		require.Equal(t, nil, c.Arg())
+	})
 }
 
 func TestMessageDecodeValidExtraParams(t *testing.T) {
