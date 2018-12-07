@@ -46,7 +46,6 @@ func (c *gzipCompressor) getGzipReader(reader io.Reader) (*gzip.Reader, func(), 
 		return nil, func() {}, err
 	}
 	return gzipReader, func() {
-		gzipReader := gzipReaderPool.Get().(*gzip.Reader)
 		gzipReaderPool.Put(gzipReader)
 	}, nil
 }
