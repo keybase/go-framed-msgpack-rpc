@@ -60,18 +60,19 @@ func TestDispatchSuccessfulCall(t *testing.T) {
 }
 
 func TestDispatchSuccessfulCallCompressed(t *testing.T) {
-	ctype := CompressionGzip
-	d, calls, done := dispatchTestCallWithContextAndCompressionType(t, context.Background(), ctype)
+	doWithAllCompressionTypes(func(ctype CompressionType) {
+		d, calls, done := dispatchTestCallWithContextAndCompressionType(t, context.Background(), ctype)
 
-	c := calls.RetrieveCall(0)
-	require.NotNil(t, c, "Expected c not to be nil")
-	require.Equal(t, ctype, c.ctype)
+		c := calls.RetrieveCall(0)
+		require.NotNil(t, c, "Expected c not to be nil")
+		require.Equal(t, ctype, c.ctype)
 
-	sendResponse(c, nil)
-	err := <-done
-	require.NoError(t, err, "Expected no error")
+		sendResponse(c, nil)
+		err := <-done
+		require.NoError(t, err, "Expected no error")
 
-	d.Close()
+		d.Close()
+	})
 }
 
 func TestDispatchCanceledBeforeResult(t *testing.T) {

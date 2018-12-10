@@ -143,23 +143,29 @@ func TestCallCompressed(t *testing.T) {
 		}
 	}
 
-	// Try normal CLI (CallCompressed w/CompressionGzip)
 	numRuns := 15
-	done := make(chan int)
-	for i := 0; i < numRuns; i++ {
-		go func(i int) {
-			res, err := cli.GetNConstants(ctx, nargs)
-			verifyRes(res, err)
-			done <- i
-		}(i)
-	}
-	for i := 0; i < numRuns; i++ {
-		<-done
-	}
+	doWithAllCompressionTypes(func(ctype CompressionType) {
+		done := make(chan int)
+		for i := 0; i < numRuns; i++ {
+			go func(i int) {
+				res := []*Constants{}
+				err := cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, ctype)
+				verifyRes(res, err)
+				done <- i
+			}(i)
+		}
+		for i := 0; i < numRuns; i++ {
+			<-done
+		}
+	})
+
+	// Runs with gzip compression mode by default
+	res, err := cli.GetNConstants(ctx, nargs)
+	verifyRes(res, err)
 
 	// Also test CallCompressed w/CompressionNone and regular Call work identically
-	res := []*Constants{}
-	err := cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, CompressionNone)
+	res = []*Constants{}
+	err = cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, CompressionNone)
 	verifyRes(res, err)
 
 	res = []*Constants{}
