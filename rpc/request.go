@@ -6,6 +6,7 @@ import (
 
 type request interface {
 	rpcMessage
+	Ctx() context.Context
 	CancelFunc() context.CancelFunc
 	Reply(*framedMsgpackEncoder, interface{}, interface{}) error
 	Serve(*framedMsgpackEncoder, *ServeHandlerDescription, WrapErrorFunc)
@@ -18,6 +19,8 @@ type requestImpl struct {
 	cancelFunc context.CancelFunc
 	log        LogInterface
 }
+
+func (req *requestImpl) Ctx() context.Context { return req.ctx }
 
 func (req *requestImpl) CancelFunc() context.CancelFunc {
 	return req.cancelFunc
@@ -77,7 +80,7 @@ func (r *callRequest) Serve(transmitter *framedMsgpackEncoder, handler *ServeHan
 	prof.Stop()
 	r.LogCompletion(res, err)
 
-	r.Reply(transmitter, res, wrapError(wrapErrorFunc, err))
+	r.Reply(transmitter, res, wrapError(r.Ctx(), wrapErrorFunc, err))
 }
 
 type callCompressedRequest struct {
@@ -138,7 +141,7 @@ func (r *callCompressedRequest) Serve(transmitter *framedMsgpackEncoder, handler
 	prof.Stop()
 	r.LogCompletion(res, err)
 
-	r.Reply(transmitter, res, wrapError(wrapErrorFunc, err))
+	r.Reply(transmitter, res, wrapError(r.Ctx(), wrapErrorFunc, err))
 }
 
 type notifyRequest struct {

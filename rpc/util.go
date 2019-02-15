@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"strings"
+
+	"golang.org/x/net/context"
 )
 
 func makeMethodName(prot string, method string) string {
@@ -27,9 +29,9 @@ func runInBg(f func() error) chan error {
 	return done
 }
 
-func wrapError(f WrapErrorFunc, e error) interface{} {
+func wrapError(ctx context.Context, f WrapErrorFunc, e error) interface{} {
 	if f != nil {
-		return f(e)
+		return f(ctx, e)
 	}
 	if e == nil {
 		return nil

@@ -68,7 +68,7 @@ type testStatus struct {
 }
 type testUnwrapper struct{}
 
-func testWrapError(err error) interface{} {
+func testWrapError(context.Context, error) interface{} {
 	return &testStatus{}
 }
 

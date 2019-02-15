@@ -5,9 +5,11 @@ import (
 	"io"
 	"net"
 	"sync"
+
+	"golang.org/x/net/context"
 )
 
-type WrapErrorFunc func(error) interface{}
+type WrapErrorFunc func(context.Context, error) interface{}
 
 type Transporter interface {
 	// IsConnected returns false when incoming packets have
