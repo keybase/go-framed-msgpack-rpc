@@ -1,6 +1,10 @@
 language: go
+
+script:
+    - go vet ./...
+    - go test -v -race ./...
 go:
   - 1.9.x
   - 1.10.x
   - 1.11.x
-script: go test -v -race ./...
+  - 1.12.x
