@@ -1,7 +1,9 @@
 language: go
 
-script:
+before_install:
     - go get -u honnef.co/go/tools/cmd/staticcheck
+
+script:
     - staticcheck ./...
     - go vet ./...
     - go test -v -race ./...
