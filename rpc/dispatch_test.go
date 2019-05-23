@@ -134,6 +134,7 @@ func TestDispatchCallAfterClose(t *testing.T) {
 	sendResponse(c, nil)
 
 	err := <-done
+	require.NoError(t, err)
 	d.Close()
 
 	done = runInBg(func() error {

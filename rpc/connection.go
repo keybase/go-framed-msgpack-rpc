@@ -303,7 +303,6 @@ type LogTagsFromContext func(ctx context.Context) (map[interface{}]string, bool)
 
 // Connection encapsulates all client connection handling.
 type Connection struct {
-	srvAddr          string
 	handler          ConnectionHandler
 	transport        ConnectionTransport
 	errorUnwrapper   ErrorUnwrapper
