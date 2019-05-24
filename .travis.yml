@@ -1,10 +1,8 @@
 language: go
 
-before_install:
-    - go get -u honnef.co/go/tools/cmd/staticcheck
-
 script:
-    - staticcheck ./...
+    # staticcheck only works for two newest go versions
+    - if [[ "$(go version)" =~ go1.1[12] ]]; then go get honnef.co/go/tools/cmd/staticcheck && staticcheck ./... && echo "staticcheck complete"; fi
     - go vet ./...
     - go test -v -race ./...
 go:
