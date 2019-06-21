@@ -35,6 +35,16 @@ const (
 	StartingNonFirstConnection
 )
 
+// Dialable is a custom interface that can be used to replace net.Dial inside this library if desired
+// This is most likely useful for the purpose of routing connections through a proxy
+type Dialable interface {
+	// Set the timeout and keepalive options for this Dialable
+	SetOpts(timeout time.Duration, keepAlive time.Duration)
+
+	// Dial a connection to the given address
+	Dial(ctx context.Context, network string, addr string) (net.Conn, error)
+}
+
 // ConnectionTransport is a container for an underlying transport to be
 // used by a Connection instance.
 type ConnectionTransport interface {
@@ -168,6 +178,7 @@ type ConnectionTransportTLS struct {
 	srvRemote      Remote
 	tlsConfig      *tls.Config
 	maxFrameLength int32
+	dialable Dialable
 
 	// Protects everything below.
 	mutex           sync.Mutex
@@ -219,11 +230,18 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 		LogField{Key: ConnectionLogMsgKey, Value: "Dialing"},
 		LogField{Key: "remote-addr", Value: addr})
 	// connect
-	dialer := net.Dialer{
-		Timeout:   ct.dialerTimeout,
-		KeepAlive: keepAlive,
+	var baseConn net.Conn
+	if ct.dialable == nil {
+		dialer := net.Dialer{
+			Timeout:   ct.dialerTimeout,
+			KeepAlive: keepAlive,
+		}
+		baseConn, err = dialer.DialContext(ctx, "tcp", addr)
+	} else {
+		ct.dialable.SetOpts(ct.dialerTimeout, keepAlive)
+		baseConn, err = ct.dialable.Dial(ctx, "tcp", addr)
 	}
-	baseConn, err := dialer.DialContext(ctx, "tcp", addr)
+
 	if err != nil {
 		// If we get a DNS error, it could be because glibc has cached an
 		// old version of /etc/resolv.conf. The res_init() libc function
@@ -429,6 +447,32 @@ func NewTLSConnectionWithTLSConfig(
 		wef:            opts.WrapErrorFunc,
 		dialerTimeout:  opts.DialerTimeout,
 		log:            newConnectionLogUnstructured(logOutput, "CONNTSPT"),
+	}
+	return newConnectionWithTransportAndProtocols(handler, transport, errorUnwrapper, logOutput, opts)
+}
+
+// NewTLSConnection returns a connection that tries to connect to the
+// given server address with TLS.
+func NewTLSConnectionWithDialable(
+	srvRemote Remote,
+	rootCerts []byte,
+	errorUnwrapper ErrorUnwrapper,
+	handler ConnectionHandler,
+	logFactory LogFactory,
+	logOutput LogOutputWithDepthAdder,
+	maxFrameLength int32,
+	opts ConnectionOpts,
+	dialable Dialable,
+) *Connection {
+	transport := &ConnectionTransportTLS{
+		rootCerts:      rootCerts,
+		srvRemote:      srvRemote,
+		maxFrameLength: maxFrameLength,
+		logFactory:     logFactory,
+		wef:            opts.WrapErrorFunc,
+		dialerTimeout:  opts.DialerTimeout,
+		log:            newConnectionLogUnstructured(logOutput, "CONNTSPT"),
+		dialable:       dialable,
 	}
 	return newConnectionWithTransportAndProtocols(handler, transport, errorUnwrapper, logOutput, opts)
 }
@@ -802,3 +846,4 @@ func (c connectionClient) Notify(ctx context.Context, s string, args interface{}
 		return rawClient.Notify(ctx, s, args)
 	})
 }
+
