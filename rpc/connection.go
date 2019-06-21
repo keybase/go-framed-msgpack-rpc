@@ -66,6 +66,7 @@ type connTransport struct {
 	l               LogFactory
 	wef             WrapErrorFunc
 	maxFrameLength  int32
+	dialable        Dialable
 	conn            net.Conn
 	transport       Transporter
 	stagedTransport Transporter
@@ -83,12 +84,27 @@ func NewConnectionTransport(uri *FMPURI, l LogFactory, wef WrapErrorFunc, maxFra
 	}
 }
 
-func (t *connTransport) Dial(context.Context) (Transporter, error) {
+// NewConnectionTransportWithDialable creates a ConnectionTransport for a given FMPURI via the given Dialable
+func NewConnectionTransportWithDialable(uri *FMPURI, l LogFactory, wef WrapErrorFunc, maxFrameLength int32, dialable Dialable) ConnectionTransport {
+	return &connTransport{
+		uri:            uri,
+		l:              l,
+		wef:            wef,
+		maxFrameLength: maxFrameLength,
+		dialable:       dialable,
+	}
+}
+
+func (t *connTransport) Dial(ctx context.Context) (Transporter, error) {
 	var err error
 	if t.conn != nil {
 		t.conn.Close()
 	}
-	t.conn, err = t.uri.Dial()
+	if t.dialable == nil {
+		t.conn, err = t.uri.Dial()
+	} else {
+		t.conn, err = t.dialable.Dial(ctx, "tcp", t.uri.HostPort)
+	}
 	if err != nil {
 		// If we get a DNS error, it could be because glibc has cached an old
 		// version of /etc/resolv.conf. The res_init() libc function busts that
@@ -178,7 +194,7 @@ type ConnectionTransportTLS struct {
 	srvRemote      Remote
 	tlsConfig      *tls.Config
 	maxFrameLength int32
-	dialable Dialable
+	dialable       Dialable
 
 	// Protects everything below.
 	mutex           sync.Mutex
@@ -514,11 +530,11 @@ func newConnectionWithTransportAndProtocolsWithLog(handler ConnectionHandler,
 		reconnectBackoff:              reconnectBackoff,
 		doCommandBackoff:              commandBackoff,
 		initialReconnectBackoffWindow: opts.InitialReconnectBackoffWindow,
-		wef:                           opts.WrapErrorFunc,
-		tagsFunc:                      opts.TagsFunc,
-		log:                           log,
-		protocols:                     opts.Protocols,
-		reconnectedBefore:             opts.ForceInitialBackoff,
+		wef:               opts.WrapErrorFunc,
+		tagsFunc:          opts.TagsFunc,
+		log:               log,
+		protocols:         opts.Protocols,
+		reconnectedBefore: opts.ForceInitialBackoff,
 	}
 	if !opts.DontConnectNow {
 		// start connecting now
