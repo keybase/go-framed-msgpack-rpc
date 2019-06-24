@@ -100,10 +100,10 @@ func (t *connTransport) Dial(ctx context.Context) (Transporter, error) {
 	if t.conn != nil {
 		t.conn.Close()
 	}
-	if t.dialable == nil {
-		t.conn, err = t.uri.Dial()
-	} else {
+	if t.dialable != nil {
 		t.conn, err = t.dialable.Dial(ctx, "tcp", t.uri.HostPort)
+	} else {
+		t.conn, err = t.uri.Dial()
 	}
 	if err != nil {
 		// If we get a DNS error, it could be because glibc has cached an old
@@ -247,15 +247,15 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 		LogField{Key: "remote-addr", Value: addr})
 	// connect
 	var baseConn net.Conn
-	if ct.dialable == nil {
+	if ct.dialable != nil {
+		ct.dialable.SetOpts(ct.dialerTimeout, keepAlive)
+		baseConn, err = ct.dialable.Dial(ctx, "tcp", addr)
+	} else {
 		dialer := net.Dialer{
 			Timeout:   ct.dialerTimeout,
 			KeepAlive: keepAlive,
 		}
 		baseConn, err = dialer.DialContext(ctx, "tcp", addr)
-	} else {
-		ct.dialable.SetOpts(ct.dialerTimeout, keepAlive)
-		baseConn, err = ct.dialable.Dial(ctx, "tcp", addr)
 	}
 
 	if err != nil {
