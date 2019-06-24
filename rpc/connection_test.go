@@ -376,6 +376,7 @@ func TestDialableTransport(t *testing.T) {
 	conn := NewConnectionWithTransport(unitTester, ct,
 		testErrorUnwrapper{}, output, opts)
 	require.Error(t, conn.connect(context.TODO()))
+	conn.Shutdown()
 
 	timer := time.NewTimer(2 * time.Second)
 	defer timer.Stop()
@@ -414,6 +415,7 @@ func TestDialableTLSConn(t *testing.T) {
 		&md)
 
 	require.Error(t, conn.connect(context.TODO()))
+	conn.Shutdown()
 
 	timer := time.NewTimer(1 * time.Second)
 	defer timer.Stop()
