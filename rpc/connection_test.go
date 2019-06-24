@@ -3,6 +3,8 @@ package rpc
 import (
 	"errors"
 	"fmt"
+	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -328,4 +330,104 @@ func TestConnectionClientNotifyCancel(t *testing.T) {
 
 	err = <-errCh
 	require.Equal(t, err, ctx.Err())
+}
+
+type mockedDialable struct {
+	mutex            sync.Mutex
+	dialWasCalled    bool
+	setoptsWasCalled bool
+}
+
+func (md *mockedDialable) SetOpts(timeout time.Duration, keepAlive time.Duration) {
+	md.mutex.Lock()
+	md.setoptsWasCalled = true
+	md.mutex.Unlock()
+}
+
+func (md *mockedDialable) Dial(ctx context.Context, network string, addr string) (net.Conn, error) {
+	md.mutex.Lock()
+	md.dialWasCalled = true
+	md.mutex.Unlock()
+	return nil, fmt.Errorf("This is a mock")
+}
+
+func TestDialableTransport(t *testing.T) {
+	unitTester := &unitTester{
+		doneChan: make(chan bool),
+	}
+	output := testLogOutput{t}
+	opts := ConnectionOpts{
+		WrapErrorFunc: testWrapError,
+		TagsFunc:      testLogTags,
+	}
+
+	uriStr := "fmprpc://localhost:8080"
+	uri, err := ParseFMPURI(uriStr)
+	require.NoError(t, err)
+
+	wef := func(err error) interface{} {
+		require.NoError(t, err)
+		return err
+	}
+
+	md := mockedDialable{dialWasCalled: false, setoptsWasCalled: false}
+
+	ct := NewConnectionTransportWithDialable(uri, nil, wef, DefaultMaxFrameLength, &md)
+	conn := NewConnectionWithTransport(unitTester, ct,
+		testErrorUnwrapper{}, output, opts)
+	require.Error(t, conn.connect(context.TODO()))
+	conn.Shutdown()
+
+	timer := time.NewTimer(2 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-unitTester.doneChan:
+		break
+	case <-timer.C:
+		break
+	}
+
+	// Set opts isn't called since no timeout or backoff was specified
+	md.mutex.Lock()
+	require.True(t, md.dialWasCalled)
+	md.mutex.Unlock()
+}
+
+func TestDialableTLSConn(t *testing.T) {
+	unitTester := &unitTester{
+		doneChan: make(chan bool),
+	}
+	output := testLogOutput{t}
+	opts := ConnectionOpts{
+		WrapErrorFunc: testWrapError,
+		TagsFunc:      testLogTags,
+	}
+
+	uriStr := "fmprpc+tls://localhost:8080"
+	uri, err := ParseFMPURI(uriStr)
+	require.NoError(t, err)
+
+	md := mockedDialable{dialWasCalled: false, setoptsWasCalled: false}
+	conn := NewTLSConnectionWithDialable(NewFixedRemote(uri.HostPort),
+		nil, testErrorUnwrapper{},
+		unitTester, nil,
+		output, DefaultMaxFrameLength, opts,
+		&md)
+
+	require.Error(t, conn.connect(context.TODO()))
+	conn.Shutdown()
+
+	timer := time.NewTimer(1 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-unitTester.doneChan:
+		break
+	case <-timer.C:
+		break
+	}
+
+	md.mutex.Lock()
+	require.True(t, md.dialWasCalled)
+	require.True(t, md.setoptsWasCalled)
+	md.mutex.Unlock()
 }
