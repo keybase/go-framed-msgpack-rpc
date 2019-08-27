@@ -144,7 +144,10 @@ func (t *transport) receiveFramesLoop() {
 	for shouldContinue(err) {
 		var rpc rpcMessage
 		if rpc, err = t.packetizer.NextFrame(); shouldReceive(rpc) {
-			t.receiver.Receive(rpc)
+			rerr := t.receiver.Receive(rpc)
+			if err == nil {
+				err = rerr
+			}
 		}
 	}
 

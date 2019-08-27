@@ -8,9 +8,9 @@ import (
 	"golang.org/x/net/context"
 )
 
-func createMessageTestProtocol() *protocolHandler {
+func createMessageTestProtocol(t *testing.T) *protocolHandler {
 	p := newProtocolHandler(nil)
-	p.registerProtocol(Protocol{
+	err := p.registerProtocol(Protocol{
 		Name: "abc",
 		Methods: map[string]ServeHandlerDescription{
 			"hello": {
@@ -23,6 +23,7 @@ func createMessageTestProtocol() *protocolHandler {
 			},
 		},
 	})
+	require.NoError(t, err)
 	return p
 }
 
@@ -34,7 +35,7 @@ func runMessageTest(t *testing.T, ctype CompressionType, v []interface{}) (rpcMe
 	cc.AddCall(c)
 
 	log := newTestLog(t)
-	pkt := newPacketizer(testMaxFrameLength, &buf, createMessageTestProtocol(), cc, log)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createMessageTestProtocol(t), cc, log)
 
 	err := <-enc.EncodeAndWrite(c.ctx, v, nil)
 	require.NoError(t, err, "expected encoding to succeed")

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 )
 
@@ -32,7 +33,8 @@ func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan er
 		}
 		xp := NewTransport(c, lf, nil, testMaxFrameLength)
 		srv := NewServer(xp, nil)
-		srv.Register(createTestProtocol(newTestProtocol(c)))
+		err := srv.Register(createTestProtocol(newTestProtocol(c)))
+		require.NoError(t, err)
 		done := srv.Run()
 		go func() {
 			<-done

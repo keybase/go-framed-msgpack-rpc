@@ -109,9 +109,9 @@ func TestFrameReaderDrainFailure(t *testing.T) {
 	require.Equal(t, 0, buf.Len())
 }
 
-func createPacketizerTestProtocol() *protocolHandler {
+func createPacketizerTestProtocol(t *testing.T) *protocolHandler {
 	p := newProtocolHandler(nil)
-	p.registerProtocol(Protocol{
+	err := p.registerProtocol(Protocol{
 		Name: "abc",
 		Methods: map[string]ServeHandlerDescription{
 			"hello": {
@@ -124,32 +124,35 @@ func createPacketizerTestProtocol() *protocolHandler {
 			},
 		},
 	})
+	require.NoError(t, err)
 	return p
 }
 
 func TestPacketizerDecodeNegativeLength(t *testing.T) {
 	var buf bytes.Buffer
 	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
-	e.Encode(-1)
+	err := e.Encode(-1)
+	require.NoError(t, err)
 
 	cc := newCallContainer()
 	log := newTestLog(t)
-	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(t), cc, log)
 
-	_, err := pkt.NextFrame()
+	_, err = pkt.NextFrame()
 	require.Equal(t, NewPacketizerError("invalid frame length: -1"), err)
 }
 
 func TestPacketizerDecodeTooLargeLength(t *testing.T) {
 	var buf bytes.Buffer
 	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
-	e.Encode(testMaxFrameLength + 1)
+	err := e.Encode(testMaxFrameLength + 1)
+	require.NoError(t, err)
 
 	cc := newCallContainer()
 	log := newTestLog(t)
-	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(t), cc, log)
 
-	_, err := pkt.NextFrame()
+	_, err = pkt.NextFrame()
 	require.Equal(t, NewPacketizerError("frame length too big: %d > %d", testMaxFrameLength+1, testMaxFrameLength), err)
 }
 
@@ -157,28 +160,30 @@ func TestPacketizerDecodeShortPacket(t *testing.T) {
 	var buf bytes.Buffer
 	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
 	const maxInt = int32(^uint32(0) >> 1)
-	e.Encode(maxInt)
+	err := e.Encode(maxInt)
+	require.NoError(t, err)
 
 	cc := newCallContainer()
 	log := newTestLog(t)
-	pkt := newPacketizer(maxInt, &buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(maxInt, &buf, createPacketizerTestProtocol(t), cc, log)
 
 	// Shouldn't try to allocate a buffer for the packet.
-	_, err := pkt.NextFrame()
+	_, err = pkt.NextFrame()
 	require.Equal(t, io.ErrUnexpectedEOF, err)
 }
 
 func TestPacketizerDecodeBadLengthField(t *testing.T) {
 	var buf bytes.Buffer
 	e := codec.NewEncoder(&buf, newCodecMsgpackHandle())
-	e.Encode(testMaxFrameLength)
+	err := e.Encode(testMaxFrameLength)
+	require.NoError(t, err)
 	buf.WriteByte(0x90)
 
 	cc := newCallContainer()
 	log := newTestLog(t)
-	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(t), cc, log)
 
-	_, err := pkt.NextFrame()
+	_, err = pkt.NextFrame()
 	require.Equal(t, NewPacketizerError("wrong message structure prefix (0x90)"), err)
 }
 
@@ -210,7 +215,7 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	cc.AddCall(c)
 
 	log := newTestLog(t)
-	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(), cc, log)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(t), cc, log)
 
 	f1, err := pkt.NextFrame()
 	require.NoError(t, err)
@@ -270,7 +275,7 @@ func TestPacketizerReaderOpError(t *testing.T) {
 	// Taking advantage here of opErr being a nil *net.OpError,
 	// but a non-nil error when used by errReader.
 	var opErr *net.OpError
-	pkt := newPacketizer(testMaxFrameLength, errReader{opErr}, createPacketizerTestProtocol(), newCallContainer(), log)
+	pkt := newPacketizer(testMaxFrameLength, errReader{opErr}, createPacketizerTestProtocol(t), newCallContainer(), log)
 
 	msg, err := pkt.NextFrame()
 	require.Nil(t, msg)

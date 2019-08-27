@@ -45,7 +45,8 @@ func prepClient(t *testing.T) (TestClient, net.Conn) {
 
 func prepTest(t *testing.T) (TestClient, chan error, net.Conn) {
 	listener := make(chan error)
-	prepServer(t, listener)
+	err := prepServer(t, listener)
+	require.NoError(t, err)
 	cli, conn := prepClient(t)
 	return cli, listener, conn
 }
@@ -230,7 +231,8 @@ func TestClosedConnection(t *testing.T) {
 
 func TestKillClient(t *testing.T) {
 	listener := make(chan error)
-	prepServer(t, listener)
+	err := prepServer(t, listener)
+	require.NoError(t, err)
 	defer func() {
 		err := <-listener
 		require.EqualError(t, err, io.EOF.Error(), "expected EOF")

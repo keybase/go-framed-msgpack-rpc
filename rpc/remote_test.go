@@ -14,16 +14,16 @@ func TestPrioritizedRoundRobinRemote(t *testing.T) {
 	require.Error(t, err)
 
 	r, err := NewPrioritizedRoundRobinRemote([][]string{
-		[]string{}, // should be ignored
-		[]string{"a0", "a1", "a2", "a3"},
-		[]string{"b0", "b1"},
+		{}, // should be ignored
+		{"a0", "a1", "a2", "a3"},
+		{"b0", "b1"},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "a0,a1,a2,a3;b0,b1", r.String())
 
 	_, err = NewPrioritizedRoundRobinRemote(nil)
 	require.Error(t, err)
-	_, err = NewPrioritizedRoundRobinRemote([][]string{[]string{}, []string{}})
+	_, err = NewPrioritizedRoundRobinRemote([][]string{{}, {}})
 	require.Error(t, err)
 
 	r, err = ParsePrioritizedRoundRobinRemote(`

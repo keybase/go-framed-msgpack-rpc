@@ -12,9 +12,10 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 	conn1, conn2 := net.Pipe()
 	receiveOut := newFramedMsgpackEncoder(testMaxFrameLength, conn2)
 
-	protHandler := createMessageTestProtocol()
+	protHandler := createMessageTestProtocol(t)
 	if p != nil {
-		protHandler.registerProtocol(*p)
+		err := protHandler.registerProtocol(*p)
+		require.NoError(t, err)
 	}
 
 	log := newTestLog(t)
