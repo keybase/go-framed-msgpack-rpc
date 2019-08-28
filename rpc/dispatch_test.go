@@ -15,7 +15,7 @@ func dispatchTestCallWithContextAndCompressionType(t *testing.T, ctx context.Con
 	conn1, conn2 := net.Pipe()
 	dispatchOut := newFramedMsgpackEncoder(testMaxFrameLength, conn1)
 	calls := newCallContainer()
-	pkt := newPacketizer(testMaxFrameLength, conn2, createMessageTestProtocol(), calls, log)
+	pkt := newPacketizer(testMaxFrameLength, conn2, createMessageTestProtocol(t), calls, log)
 
 	d := newDispatch(dispatchOut, calls, log)
 
