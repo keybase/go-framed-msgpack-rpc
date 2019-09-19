@@ -3,11 +3,13 @@ package rpc
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"golang.org/x/net/context"
 )
 
 type ServeHandlerDescription struct {
+	Timeout func() time.Duration
 	MakeArg func() interface{}
 	Handler func(ctx context.Context, arg interface{}) (ret interface{}, err error)
 }

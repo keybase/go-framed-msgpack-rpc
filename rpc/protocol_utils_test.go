@@ -147,6 +147,7 @@ func createTestProtocol(i TestInterface) Protocol {
 		Name: "test.1.testp",
 		Methods: map[string]ServeHandlerDescription{
 			"add": {
+				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(AddArgs)
 				},
@@ -159,6 +160,7 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"GetConstants": {
+				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(interface{})
 				},
@@ -167,6 +169,7 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"GetNConstants": {
+				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(NArgs)
 				},
@@ -179,6 +182,7 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"updateConstants": {
+				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(Constants)
 				},
@@ -192,6 +196,7 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"LongCall": {
+				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(interface{})
 				},
@@ -200,6 +205,7 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"LongCallResult": {
+				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(interface{})
 				},
@@ -208,6 +214,7 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"LongCallDebugTags": {
+				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(interface{})
 				},

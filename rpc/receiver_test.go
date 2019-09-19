@@ -3,6 +3,7 @@ package rpc
 import (
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
@@ -94,6 +95,7 @@ func TestCloseReceiver(t *testing.T) {
 		Name: "waiter",
 		Methods: map[string]ServeHandlerDescription{
 			"wait": {
+				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return nil
 				},

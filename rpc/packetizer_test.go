@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/keybase/go-codec/codec"
 	"github.com/stretchr/testify/require"
@@ -115,6 +116,7 @@ func createPacketizerTestProtocol(t *testing.T) *protocolHandler {
 		Name: "abc",
 		Methods: map[string]ServeHandlerDescription{
 			"hello": {
+				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return nil
 				},
