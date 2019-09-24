@@ -3,7 +3,6 @@ package rpc
 import (
 	"bytes"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
@@ -15,7 +14,6 @@ func createMessageTestProtocol(t *testing.T) *protocolHandler {
 		Name: "abc",
 		Methods: map[string]ServeHandlerDescription{
 			"hello": {
-				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return nil
 				},

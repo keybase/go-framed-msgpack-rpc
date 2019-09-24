@@ -251,7 +251,7 @@ func TestConnectionClientCallError(t *testing.T) {
 	c := connectionClient{conn}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- c.Call(context.Background(), "callRpc", nil, nil)
+		errCh <- c.Call(context.Background(), "callRpc", nil, nil, 0)
 	}()
 	serverConn.Close()
 	err := <-errCh
@@ -266,7 +266,7 @@ func TestConnectionClientCallCompressedError(t *testing.T) {
 		c := connectionClient{conn}
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- c.CallCompressed(context.Background(), "callRpc", nil, nil, ctype)
+			errCh <- c.CallCompressed(context.Background(), "callRpc", nil, nil, ctype, 0)
 		}()
 		serverConn.Close()
 		err := <-errCh
@@ -281,7 +281,7 @@ func TestConnectionClientNotifyError(t *testing.T) {
 	c := connectionClient{conn}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- c.Notify(context.Background(), "notifyRpc", nil)
+		errCh <- c.Notify(context.Background(), "notifyRpc", nil, 0)
 	}()
 	serverConn.Close()
 	err := <-errCh
@@ -296,7 +296,7 @@ func TestConnectionClientCallCancel(t *testing.T) {
 	errCh := make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		errCh <- c.Call(ctx, "callRpc", nil, nil)
+		errCh <- c.Call(ctx, "callRpc", nil, nil, 0)
 	}()
 
 	// Wait for Call to make progress.
@@ -318,7 +318,7 @@ func TestConnectionClientNotifyCancel(t *testing.T) {
 	errCh := make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		errCh <- c.Notify(ctx, "notifyRpc", nil)
+		errCh <- c.Notify(ctx, "notifyRpc", nil, 0)
 	}()
 
 	// Wait for Notify to make progress.

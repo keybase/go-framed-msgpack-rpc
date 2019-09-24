@@ -147,7 +147,6 @@ func createTestProtocol(i TestInterface) Protocol {
 		Name: "test.1.testp",
 		Methods: map[string]ServeHandlerDescription{
 			"add": {
-				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(AddArgs)
 				},
@@ -160,7 +159,6 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"GetConstants": {
-				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(interface{})
 				},
@@ -169,7 +167,6 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"GetNConstants": {
-				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(NArgs)
 				},
@@ -182,7 +179,6 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"updateConstants": {
-				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(Constants)
 				},
@@ -196,7 +192,6 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"LongCall": {
-				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(interface{})
 				},
@@ -205,7 +200,6 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"LongCallResult": {
-				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(interface{})
 				},
@@ -214,7 +208,6 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"LongCallDebugTags": {
-				Timeout: func() time.Duration { return 0 },
 				MakeArg: func() interface{} {
 					return new(interface{})
 				},
@@ -237,43 +230,42 @@ type TestClient struct {
 }
 
 func (a TestClient) Add(ctx context.Context, arg AddArgs) (ret int, err error) {
-	err = a.Call(ctx, "test.1.testp.add", arg, &ret)
+	err = a.Call(ctx, "test.1.testp.add", arg, &ret, 0)
 	return ret, err
 }
-
 func (a TestClient) BrokenMethod() (err error) {
-	return a.Call(context.Background(), "test.1.testp.broken", nil, nil)
+	return a.Call(context.Background(), "test.1.testp.broken", nil, nil, 0)
 }
 
 func (a TestClient) BrokenProtocol() error {
-	return a.Call(context.Background(), "test.2.testp.broken", nil, nil)
+	return a.Call(context.Background(), "test.2.testp.broken", nil, nil, 0)
 }
 
 func (a TestClient) UpdateConstants(ctx context.Context, arg Constants) error {
-	return a.Notify(ctx, "test.1.testp.updateConstants", arg)
+	return a.Notify(ctx, "test.1.testp.updateConstants", arg, 0)
 }
 
 func (a TestClient) GetConstants(ctx context.Context) (ret Constants, err error) {
-	err = a.Call(ctx, "test.1.testp.GetConstants", nil, &ret)
+	err = a.Call(ctx, "test.1.testp.GetConstants", nil, &ret, 0)
 	return ret, err
 }
 
 func (a TestClient) GetNConstants(ctx context.Context, nargs NArgs) (ret []*Constants, err error) {
-	err = a.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &ret, CompressionGzip)
+	err = a.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &ret, CompressionGzip, 0)
 	return ret, err
 }
 
 func (a TestClient) LongCall(ctx context.Context) (ret int, err error) {
-	err = a.Call(ctx, "test.1.testp.LongCall", nil, &ret)
+	err = a.Call(ctx, "test.1.testp.LongCall", nil, &ret, 0)
 	return ret, err
 }
 
 func (a TestClient) LongCallResult(ctx context.Context) (ret int, err error) {
-	err = a.Call(ctx, "test.1.testp.LongCallResult", nil, &ret)
+	err = a.Call(ctx, "test.1.testp.LongCallResult", nil, &ret, 0)
 	return ret, err
 }
 
 func (a TestClient) LongCallDebugTags(ctx context.Context) (ret CtxRpcTags, err error) {
-	err = a.Call(ctx, "test.1.testp.LongCallDebugTags", nil, &ret)
+	err = a.Call(ctx, "test.1.testp.LongCallDebugTags", nil, &ret, 0)
 	return ret, err
 }
