@@ -150,7 +150,7 @@ func TestCallCompressed(t *testing.T) {
 		for i := 0; i < numRuns; i++ {
 			go func(i int) {
 				res := []*Constants{}
-				err := cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, ctype)
+				err := cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, ctype, 0)
 				verifyRes(res, err)
 				done <- i
 			}(i)
@@ -166,11 +166,11 @@ func TestCallCompressed(t *testing.T) {
 
 	// Also test CallCompressed w/CompressionNone and regular Call work identically
 	res = []*Constants{}
-	err = cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, CompressionNone)
+	err = cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, CompressionNone, 0)
 	verifyRes(res, err)
 
 	res = []*Constants{}
-	err = cli.Call(ctx, "test.1.testp.GetNConstants", nargs, &res)
+	err = cli.Call(ctx, "test.1.testp.GetNConstants", nargs, &res, 0)
 	verifyRes(res, err)
 }
 
@@ -207,6 +207,23 @@ func TestLongCallCancel(t *testing.T) {
 	res = <-resultCh
 	require.Nil(t, res.err, "call should have succeeded")
 	require.Equal(t, CtxRpcTags{"hello": []interface{}{"world"}}, res.res, "canceled call should have set the debug tags")
+}
+
+func TestLongCallTimeout(t *testing.T) {
+	cli, listener, conn := prepTest(t)
+	defer endTest(t, conn, listener)
+
+	resultCh := make(chan longCallResult)
+	runInBg(func() error {
+		var res int
+		// specify a millisecond timeout
+		err := cli.Call(context.TODO(), "test.1.testp.LongCall", nil, &res, time.Millisecond)
+		resultCh <- longCallResult{res, err}
+		return nil
+	})
+	res := <-resultCh
+	require.EqualError(t, res.err, context.DeadlineExceeded.Error())
+	require.Equal(t, 0, res.res, "call should have timed out")
 }
 
 func TestClosedConnection(t *testing.T) {
