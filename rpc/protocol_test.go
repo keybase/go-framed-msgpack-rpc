@@ -39,7 +39,8 @@ func prepClient(t *testing.T) (TestClient, net.Conn) {
 	require.NoError(t, err, "a dialer error occurred")
 
 	lf := NewSimpleLogFactory(testLogOutput{t}, nil)
-	xp := NewTransport(c, lf, nil, testMaxFrameLength)
+	instrumenter := NewNetworkInstrumenter(NewMemoryInstrumentationStorage())
+	xp := NewTransport(c, lf, instrumenter, nil, testMaxFrameLength)
 	return TestClient{GenericClient: NewClient(xp, nil, nil)}, c
 }
 

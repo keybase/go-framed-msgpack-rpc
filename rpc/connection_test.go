@@ -372,7 +372,8 @@ func TestDialableTransport(t *testing.T) {
 
 	md := mockedDialable{dialWasCalled: false, setoptsWasCalled: false}
 
-	ct := NewConnectionTransportWithDialable(uri, nil, wef, DefaultMaxFrameLength, &md)
+	instrumenter := NewNetworkInstrumenter(NewMemoryInstrumentationStorage())
+	ct := NewConnectionTransportWithDialable(uri, nil, instrumenter, wef, DefaultMaxFrameLength, &md)
 	conn := NewConnectionWithTransport(unitTester, ct,
 		testErrorUnwrapper{}, output, opts)
 	require.Error(t, conn.connect(context.TODO()))
@@ -408,10 +409,11 @@ func TestDialableTLSConn(t *testing.T) {
 	require.NoError(t, err)
 
 	md := mockedDialable{dialWasCalled: false, setoptsWasCalled: false}
+	instrumenter := NewNetworkInstrumenter(NewMemoryInstrumentationStorage())
 	conn := NewTLSConnectionWithDialable(NewFixedRemote(uri.HostPort),
 		nil, testErrorUnwrapper{},
 		unitTester, nil,
-		output, DefaultMaxFrameLength, opts,
+		instrumenter, output, DefaultMaxFrameLength, opts,
 		&md)
 
 	require.Error(t, conn.connect(context.TODO()))
