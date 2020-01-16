@@ -627,8 +627,13 @@ func (c *Connection) connect(ctx context.Context) error {
 }
 
 // DoCommand executes the specific rpc command wrapped in rpcFunc.
-func (c *Connection) DoCommand(ctx context.Context, name string,
+func (c *Connection) DoCommand(ctx context.Context, name string, timeout time.Duration,
 	rpcFunc func(GenericClient) error) error {
+	if timeout > 0 {
+		var timeoutCancel context.CancelFunc
+		ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
+		defer timeoutCancel()
+	}
 	for {
 		if c.initialReconnectBackoffWindow != nil && isWithFireNow(ctx) {
 			c.randomTimer.FireNow()
@@ -871,11 +876,6 @@ var _ GenericClient = connectionClient{}
 
 func (c connectionClient) Call(ctx context.Context, s string, args interface{},
 	res interface{}, timeout time.Duration) error {
-	if timeout > 0 {
-		var timeoutCancel context.CancelFunc
-		ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
-		defer timeoutCancel()
-	}
 	return c.conn.DoCommand(ctx, s, func(rawClient GenericClient) error {
 		return rawClient.Call(ctx, s, args, res, timeout)
 	})
@@ -883,11 +883,6 @@ func (c connectionClient) Call(ctx context.Context, s string, args interface{},
 
 func (c connectionClient) CallCompressed(ctx context.Context, s string,
 	args interface{}, res interface{}, ctype CompressionType, timeout time.Duration) error {
-	if timeout > 0 {
-		var timeoutCancel context.CancelFunc
-		ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
-		defer timeoutCancel()
-	}
 	return c.conn.DoCommand(ctx, s, func(rawClient GenericClient) error {
 		return rawClient.CallCompressed(ctx, s, args, res, ctype, timeout)
 	})
@@ -895,11 +890,6 @@ func (c connectionClient) CallCompressed(ctx context.Context, s string,
 
 func (c connectionClient) Notify(ctx context.Context, s string, args interface{},
 	timeout time.Duration) error {
-	if timeout > 0 {
-		var timeoutCancel context.CancelFunc
-		ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
-		defer timeoutCancel()
-	}
 	return c.conn.DoCommand(ctx, s, func(rawClient GenericClient) error {
 		return rawClient.Notify(ctx, s, args, timeout)
 	})

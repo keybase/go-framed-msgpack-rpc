@@ -202,7 +202,7 @@ func TestReconnectCanceled(t *testing.T) {
 		testErrorUnwrapper{}, output, opts)
 	defer conn.Shutdown()
 	// Test that any command fails with the expected error.
-	err := conn.DoCommand(context.Background(), "test",
+	err := conn.DoCommand(context.Background(), "test", 0,
 		func(GenericClient) error { return nil })
 	require.Equal(t, err, cancelErr)
 }
@@ -232,7 +232,7 @@ func TestDoCommandThrottle(t *testing.T) {
 
 	throttle := true
 	ctx := context.Background()
-	err := conn.DoCommand(ctx, "test", func(GenericClient) error {
+	err := conn.DoCommand(ctx, "test", 0, func(GenericClient) error {
 		if throttle {
 			throttle = false
 			err, _ := conn.errorUnwrapper.UnwrapError(
