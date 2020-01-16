@@ -871,6 +871,11 @@ var _ GenericClient = connectionClient{}
 
 func (c connectionClient) Call(ctx context.Context, s string, args interface{},
 	res interface{}, timeout time.Duration) error {
+	if timeout > 0 {
+		var timeoutCancel context.CancelFunc
+		ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
+		defer timeoutCancel()
+	}
 	return c.conn.DoCommand(ctx, s, func(rawClient GenericClient) error {
 		return rawClient.Call(ctx, s, args, res, timeout)
 	})
@@ -878,6 +883,11 @@ func (c connectionClient) Call(ctx context.Context, s string, args interface{},
 
 func (c connectionClient) CallCompressed(ctx context.Context, s string,
 	args interface{}, res interface{}, ctype CompressionType, timeout time.Duration) error {
+	if timeout > 0 {
+		var timeoutCancel context.CancelFunc
+		ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
+		defer timeoutCancel()
+	}
 	return c.conn.DoCommand(ctx, s, func(rawClient GenericClient) error {
 		return rawClient.CallCompressed(ctx, s, args, res, ctype, timeout)
 	})
@@ -885,6 +895,11 @@ func (c connectionClient) CallCompressed(ctx context.Context, s string,
 
 func (c connectionClient) Notify(ctx context.Context, s string, args interface{},
 	timeout time.Duration) error {
+	if timeout > 0 {
+		var timeoutCancel context.CancelFunc
+		ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
+		defer timeoutCancel()
+	}
 	return c.conn.DoCommand(ctx, s, func(rawClient GenericClient) error {
 		return rawClient.Notify(ctx, s, args, timeout)
 	})
