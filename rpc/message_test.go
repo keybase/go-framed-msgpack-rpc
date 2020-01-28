@@ -37,8 +37,10 @@ func runMessageTest(t *testing.T, ctype CompressionType, v []interface{}) (rpcMe
 	log := newTestLog(t)
 	pkt := newPacketizer(testMaxFrameLength, &buf, createMessageTestProtocol(t), cc, log)
 
-	err := <-enc.EncodeAndWrite(c.ctx, v, nil)
+	size, errCh := enc.EncodeAndWrite(c.ctx, v, nil)
+	err := <-errCh
 	require.NoError(t, err, "expected encoding to succeed")
+	require.EqualValues(t, buf.Len(), size)
 
 	return pkt.NextFrame()
 }

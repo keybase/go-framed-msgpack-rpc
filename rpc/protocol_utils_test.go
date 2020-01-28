@@ -20,6 +20,7 @@ func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan er
 	var listener net.Listener
 	o := testLogOutput{t}
 	lf := NewSimpleLogFactory(o, nil)
+	instrumenter := NewNetworkInstrumenter(NewMemoryInstrumentationStorage())
 	o.Info(fmt.Sprintf("Listening on port %d...", s.port))
 	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil {
 		return
@@ -31,7 +32,7 @@ func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan er
 			externalListener <- io.EOF
 			return err
 		}
-		xp := NewTransport(c, lf, nil, testMaxFrameLength)
+		xp := NewTransport(c, lf, instrumenter, nil, testMaxFrameLength)
 		srv := NewServer(xp, nil)
 		err := srv.Register(createTestProtocol(newTestProtocol(c)))
 		require.NoError(t, err)
