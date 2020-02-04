@@ -19,10 +19,10 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 	}
 
 	log := newTestLog(t)
-	instrumenter := NewNetworkInstrumenter(NewMemoryInstrumentationStorage())
+	instrumenterStorage := NewMemoryInstrumentationStorage()
 	pkt := newPacketizer(testMaxFrameLength, conn1, protHandler, newCallContainer(), log)
 
-	r := newReceiveHandler(receiveOut, protHandler, log, instrumenter)
+	r := newReceiveHandler(receiveOut, protHandler, log, instrumenterStorage)
 
 	errCh := make(chan error, 1)
 	err := r.Receive(rpc)
