@@ -17,8 +17,8 @@ func dispatchTestCallWithContextAndCompressionType(t *testing.T, ctx context.Con
 	calls := newCallContainer()
 	pkt := newPacketizer(testMaxFrameLength, conn2, createMessageTestProtocol(t), calls, log)
 
-	instrumenter := NewNetworkInstrumenter(NewMemoryInstrumentationStorage())
-	d := newDispatch(dispatchOut, calls, log, instrumenter)
+	instrumenterStorage := NewMemoryInstrumentationStorage()
+	d := newDispatch(dispatchOut, calls, log, instrumenterStorage)
 
 	done := runInBg(func() error {
 		return d.Call(ctx, "abc.hello", new(interface{}), new(interface{}),
@@ -151,8 +151,8 @@ func TestDispatchCancelEndToEnd(t *testing.T) {
 	enc := newFramedMsgpackEncoder(testMaxFrameLength, dispatchConn)
 	cc := newCallContainer()
 	log := newTestLog(t)
-	instrumenter := NewNetworkInstrumenter(NewMemoryInstrumentationStorage())
-	d := newDispatch(enc, cc, log, instrumenter)
+	instrumenterStorage := NewMemoryInstrumentationStorage()
+	d := newDispatch(enc, cc, log, instrumenterStorage)
 
 	ctx1, cancel1 := context.WithCancel(context.Background())
 
