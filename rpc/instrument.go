@@ -69,6 +69,10 @@ func NewNetworkInstrumenter(storage NetworkInstrumenterStorage, tag string) *Net
 	}
 }
 
+func (r *NetworkInstrumenter) String() string {
+	return fmt.Sprintf("Tag: %s, Ctime: %v, Dur: %v, Size: %d", r.tag, r.Ctime, r.Dur, r.Size)
+}
+
 func (r *NetworkInstrumenter) IncrementSize(size int64) {
 	if r.InstrumentationRecord != nil {
 		r.Size += size
