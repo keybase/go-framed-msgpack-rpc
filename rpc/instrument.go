@@ -53,8 +53,9 @@ func (s *MemoryInstrumentationStorage) Put(tag string, record InstrumentationRec
 
 type NetworkInstrumenter struct {
 	*InstrumentationRecord
-	storage NetworkInstrumenterStorage
-	tag     string
+	storage  NetworkInstrumenterStorage
+	tag      string
+	finished bool
 }
 
 // NewNetworkInstrumenter records network usage of a single call.
@@ -70,7 +71,7 @@ func NewNetworkInstrumenter(storage NetworkInstrumenterStorage, tag string) *Net
 }
 
 func (r *NetworkInstrumenter) String() string {
-	return fmt.Sprintf("Tag: %s, Ctime: %v, Dur: %v, Size: %d", r.tag, r.Ctime, r.Dur, r.Size)
+	return fmt.Sprintf("Tag: %s, Ctime: %v, Dur: %v, Size: %d, finished: %v", r.tag, r.Ctime, r.Dur, r.Size, r.finished)
 }
 
 func (r *NetworkInstrumenter) IncrementSize(size int64) {
@@ -92,10 +93,9 @@ func (r *NetworkInstrumenter) RecordAndFinish(size int64) error {
 }
 
 func (r *NetworkInstrumenter) Finish() error {
-	if r.InstrumentationRecord == nil {
+	if r.finished {
 		return errors.New("record already finished")
 	}
-	rec := *r.InstrumentationRecord
-	r.InstrumentationRecord = nil
-	return r.storage.Put(r.tag, rec)
+	r.finished = true
+	return r.storage.Put(r.tag, *r.InstrumentationRecord)
 }
