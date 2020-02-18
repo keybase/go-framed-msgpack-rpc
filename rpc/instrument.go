@@ -87,6 +87,9 @@ func (r *NetworkInstrumenter) IncrementSize(size int64) {
 }
 
 func (r *NetworkInstrumenter) EndCall() {
+	if r == nil {
+		return
+	}
 	if r.InstrumentationRecord != nil {
 		r.Dur = time.Since(r.Ctime)
 	}

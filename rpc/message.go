@@ -198,8 +198,7 @@ func (r *rpcResponseMessage) DecodeMessage(l int, d *fieldDecoder, _ *protocolHa
 		r.err = newCallNotFoundError(seqNo)
 		return r.err
 	}
-
-	defer func() { _ = r.RecordAndFinish(int64(d.totalSize)) }()
+	r.c.instrumenter.IncrementSize(int64(d.totalSize))
 
 	// Decode the error
 	var responseErr interface{}
