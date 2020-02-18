@@ -31,11 +31,14 @@ func runMessageTest(t *testing.T, ctype CompressionType, v []interface{}) (rpcMe
 	var buf bytes.Buffer
 	enc := newFramedMsgpackEncoder(testMaxFrameLength, &buf)
 	cc := newCallContainer()
-	c := cc.NewCall(context.Background(), "foo.bar", new(interface{}), new(string), ctype, nil)
+	instrumenterStorage := NewMemoryInstrumentationStorage()
+	record := NewNetworkInstrumenter(instrumenterStorage, "foo.bar")
+	c := cc.NewCall(context.Background(), "foo.bar", new(interface{}), new(string), ctype, nil, record)
 	cc.AddCall(c)
 
 	log := newTestLog(t)
-	pkt := newPacketizer(testMaxFrameLength, &buf, createMessageTestProtocol(t), cc, log)
+	pkt := newPacketizer(testMaxFrameLength, &buf, createMessageTestProtocol(t),
+		cc, log, instrumenterStorage)
 
 	size, errCh := enc.EncodeAndWrite(c.ctx, v, nil)
 	err := <-errCh
