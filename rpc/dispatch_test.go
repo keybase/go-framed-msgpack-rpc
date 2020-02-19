@@ -11,13 +11,14 @@ import (
 
 func dispatchTestCallWithContextAndCompressionType(t *testing.T, ctx context.Context, ctype CompressionType) (dispatcher, *callContainer, chan error) {
 	log := newTestLog(t)
+	instrumenterStorage := NewMemoryInstrumentationStorage()
 
 	conn1, conn2 := net.Pipe()
 	dispatchOut := newFramedMsgpackEncoder(testMaxFrameLength, conn1)
 	calls := newCallContainer()
-	pkt := newPacketizer(testMaxFrameLength, conn2, createMessageTestProtocol(t), calls, log)
+	pkt := newPacketizer(testMaxFrameLength, conn2, createMessageTestProtocol(t),
+		calls, log, instrumenterStorage)
 
-	instrumenterStorage := NewMemoryInstrumentationStorage()
 	d := newDispatch(dispatchOut, calls, log, instrumenterStorage)
 
 	done := runInBg(func() error {
