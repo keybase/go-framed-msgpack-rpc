@@ -899,7 +899,6 @@ func (c *Connection) Shutdown() {
 // FastForwardConnectDelayTimer causes any pending reconnect to happen
 // immediately.
 func (c *Connection) FastForwardConnectDelayTimer() {
-	c.log.Debug("FastForwardConnectDelayTimer")
 	c.connectDelayTimer.FireNow()
 }
 
