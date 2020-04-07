@@ -138,11 +138,13 @@ func (e *framedMsgpackEncoder) writerLoop() {
 			close(e.closedCh)
 			return
 		case write := <-e.writeCh:
-			if write.sn != nil {
-				write.sn()
-			}
-			_, err := e.writer.Write(write.bytes)
-			write.ch <- err
+			go func() {
+				if write.sn != nil {
+					write.sn()
+				}
+				_, err := e.writer.Write(write.bytes)
+				write.ch <- err
+			}()
 		}
 	}
 }
