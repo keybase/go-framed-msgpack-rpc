@@ -36,7 +36,7 @@ func newFramedMsgpackEncoder(maxFrameLength int32, writer io.Writer) *framedMsgp
 		maxFrameLength:   maxFrameLength,
 		handle:           newCodecMsgpackHandle(),
 		writer:           writer,
-		writeCh:          make(chan writeBundle),
+		writeCh:          make(chan writeBundle, 100),
 		doneCh:           make(chan struct{}),
 		closedCh:         make(chan struct{}),
 		compressorCacher: newCompressorCacher(),
