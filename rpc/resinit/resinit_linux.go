@@ -2,6 +2,7 @@
 // this source code is governed by the included BSD license.
 
 //go:build linux && !android && !noresinit
+// +build linux,!android,!noresinit
 
 package resinit
 
