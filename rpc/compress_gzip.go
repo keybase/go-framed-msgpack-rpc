@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"sync"
 )
 
 var gzipWriterPool = sync.Pool{
 	New: func() interface{} {
-		return gzip.NewWriter(ioutil.Discard)
+		return gzip.NewWriter(io.Discard)
 	},
 }
 
