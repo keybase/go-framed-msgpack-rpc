@@ -3,7 +3,7 @@ package rpc
 import (
 	"bytes"
 	"encoding/base64"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/keybase/go-codec/codec"
@@ -13,7 +13,7 @@ import (
 
 // Test an output from objective C that was breaking the server
 func TestObjcOutput(t *testing.T) {
-	dat, err := ioutil.ReadFile("objc_output.dat")
+	dat, err := os.ReadFile("objc_output.dat")
 	require.NoError(t, err, "an error occurred while reading dat file")
 	v, err := base64.StdEncoding.DecodeString(string(dat))
 	require.NoError(t, err, "an error occurred while decoding base64 dat file")

@@ -160,8 +160,9 @@ func (r *prioritizedRoundRobinRemote) String() string {
 // on the returned Remote.
 //
 // Example:
-//   "example0.com,example1.com;example0.net,example1.net" produces a
-//   prioritized round robin remote with two groups, first .com then .net.
+//
+//	"example0.com,example1.com;example0.net,example1.net" produces a
+//	prioritized round robin remote with two groups, first .com then .net.
 func ParsePrioritizedRoundRobinRemote(str string) (Remote, error) {
 	groups := strings.Split(str, ";")
 	addressGroups := make([][]string, 0, len(groups))
