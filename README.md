@@ -1,6 +1,5 @@
-go-framed-msgpack-rpc
-=====================
+# go-framed-msgpack-rpc
 
-[![Travis CI](https://app.travis-ci.com/keybase/go-framed-msgpack-rpc.svg?branch=master)](https://app.travis-ci.com/github/keybase/go-framed-msgpack-rpc)
+[![Build Status](https://github.com/keybase/go-framed-msgpack-rpc/actions/workflows/ci.yml/badge.svg)](https://github.com/keybase/go-framed-msgpack-rpc/actions)
 
 Framed RPC for go.
