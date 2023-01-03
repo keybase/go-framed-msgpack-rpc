@@ -9,6 +9,7 @@ require (
 	github.com/reiver/go-telnet v0.0.0-20180421082511-9ff0b2ab096e
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0
+	golang.org/x/sync v0.1.0
 )
 
 require (
