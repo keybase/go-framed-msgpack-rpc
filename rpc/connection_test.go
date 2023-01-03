@@ -119,7 +119,7 @@ func TestReconnectBasic(t *testing.T) {
 		doneChan:   make(chan bool),
 		errToThrow: errors.New("intentional error to trigger reconnect"),
 	}
-	output := testLogOutput{t}
+	output := testLogOutput{t: t}
 	reconnectBackoffFn := func() backoff.BackOff {
 		reconnectBackoff := backoff.NewExponentialBackOff()
 		reconnectBackoff.InitialInterval = 5 * time.Millisecond
@@ -131,7 +131,7 @@ func TestReconnectBasic(t *testing.T) {
 		ReconnectBackoff: reconnectBackoffFn,
 	}
 	conn := NewConnectionWithTransport(unitTester, unitTester,
-		testErrorUnwrapper{}, output, opts)
+		testErrorUnwrapper{}, &output, opts)
 
 	// start connecting now
 	conn.getReconnectChan()
@@ -152,7 +152,7 @@ func TestForceReconnect(t *testing.T) {
 		doneChan:   make(chan bool),
 		errToThrow: errors.New("intentional error to trigger reconnect"),
 	}
-	output := testLogOutput{t}
+	output := testLogOutput{t: t}
 	reconnectBackoffFn := func() backoff.BackOff {
 		reconnectBackoff := backoff.NewExponentialBackOff()
 		reconnectBackoff.InitialInterval = 5 * time.Millisecond
@@ -164,7 +164,7 @@ func TestForceReconnect(t *testing.T) {
 		ReconnectBackoff: reconnectBackoffFn,
 	}
 	conn := NewConnectionWithTransport(unitTester, unitTester,
-		testErrorUnwrapper{}, output, opts)
+		testErrorUnwrapper{}, &output, opts)
 	ch := make(chan struct{})
 	conn.setReconnectCompleteForTest(ch)
 
@@ -193,13 +193,13 @@ func TestReconnectCanceled(t *testing.T) {
 		errToThrow: cancelErr,
 		alwaysFail: true,
 	}
-	output := testLogOutput{t}
+	output := testLogOutput{t: t}
 	opts := ConnectionOpts{
 		WrapErrorFunc: testWrapError,
 		TagsFunc:      testLogTags,
 	}
 	conn := NewConnectionWithTransport(unitTester, unitTester,
-		testErrorUnwrapper{}, output, opts)
+		testErrorUnwrapper{}, &output, opts)
 	defer conn.Shutdown()
 	// Test that any command fails with the expected error.
 	err := conn.DoCommand(context.Background(), "test", 0,
@@ -214,7 +214,7 @@ func TestDoCommandThrottle(t *testing.T) {
 	}
 
 	throttleErr := errors.New("throttle")
-	output := testLogOutput{t}
+	output := testLogOutput{t: t}
 	commandBackoffFn := func() backoff.BackOff {
 		commandBackoff := backoff.NewExponentialBackOff()
 		commandBackoff.InitialInterval = 5 * time.Millisecond
@@ -226,7 +226,7 @@ func TestDoCommandThrottle(t *testing.T) {
 		CommandBackoff: commandBackoffFn,
 	}
 	conn := NewConnectionWithTransport(unitTester, unitTester,
-		testErrorUnwrapper{}, output, opts)
+		testErrorUnwrapper{}, &output, opts)
 	defer conn.Shutdown()
 	<-unitTester.doneChan
 
@@ -355,7 +355,7 @@ func TestDialableTransport(t *testing.T) {
 	unitTester := &unitTester{
 		doneChan: make(chan bool),
 	}
-	output := testLogOutput{t}
+	output := testLogOutput{t: t}
 	opts := ConnectionOpts{
 		WrapErrorFunc: testWrapError,
 		TagsFunc:      testLogTags,
@@ -375,7 +375,7 @@ func TestDialableTransport(t *testing.T) {
 	instrumenterStorage := NewMemoryInstrumentationStorage()
 	ct := NewConnectionTransportWithDialable(uri, nil, instrumenterStorage, wef, DefaultMaxFrameLength, &md)
 	conn := NewConnectionWithTransport(unitTester, ct,
-		testErrorUnwrapper{}, output, opts)
+		testErrorUnwrapper{}, &output, opts)
 	require.Error(t, conn.connect(context.TODO()))
 	conn.Shutdown()
 
@@ -398,7 +398,7 @@ func TestDialableTLSConn(t *testing.T) {
 	unitTester := &unitTester{
 		doneChan: make(chan bool),
 	}
-	output := testLogOutput{t}
+	output := testLogOutput{t: t}
 	opts := ConnectionOpts{
 		WrapErrorFunc: testWrapError,
 		TagsFunc:      testLogTags,
@@ -413,7 +413,7 @@ func TestDialableTLSConn(t *testing.T) {
 	conn := NewTLSConnectionWithDialable(NewFixedRemote(uri.HostPort),
 		nil, testErrorUnwrapper{},
 		unitTester, nil,
-		instrumenterStorage, output, DefaultMaxFrameLength, opts,
+		instrumenterStorage, &output, DefaultMaxFrameLength, opts,
 		&md)
 
 	require.Error(t, conn.connect(context.TODO()))
