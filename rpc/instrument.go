@@ -57,6 +57,7 @@ func (s *MemoryInstrumentationStorage) Put(ctx context.Context, tag string, reco
 
 type NetworkInstrumenter struct {
 	*InstrumentationRecord
+	sync.Mutex
 	storage  NetworkInstrumenterStorage
 	tag      string
 	finished bool
@@ -85,6 +86,8 @@ func (r *NetworkInstrumenter) IncrementSize(size int64) {
 	if r == nil {
 		return
 	}
+	r.Lock()
+	defer r.Unlock()
 	if r.InstrumentationRecord != nil {
 		r.Size += size
 	}
@@ -94,6 +97,8 @@ func (r *NetworkInstrumenter) EndCall() {
 	if r == nil {
 		return
 	}
+	r.Lock()
+	defer r.Unlock()
 	if r.InstrumentationRecord != nil {
 		r.Dur = time.Since(r.Ctime)
 	}
@@ -112,6 +117,8 @@ func (r *NetworkInstrumenter) Finish(ctx context.Context) error {
 	if r == nil {
 		return nil
 	}
+	r.Lock()
+	defer r.Unlock()
 	if r.finished {
 		return errors.New("record already finished")
 	}

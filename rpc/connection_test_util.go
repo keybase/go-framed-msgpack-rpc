@@ -131,8 +131,8 @@ const testMaxFrameLength = 1024
 // object representing the other end of that connection.
 func MakeConnectionForTest(t TestLogger) (net.Conn, *Connection) {
 	clientConn, serverConn := net.Pipe()
-	logOutput := testLogOutput{t}
-	logFactory := NewSimpleLogFactory(logOutput, nil)
+	logOutput := testLogOutput{t: t}
+	logFactory := NewSimpleLogFactory(&logOutput, nil)
 	instrumenterStorage := NewMemoryInstrumentationStorage()
 	transporter := NewTransport(clientConn, logFactory,
 		instrumenterStorage, testWrapError, testMaxFrameLength)
@@ -142,6 +142,6 @@ func MakeConnectionForTest(t TestLogger) (net.Conn, *Connection) {
 		TagsFunc:      testLogTags,
 	}
 	conn := NewConnectionWithTransport(testConnectionHandler{}, st,
-		testErrorUnwrapper{}, logOutput, opts)
+		testErrorUnwrapper{}, &logOutput, opts)
 	return serverConn, conn
 }

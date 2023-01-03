@@ -18,8 +18,8 @@ type server struct {
 
 func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan error) (err error) {
 	var listener net.Listener
-	o := testLogOutput{t}
-	lf := NewSimpleLogFactory(o, nil)
+	o := testLogOutput{t: t}
+	lf := NewSimpleLogFactory(&o, nil)
 	instrumenterStorage := NewMemoryInstrumentationStorage()
 	o.Info(fmt.Sprintf("Listening on port %d...", s.port))
 	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil {
