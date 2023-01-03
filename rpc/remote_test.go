@@ -48,7 +48,7 @@ func TestPrioritizedRoundRobinRemote(t *testing.T) {
 			getAddr = r.GetAddress()
 			return nil
 		})
-		g.Wait()
+		require.NoError(t, g.Wait())
 		return getAddr
 	}
 
