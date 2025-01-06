@@ -4,8 +4,8 @@ github.com/keybase/backoff v1.0.1-0.20160517061000-726b63b835ec h1:D6qL2WCnAuxuc
 github.com/keybase/backoff v1.0.1-0.20160517061000-726b63b835ec/go.mod h1:jeBKj+20GIDry3doFsAMYH9n7Y3l7ajE3xJrKvVB23s=
 github.com/keybase/go-codec v0.0.0-20180928230036-164397562123 h1:yg56lYPqh9suJepqxOMd/liFgU/x+maRPiB30JNYykM=
 github.com/keybase/go-codec v0.0.0-20180928230036-164397562123/go.mod h1:r/eVVWCngg6TsFV/3HuS9sWhDkAzGG8mXhiuYA+Z/20=
-github.com/keybase/msgpackzip v0.0.0-20250106182721-6f0080476008 h1:eGLsSh7V10/j3WBZAW7k2kUzvz88M2qdmpMY4L7wyXk=
-github.com/keybase/msgpackzip v0.0.0-20250106182721-6f0080476008/go.mod h1:XGERKRnPD1bFQJrhQp5XHw4JtZ+u3nlgdx/xrwF13ow=
+github.com/keybase/msgpackzip v0.0.0-20250106200500-93bf3a4c34cf h1:wG5lhAbfl5Gir35gAdJywwf7tEjPW9oI0jBjzQZysxQ=
+github.com/keybase/msgpackzip v0.0.0-20250106200500-93bf3a4c34cf/go.mod h1:XGERKRnPD1bFQJrhQp5XHw4JtZ+u3nlgdx/xrwF13ow=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/reiver/go-oi v1.0.0 h1:nvECWD7LF+vOs8leNGV/ww+F2iZKf3EYjYZ527turzM=
