@@ -357,8 +357,9 @@ func TestDialableTransport(t *testing.T) {
 	}
 	output := testLogOutput{t: t}
 	opts := ConnectionOpts{
-		WrapErrorFunc: testWrapError,
-		TagsFunc:      testLogTags,
+		WrapErrorFunc:  testWrapError,
+		TagsFunc:       testLogTags,
+		DontConnectNow: true,
 	}
 
 	uriStr := "fmprpc://localhost:8080"
@@ -400,8 +401,9 @@ func TestDialableTLSConn(t *testing.T) {
 	}
 	output := testLogOutput{t: t}
 	opts := ConnectionOpts{
-		WrapErrorFunc: testWrapError,
-		TagsFunc:      testLogTags,
+		WrapErrorFunc:  testWrapError,
+		TagsFunc:       testLogTags,
+		DontConnectNow: true,
 	}
 
 	uriStr := "fmprpc+tls://localhost:8080"
