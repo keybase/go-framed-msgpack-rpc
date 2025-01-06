@@ -98,7 +98,7 @@ func TestCloseReceiver(t *testing.T) {
 				MakeArg: func() interface{} {
 					return nil
 				},
-				Handler: func(c context.Context, i interface{}) (interface{}, error) {
+				Handler: func(c context.Context, _ interface{}) (interface{}, error) {
 					<-c.Done()
 					waitCh <- c.Err()
 					return nil, c.Err()

@@ -164,14 +164,12 @@ func (s SimpleLogFactory) NewLog(a net.Addr) LogInterface {
 func AddrToString(addr net.Addr) string {
 	if addr == nil {
 		return "-"
-	} else {
-		c := addr.String()
-		if len(c) == 0 {
-			return addr.Network()
-		} else {
-			return addr.Network() + "://" + c
-		}
 	}
+	c := addr.String()
+	if len(c) == 0 {
+		return addr.Network()
+	}
+	return addr.Network() + "://" + c
 }
 
 func (s SimpleLog) TransportStart() {
@@ -306,9 +304,8 @@ func (s SimpleLog) StartProfiler(format string, args ...interface{}) Profiler {
 			msg:   fmt.Sprintf(format, args...),
 			log:   s,
 		}
-	} else {
-		return NilProfiler{}
 	}
+	return NilProfiler{}
 }
 
 func (s SimpleLog) UnexpectedReply(seqno SeqNumber) {

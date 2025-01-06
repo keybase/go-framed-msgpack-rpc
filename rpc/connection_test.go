@@ -49,12 +49,12 @@ func (ut *unitTester) OnDisconnected(context.Context, DisconnectStatus) {
 }
 
 // ShouldRetry implements the ConnectionHandler interface.
-func (ut *unitTester) ShouldRetry(name string, err error) bool {
+func (ut *unitTester) ShouldRetry(_ string, err error) bool {
 	_, isThrottle := err.(throttleError)
 	return isThrottle
 }
 
-var errCanceled = errors.New("Canceled!")
+var errCanceled = errors.New("canceled")
 
 // ShouldRetryOnConnect implements the ConnectionHandler interface.
 func (ut *unitTester) ShouldRetryOnConnect(err error) bool {
@@ -62,7 +62,7 @@ func (ut *unitTester) ShouldRetryOnConnect(err error) bool {
 }
 
 // Dial implements the ConnectionTransport interface.
-func (ut *unitTester) Dial(ctx context.Context) (
+func (ut *unitTester) Dial(_ context.Context) (
 	Transporter, error) {
 	if ut.alwaysFail || ut.numConnectErrors == 0 {
 		return nil, ut.errToThrow
@@ -338,13 +338,13 @@ type mockedDialable struct {
 	setoptsWasCalled bool
 }
 
-func (md *mockedDialable) SetOpts(timeout time.Duration, keepAlive time.Duration) {
+func (md *mockedDialable) SetOpts(_ time.Duration, _ time.Duration) {
 	md.mutex.Lock()
 	md.setoptsWasCalled = true
 	md.mutex.Unlock()
 }
 
-func (md *mockedDialable) Dial(ctx context.Context, network string, addr string) (net.Conn, error) {
+func (md *mockedDialable) Dial(_ context.Context, _ string, _ string) (net.Conn, error) {
 	md.mutex.Lock()
 	md.dialWasCalled = true
 	md.mutex.Unlock()

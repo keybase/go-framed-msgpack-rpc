@@ -176,7 +176,7 @@ func (r *notifyRequest) LogCompletion(_ interface{}, err error) {
 	r.log.ServerNotifyComplete(r.Name(), err)
 }
 
-func (r *notifyRequest) Serve(transmitter *framedMsgpackEncoder, handler *ServeHandlerDescription, wrapErrorFunc WrapErrorFunc) {
+func (r *notifyRequest) Serve(_ *framedMsgpackEncoder, handler *ServeHandlerDescription, _ WrapErrorFunc) {
 
 	prof := r.log.StartProfiler("serve-notify %s", r.Name())
 	arg := r.Arg()
@@ -187,6 +187,6 @@ func (r *notifyRequest) Serve(transmitter *framedMsgpackEncoder, handler *ServeH
 	r.LogCompletion(nil, err)
 }
 
-func (r *notifyRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg interface{}) (err error) {
+func (r *notifyRequest) Reply(_ *framedMsgpackEncoder, _ interface{}, _ interface{}) (err error) {
 	return nil
 }

@@ -121,7 +121,7 @@ func TestLongCall(t *testing.T) {
 	defer endTest(t, conn, listener)
 
 	ctx := context.Background()
-	ctx = AddRpcTagsToContext(ctx, CtxRpcTags{"hello": []string{"world"}})
+	ctx = AddRPCTagsToContext(ctx, CtxRPCTags{"hello": []string{"world"}})
 
 	longResult, err := cli.LongCall(ctx)
 	require.NoError(t, err, "call should have succeeded")
@@ -133,7 +133,7 @@ func TestCallCompressed(t *testing.T) {
 	defer endTest(t, conn, listener)
 
 	ctx := context.Background()
-	ctx = AddRpcTagsToContext(ctx, CtxRpcTags{"hello": []string{"world"}})
+	ctx = AddRPCTagsToContext(ctx, CtxRPCTags{"hello": []string{"world"}})
 
 	nargs := NArgs{N: 50}
 	verifyRes := func(res []*Constants, err error) {
@@ -180,7 +180,7 @@ func TestLongCallCancel(t *testing.T) {
 	defer endTest(t, conn, listener)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = AddRpcTagsToContext(ctx, CtxRpcTags{"hello": []string{"world"}})
+	ctx = AddRPCTagsToContext(ctx, CtxRPCTags{"hello": []string{"world"}})
 
 	resultCh := make(chan longCallResult)
 	runInBg(func() error {
@@ -207,7 +207,7 @@ func TestLongCallCancel(t *testing.T) {
 
 	res = <-resultCh
 	require.Nil(t, res.err, "call should have succeeded")
-	require.Equal(t, CtxRpcTags{"hello": []interface{}{"world"}}, res.res, "canceled call should have set the debug tags")
+	require.Equal(t, CtxRPCTags{"hello": []interface{}{"world"}}, res.res, "canceled call should have set the debug tags")
 }
 
 func TestLongCallTimeout(t *testing.T) {

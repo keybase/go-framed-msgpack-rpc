@@ -36,11 +36,11 @@ func (r *basicRPCData) loadContext(l int, d *fieldDecoder) error {
 	if l == 0 {
 		return nil
 	}
-	tags := make(CtxRpcTags)
+	tags := make(CtxRPCTags)
 	if err := d.Decode(&tags); err != nil {
 		return err
 	}
-	r.ctx = AddRpcTagsToContext(context.Background(), tags)
+	r.ctx = AddRPCTagsToContext(context.Background(), tags)
 	return nil
 }
 
@@ -68,7 +68,7 @@ func (r *rpcCallMessage) DecodeMessage(l int, d *fieldDecoder, p *protocolHandle
 	if r.err = d.Decode(&r.name); r.err != nil {
 		return r.err
 	}
-	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, RPCInstrumentTag(r.Type(), r.Name()))
+	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, InstrumentTag(r.Type(), r.Name()))
 	r.instrumenter.IncrementSize(int64(d.totalSize))
 	if r.arg, r.err = p.getArg(r.name); r.err != nil {
 		return r.err
@@ -128,7 +128,7 @@ func (r *rpcCallCompressedMessage) DecodeMessage(l int, d *fieldDecoder, p *prot
 	if r.err = d.Decode(&r.name); r.err != nil {
 		return r.err
 	}
-	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, RPCInstrumentTag(r.Type(), r.Name()))
+	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, InstrumentTag(r.Type(), r.Name()))
 	r.instrumenter.IncrementSize(int64(d.totalSize))
 	if r.arg, r.err = p.getArg(r.name); r.err != nil {
 		return r.err
@@ -184,7 +184,7 @@ func (r *rpcResponseMessage) RecordAndFinish(ctx context.Context, size int64) er
 	return r.c.instrumenter.RecordAndFinish(ctx, size)
 }
 
-func (r *rpcResponseMessage) DecodeMessage(l int, d *fieldDecoder, _ *protocolHandler, cc *callContainer,
+func (r *rpcResponseMessage) DecodeMessage(_ int, d *fieldDecoder, _ *protocolHandler, cc *callContainer,
 	compressorCacher *compressorCacher, _ NetworkInstrumenterStorage) error {
 
 	var seqNo SeqNumber
@@ -315,7 +315,7 @@ func (r *rpcNotifyMessage) DecodeMessage(l int, d *fieldDecoder, p *protocolHand
 	if r.err = d.Decode(&r.name); r.err != nil {
 		return r.err
 	}
-	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, RPCInstrumentTag(r.Type(), r.Name()))
+	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, InstrumentTag(r.Type(), r.Name()))
 	r.instrumenter.IncrementSize(int64(d.totalSize))
 	if r.arg, r.err = p.getArg(r.name); r.err != nil {
 		return r.err
@@ -361,11 +361,11 @@ type rpcCancelMessage struct {
 	err   error
 }
 
-func (r *rpcCancelMessage) RecordAndFinish(ctx context.Context, size int64) error {
+func (r *rpcCancelMessage) RecordAndFinish(_ context.Context, _ int64) error {
 	return nil
 }
 
-func (r *rpcCancelMessage) DecodeMessage(l int, d *fieldDecoder, p *protocolHandler, _ *callContainer,
+func (r *rpcCancelMessage) DecodeMessage(_ int, d *fieldDecoder, _ *protocolHandler, _ *callContainer,
 	_ *compressorCacher, _ NetworkInstrumenterStorage) error {
 	if r.err = d.Decode(&r.seqno); r.err != nil {
 		return r.err

@@ -79,7 +79,7 @@ func TestMessageDecodeValidCompressed(t *testing.T) {
 }
 
 func TestMessageDecodeValidExtraParams(t *testing.T) {
-	tags := CtxRpcTags{"hello": "world"}
+	tags := CtxRPCTags{"hello": "world"}
 	v := []interface{}{MethodCall, 999, "abc.hello", new(interface{}), tags, "foo"}
 
 	rpc, err := runMessageTest(t, CompressionNone, v)
@@ -91,7 +91,7 @@ func TestMessageDecodeValidExtraParams(t *testing.T) {
 	require.Equal(t, CompressionNone, c.Compression())
 	require.Equal(t, "abc.hello", c.Name())
 	require.Equal(t, nil, c.Arg())
-	resultTags, ok := RpcTagsFromContext(c.Context())
+	resultTags, ok := TagsFromContext(c.Context())
 	require.True(t, ok)
 	require.Equal(t, tags, resultTags)
 }

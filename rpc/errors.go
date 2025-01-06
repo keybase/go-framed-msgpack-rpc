@@ -112,7 +112,7 @@ func (c NilResultError) Error() string {
 	return fmt.Sprintf("Nil result supplied for sequence number %d", c.seqno)
 }
 
-type RPCDecodeError struct {
+type DecodeError struct {
 	err   error
 	typ   MethodType
 	len   int
@@ -120,12 +120,12 @@ type RPCDecodeError struct {
 	ctype CompressionType
 }
 
-func (r RPCDecodeError) Error() string {
+func (r DecodeError) Error() string {
 	return fmt.Sprintf("RPC error. type: %s, method: %s, length: %d, compression: %v, error: %v", r.typ, r.name, r.len, r.ctype, r.err)
 }
 
-func newRPCDecodeError(t MethodType, n string, l int, ctype CompressionType, err error) RPCDecodeError {
-	return RPCDecodeError{
+func newRPCDecodeError(t MethodType, n string, l int, ctype CompressionType, err error) DecodeError {
+	return DecodeError{
 		err:   err,
 		typ:   t,
 		len:   l,
@@ -140,7 +140,7 @@ func newRPCMessageFieldDecodeError(i int, err error) error {
 
 func unboxRPCError(err error) error {
 	switch e := err.(type) {
-	case RPCDecodeError:
+	case DecodeError:
 		return e.err
 	default:
 		return err

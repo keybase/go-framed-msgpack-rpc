@@ -241,7 +241,7 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 		name:  "abc.hello",
 	}, f1)
 	require.EqualValues(t, sizes[0], record.Size)
-	require.Equal(t, RPCInstrumentTag(MethodCall, "abc.hello"), record.tag)
+	require.Equal(t, InstrumentTag(MethodCall, "abc.hello"), record.tag)
 
 	f2, err := pkt.NextFrame()
 	require.IsType(t, PacketizerError{}, err)
@@ -259,7 +259,7 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 		name: "abc.hello",
 	}, f4)
 	require.EqualValues(t, sizes[3], record.Size)
-	require.Equal(t, RPCInstrumentTag(MethodNotify, "abc.hello"), record.tag)
+	require.Equal(t, InstrumentTag(MethodNotify, "abc.hello"), record.tag)
 
 	f5, err := pkt.NextFrame()
 	require.IsType(t, PacketizerError{}, err)
@@ -275,10 +275,10 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 		responseErr: errors.New("response err"),
 	}, f6)
 	require.EqualValues(t, sizes[5], record.Size)
-	require.Equal(t, RPCInstrumentTag(MethodResponse, "foo.bar"), record.tag)
+	require.Equal(t, InstrumentTag(MethodResponse, "foo.bar"), record.tag)
 
 	f7, err := pkt.NextFrame()
-	require.IsType(t, RPCDecodeError{}, err)
+	require.IsType(t, DecodeError{}, err)
 	require.Nil(t, f7)
 
 	f8, err := pkt.NextFrame()

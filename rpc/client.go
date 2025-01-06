@@ -70,13 +70,13 @@ func (c *Client) call(ctx context.Context, method string,
 	if c.tagsFunc != nil {
 		tags, ok := c.tagsFunc(ctx)
 		if ok {
-			rpcTags := make(CtxRpcTags)
+			rpcTags := make(CtxRPCTags)
 			for key, tagName := range tags {
 				if v := ctx.Value(key); v != nil {
 					rpcTags[tagName] = v
 				}
 			}
-			ctx = AddRpcTagsToContext(ctx, rpcTags)
+			ctx = AddRPCTagsToContext(ctx, rpcTags)
 		}
 	}
 
