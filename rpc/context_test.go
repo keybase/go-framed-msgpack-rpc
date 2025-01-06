@@ -8,21 +8,21 @@ import (
 )
 
 func TestRpcTags(t *testing.T) {
-	logTags := make(CtxRpcTags)
+	logTags := make(CtxRPCTags)
 
 	logTags["hello"] = "world"
 	logTags["foo"] = "bar"
-	ctx := AddRpcTagsToContext(context.Background(), logTags)
+	ctx := AddRPCTagsToContext(context.Background(), logTags)
 
-	logTags2 := make(CtxRpcTags)
+	logTags2 := make(CtxRPCTags)
 	logTags2["hello"] = "world2"
-	ctx = AddRpcTagsToContext(ctx, logTags2)
+	ctx = AddRPCTagsToContext(ctx, logTags2)
 
-	logTags, _ = RpcTagsFromContext(ctx)
+	logTags, _ = TagsFromContext(ctx)
 	require.Equal(t, "world2", logTags["hello"])
 	require.Equal(t, "bar", logTags["foo"])
 
-	outTags, ok := RpcTagsFromContext(ctx)
+	outTags, ok := TagsFromContext(ctx)
 
 	require.Equal(t, true, ok)
 	require.Equal(t, logTags, outTags)

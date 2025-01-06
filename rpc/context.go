@@ -2,36 +2,36 @@ package rpc
 
 import "golang.org/x/net/context"
 
-// CtxRpcKey is a type defining the context key for the RPC context
-type CtxRpcKey int
+// CtxRPCKey is a type defining the context key for the RPC context
+type CtxRPCKey int
 
 const (
-	// CtxRpcTagsKey defines a context key that can hold a slice of context keys
-	CtxRpcTagsKey CtxRpcKey = iota
+	// CtxRPCTagsKey defines a context key that can hold a slice of context keys
+	CtxRPCTagsKey CtxRPCKey = iota
 )
 
-type CtxRpcTags map[string]interface{}
+type CtxRPCTags map[string]interface{}
 
-// AddRpcTagsToContext adds the given log tag mappings (logTagsToAdd) to the
+// AddRPCTagsToContext adds the given log tag mappings (logTagsToAdd) to the
 // given context, creating a new one if necessary. Returns the resulting
 // context with the new log tag mappings.
-func AddRpcTagsToContext(ctx context.Context, logTagsToAdd CtxRpcTags) context.Context {
-	currTags, ok := RpcTagsFromContext(ctx)
+func AddRPCTagsToContext(ctx context.Context, logTagsToAdd CtxRPCTags) context.Context {
+	currTags, ok := TagsFromContext(ctx)
 	if !ok {
-		currTags = make(CtxRpcTags)
+		currTags = make(CtxRPCTags)
 	}
 	for key, tag := range logTagsToAdd {
 		currTags[key] = tag
 	}
 
-	return context.WithValue(ctx, CtxRpcTagsKey, currTags)
+	return context.WithValue(ctx, CtxRPCTagsKey, currTags)
 }
 
-// RpcTagsFromContext returns the tags being passed along with the given context.
-func RpcTagsFromContext(ctx context.Context) (CtxRpcTags, bool) {
-	logTags, ok := ctx.Value(CtxRpcTagsKey).(CtxRpcTags)
+// TagsFromContext returns the tags being passed along with the given context.
+func TagsFromContext(ctx context.Context) (CtxRPCTags, bool) {
+	logTags, ok := ctx.Value(CtxRPCTagsKey).(CtxRPCTags)
 	if ok {
-		ret := make(CtxRpcTags)
+		ret := make(CtxRPCTags)
 		for k, v := range logTags {
 			ret[k] = v
 		}

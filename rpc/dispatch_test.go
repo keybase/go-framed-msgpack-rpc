@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func dispatchTestCallWithContextAndCompressionType(t *testing.T, ctx context.Context, ctype CompressionType) (dispatcher, *callContainer, chan error) {
+func dispatchTestCallWithContextAndCompressionType(ctx context.Context, t *testing.T, ctype CompressionType) (dispatcher, *callContainer, chan error) {
 	log := newTestLog(t)
 	instrumenterStorage := NewMemoryInstrumentationStorage()
 
@@ -33,12 +33,12 @@ func dispatchTestCallWithContextAndCompressionType(t *testing.T, ctx context.Con
 	return d, calls, done
 }
 
-func dispatchTestCallWithContext(t *testing.T, ctx context.Context) (dispatcher, *callContainer, chan error) {
-	return dispatchTestCallWithContextAndCompressionType(t, ctx, CompressionNone)
+func dispatchTestCallWithContext(ctx context.Context, t *testing.T) (dispatcher, *callContainer, chan error) {
+	return dispatchTestCallWithContextAndCompressionType(ctx, t, CompressionNone)
 }
 
 func dispatchTestCall(t *testing.T) (dispatcher, *callContainer, chan error) {
-	return dispatchTestCallWithContext(t, context.Background())
+	return dispatchTestCallWithContext(context.Background(), t)
 }
 
 func sendResponse(c *call, err error) {
@@ -63,7 +63,7 @@ func TestDispatchSuccessfulCall(t *testing.T) {
 
 func TestDispatchSuccessfulCallCompressed(t *testing.T) {
 	doWithAllCompressionTypes(func(ctype CompressionType) {
-		d, calls, done := dispatchTestCallWithContextAndCompressionType(t, context.Background(), ctype)
+		d, calls, done := dispatchTestCallWithContextAndCompressionType(context.Background(), t, ctype)
 
 		c := calls.RetrieveCall(0)
 		require.NotNil(t, c, "Expected c not to be nil")
@@ -79,7 +79,7 @@ func TestDispatchSuccessfulCallCompressed(t *testing.T) {
 
 func TestDispatchCanceledBeforeResult(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	d, calls, done := dispatchTestCallWithContext(t, ctx)
+	d, calls, done := dispatchTestCallWithContext(ctx, t)
 
 	c := calls.RetrieveCall(0)
 	require.NotNil(t, c, "Expected c not to be nil")
@@ -102,7 +102,7 @@ func TestDispatchCanceledBeforeResult(t *testing.T) {
 
 func TestDispatchCanceledAfterResult(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	d, calls, done := dispatchTestCallWithContext(t, ctx)
+	d, calls, done := dispatchTestCallWithContext(ctx, t)
 
 	c := calls.RetrieveCall(0)
 	require.NotNil(t, c, "Expected c not to be nil")

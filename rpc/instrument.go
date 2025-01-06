@@ -13,7 +13,7 @@ type NetworkInstrumenterStorage interface {
 	Put(ctx context.Context, tag string, record InstrumentationRecord) error
 }
 
-func RPCInstrumentTag(methodType MethodType, method string) string {
+func InstrumentTag(methodType MethodType, method string) string {
 	return fmt.Sprintf("%s %s", methodType, method)
 }
 
@@ -48,7 +48,7 @@ func NewMemoryInstrumentationStorage() *MemoryInstrumentationStorage {
 	}
 }
 
-func (s *MemoryInstrumentationStorage) Put(ctx context.Context, tag string, record InstrumentationRecord) error {
+func (s *MemoryInstrumentationStorage) Put(_ context.Context, tag string, record InstrumentationRecord) error {
 	s.Lock()
 	defer s.Unlock()
 	s.storage[tag] = append(s.storage[tag], record)

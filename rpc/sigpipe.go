@@ -5,6 +5,6 @@ package rpc
 
 import "net"
 
-func DisableSigPipe(c net.Conn) error {
+func DisableSigPipe(_ net.Conn) error {
 	return nil
 }

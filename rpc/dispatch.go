@@ -62,7 +62,7 @@ func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res i
 		method = MethodCallCompressed
 	}
 
-	record := NewNetworkInstrumenter(d.instrumenterStorage, RPCInstrumentTag(method, name))
+	record := NewNetworkInstrumenter(d.instrumenterStorage, InstrumentTag(method, name))
 	c := d.calls.NewCall(ctx, name, arg, res, ctype, u, record)
 
 	// Have to add call before encoding otherwise we'll race the response
@@ -84,7 +84,7 @@ func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res i
 		logCall = func() { d.log.ClientCallCompressed(c.seqid, c.method, c.arg, c.ctype) }
 	}
 
-	rpcTags, _ := RpcTagsFromContext(ctx)
+	rpcTags, _ := TagsFromContext(ctx)
 	if len(rpcTags) > 0 {
 		v = append(v, rpcTags)
 	}
@@ -118,14 +118,14 @@ func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res i
 }
 
 func (d *dispatch) Notify(ctx context.Context, name string, arg interface{}, sendNotifier SendNotifier) error {
-	rpcTags, _ := RpcTagsFromContext(ctx)
+	rpcTags, _ := TagsFromContext(ctx)
 	v := []interface{}{MethodNotify, name, arg}
 	if len(rpcTags) > 0 {
 		v = append(v, rpcTags)
 	}
 
 	size, errCh := d.writer.EncodeAndWrite(ctx, v, currySendNotifier(sendNotifier, SeqNumber(-1)))
-	record := NewNetworkInstrumenter(d.instrumenterStorage, RPCInstrumentTag(MethodNotify, name))
+	record := NewNetworkInstrumenter(d.instrumenterStorage, InstrumentTag(MethodNotify, name))
 	defer func() { _ = record.RecordAndFinish(ctx, size) }()
 
 	select {
@@ -149,7 +149,7 @@ func (d *dispatch) Close() {
 func (d *dispatch) handleCancel(ctx context.Context, c *call) error {
 	d.log.ClientCancel(c.seqid, c.method, nil)
 	size, errCh := d.writer.EncodeAndWriteAsync([]interface{}{MethodCancel, c.seqid, c.method})
-	record := NewNetworkInstrumenter(d.instrumenterStorage, RPCInstrumentTag(MethodCancel, c.method))
+	record := NewNetworkInstrumenter(d.instrumenterStorage, InstrumentTag(MethodCancel, c.method))
 	defer func() { _ = record.RecordAndFinish(ctx, size) }()
 	select {
 	case err := <-errCh:

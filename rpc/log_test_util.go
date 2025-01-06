@@ -43,7 +43,7 @@ func (t *testLogOutput) Profile(fmt string, args ...interface{}) {
 	t.log("P", fmt, args)
 }
 
-func (t *testLogOutput) CloneWithAddedDepth(depth int) LogOutputWithDepthAdder { return t }
+func (t *testLogOutput) CloneWithAddedDepth(_ int) LogOutputWithDepthAdder { return t }
 
 func newTestLog(t TestLogger) SimpleLog {
 	log := testLogOutput{t: t}

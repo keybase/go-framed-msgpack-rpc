@@ -119,7 +119,7 @@ func (t *connTransport) Dial(ctx context.Context) (Transporter, error) {
 		// https://github.com/rust-lang/rust/blob/028569ab1b/src/libstd/sys_common/net.rs#L186-L190
 		// Note that we still propagate the error here, and we expect callers
 		// to retry.
-		resinit.ResInitIfDNSError(err)
+		resinit.IfDNSError(err)
 		return nil, err
 	}
 
@@ -274,7 +274,7 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 		// https://github.com/rust-lang/rust/blob/028569ab1b/src/libstd/sys_common/net.rs#L186-L190
 		// Note that we still propagate the error here, and we expect
 		// callers to retry.
-		resinit.ResInitIfDNSError(err)
+		resinit.IfDNSError(err)
 		return nil, err
 	}
 	ct.log.Debug("baseConn: %s; Calling %s",
