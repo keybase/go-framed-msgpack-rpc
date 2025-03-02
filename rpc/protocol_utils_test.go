@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/foks-proj/go-ctxlog"
+	"github.com/stretchr/testify/require"
 )
 
 type server struct {

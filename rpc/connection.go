@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/keybase/backoff"
 	"github.com/foks-proj/go-snowpack-rpc/rpc/resinit"
+	"github.com/keybase/backoff"
 )
 
 // DisconnectStatus is the connection information passed to

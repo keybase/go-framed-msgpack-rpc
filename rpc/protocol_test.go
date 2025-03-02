@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/foks-proj/go-ctxlog"
 	telnet "github.com/reiver/go-telnet"
 	"github.com/stretchr/testify/require"
-	"github.com/foks-proj/go-ctxlog"
 )
 
 var testPort = 8089

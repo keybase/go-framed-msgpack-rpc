@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/foks-proj/go-ctxlog"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRpcTags(t *testing.T) {

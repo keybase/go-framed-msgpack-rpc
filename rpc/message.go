@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/keybase/go-codec/codec"
 	"github.com/foks-proj/go-ctxlog"
+	"github.com/keybase/go-codec/codec"
 )
 
 type rpcMessage interface {
