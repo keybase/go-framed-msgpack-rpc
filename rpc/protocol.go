@@ -134,13 +134,6 @@ type protocolHandlers struct {
 	v2 *protocolHandlerV2
 }
 
-func newProtocolHandlers(v1 *protocolHandler, v2 *protocolHandlerV2) protocolHandlers {
-	return protocolHandlers{
-		v1: v1,
-		v2: v2,
-	}
-}
-
 func (p protocolHandlers) killIncoming(err error) {
 	if p.v1 != nil {
 		p.v1.killIncoming(err)
