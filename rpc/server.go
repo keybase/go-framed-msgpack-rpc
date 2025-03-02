@@ -14,6 +14,10 @@ func (s *Server) Register(p Protocol) error {
 	return s.xp.registerProtocol(p)
 }
 
+func (s *Server) RegisterV2(p ProtocolV2) error {
+	return s.xp.registerProtocolV2(p)
+}
+
 // Run starts processing incoming RPC messages asynchronously, if it
 // hasn't been started already. Returns the result of Done(), for
 // convenience.

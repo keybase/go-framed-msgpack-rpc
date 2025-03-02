@@ -1,11 +1,11 @@
 package rpc
 
 import (
+	"context"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan error) {
@@ -14,7 +14,7 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 
 	protHandler := createMessageTestProtocol(t)
 	if p != nil {
-		err := protHandler.registerProtocol(*p)
+		err := protHandler.v1.registerProtocol(*p)
 		require.NoError(t, err)
 	}
 
@@ -29,8 +29,9 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 	if err != nil {
 		errCh <- err
 	} else {
+		ctx := context.Background()
 		go func() {
-			_, err := pkt.NextFrame()
+			_, err := pkt.NextFrame(ctx)
 			errCh <- err
 		}()
 	}
@@ -38,7 +39,7 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 	return r, errCh
 }
 
-func makeCall(seq SeqNumber, name string, arg interface{}) *rpcCallMessage {
+func makeCall(seq SeqNumber, name *MethodV1, arg interface{}) *rpcCallMessage {
 	return &rpcCallMessage{
 		seqno: seq,
 		name:  name,
@@ -111,7 +112,7 @@ func TestCloseReceiver(t *testing.T) {
 		p,
 		makeCall(
 			0,
-			"waiter.wait",
+			newMethodV1("waiter.wait"),
 			nil,
 		),
 	)

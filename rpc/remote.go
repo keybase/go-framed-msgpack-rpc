@@ -53,9 +53,9 @@ func (r fixedRemote) String() string {
 }
 
 type prioritizedRoundRobinRemote struct {
-	sync.Mutex
 	addresses [][]string
 
+	lock      sync.Mutex
 	toIterate [][]string
 }
 
@@ -108,16 +108,16 @@ func (r *prioritizedRoundRobinRemote) resetLocked() {
 
 // Reset implements the Remote interface.
 func (r *prioritizedRoundRobinRemote) Reset() {
-	r.Lock()
-	defer r.Unlock()
+	r.lock.Lock()
+	defer r.lock.Unlock()
 
 	r.resetLocked()
 }
 
 // GetAddress implements the Remote interface.
 func (r *prioritizedRoundRobinRemote) GetAddress() string {
-	r.Lock()
-	defer r.Unlock()
+	r.lock.Lock()
+	defer r.lock.Unlock()
 
 	// If we have run out of addresses, reset to include all addresses and
 	// start over on next call.
@@ -138,8 +138,6 @@ func (r *prioritizedRoundRobinRemote) GetAddress() string {
 
 // Peek implements the Remote interface.
 func (r *prioritizedRoundRobinRemote) Peek() string {
-	r.Lock()
-	defer r.Unlock()
 	// If we have run out of addresses, reset to include all addresses and
 	// start over on next call.
 	if len(r.toIterate) == 0 {

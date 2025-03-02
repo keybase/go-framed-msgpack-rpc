@@ -2,21 +2,22 @@ package rpc
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/keybase/go-codec/codec"
-	"golang.org/x/net/context"
+	"github.com/foks-proj/go-ctxlog"
 )
 
 type rpcMessage interface {
 	Type() MethodType
-	Name() string
+	Name() Methoder
 	SeqNo() SeqNumber
 	MinLength() int
 	Compression() CompressionType
 	Err() error
-	DecodeMessage(int, *fieldDecoder, *protocolHandler, *callContainer, *compressorCacher, NetworkInstrumenterStorage) error
+	DecodeMessage(int, *fieldDecoder, protocolHandlers, *callContainer, *compressorCacher, NetworkInstrumenterStorage) error
 	RecordAndFinish(context.Context, int64) error
 }
 
@@ -36,41 +37,42 @@ func (r *basicRPCData) loadContext(l int, d *fieldDecoder) error {
 	if l == 0 {
 		return nil
 	}
-	tags := make(CtxRPCTags)
+	tags := make(ctxlog.CtxLogTags)
 	if err := d.Decode(&tags); err != nil {
 		return err
 	}
-	r.ctx = AddRPCTagsToContext(context.Background(), tags)
+	r.ctx = ctxlog.AddTagsToContext(r.Context(), tags)
 	return nil
 }
 
 type rpcCallMessage struct {
 	basicRPCData
 	seqno SeqNumber
-	name  string
+	name  Methoder
 	arg   interface{}
 	err   error
 }
 
-func (rpcCallMessage) MinLength() int {
-	return 3
+func (r rpcCallMessage) MinLength() int {
+	return 2 + r.name.numFields()
 }
 
 func (r *rpcCallMessage) RecordAndFinish(ctx context.Context, size int64) error {
 	return r.instrumenter.RecordAndFinish(ctx, size)
 }
 
-func (r *rpcCallMessage) DecodeMessage(l int, d *fieldDecoder, p *protocolHandler, _ *callContainer,
+func (r *rpcCallMessage) DecodeMessage(l int, d *fieldDecoder, p protocolHandlers, _ *callContainer,
 	_ *compressorCacher, instrumenterStorage NetworkInstrumenterStorage) error {
+
 	if r.err = d.Decode(&r.seqno); r.err != nil {
 		return r.err
 	}
-	if r.err = d.Decode(&r.name); r.err != nil {
+	if r.err = r.name.decodeInto(d); r.err != nil {
 		return r.err
 	}
-	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, InstrumentTag(r.Type(), r.Name()))
+	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, InstrumentTag(r.Type(), r.Name().String()))
 	r.instrumenter.IncrementSize(int64(d.totalSize))
-	if r.arg, r.err = p.getArg(r.name); r.err != nil {
+	if r.arg, r.err = r.name.getArg(p); r.err != nil {
 		return r.err
 	}
 	if r.err = d.Decode(r.arg); r.err != nil {
@@ -88,7 +90,7 @@ func (r rpcCallMessage) SeqNo() SeqNumber {
 	return r.seqno
 }
 
-func (r rpcCallMessage) Name() string {
+func (r rpcCallMessage) Name() Methoder {
 	return r.name
 }
 
@@ -109,6 +111,15 @@ type rpcCallCompressedMessage struct {
 	ctype CompressionType
 }
 
+func newRpcCallCompressedMessage() *rpcCallCompressedMessage {
+	return &rpcCallCompressedMessage{
+		rpcCallMessage: rpcCallMessage{
+			name: &MethodV1{},
+		},
+		ctype: CompressionNone,
+	}
+}
+
 func (rpcCallCompressedMessage) MinLength() int {
 	return 4
 }
@@ -117,7 +128,7 @@ func (r *rpcCallCompressedMessage) RecordAndFinish(ctx context.Context, size int
 	return r.instrumenter.RecordAndFinish(ctx, size)
 }
 
-func (r *rpcCallCompressedMessage) DecodeMessage(l int, d *fieldDecoder, p *protocolHandler, _ *callContainer,
+func (r *rpcCallCompressedMessage) DecodeMessage(l int, d *fieldDecoder, p protocolHandlers, _ *callContainer,
 	compressorCacher *compressorCacher, instrumenterStorage NetworkInstrumenterStorage) error {
 	if r.err = d.Decode(&r.seqno); r.err != nil {
 		return r.err
@@ -125,12 +136,12 @@ func (r *rpcCallCompressedMessage) DecodeMessage(l int, d *fieldDecoder, p *prot
 	if r.err = d.Decode(&r.ctype); r.err != nil {
 		return r.err
 	}
-	if r.err = d.Decode(&r.name); r.err != nil {
+	if r.err = r.name.decodeInto(d); r.err != nil {
 		return r.err
 	}
-	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, InstrumentTag(r.Type(), r.Name()))
+	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, InstrumentTag(r.Type(), r.Name().String()))
 	r.instrumenter.IncrementSize(int64(d.totalSize))
-	if r.arg, r.err = p.getArg(r.name); r.err != nil {
+	if r.arg, r.err = r.name.getArg(p); r.err != nil {
 		return r.err
 	}
 
@@ -184,7 +195,7 @@ func (r *rpcResponseMessage) RecordAndFinish(ctx context.Context, size int64) er
 	return r.c.instrumenter.RecordAndFinish(ctx, size)
 }
 
-func (r *rpcResponseMessage) DecodeMessage(_ int, d *fieldDecoder, _ *protocolHandler, cc *callContainer,
+func (r *rpcResponseMessage) DecodeMessage(l int, d *fieldDecoder, _ protocolHandlers, cc *callContainer,
 	compressorCacher *compressorCacher, _ NetworkInstrumenterStorage) error {
 
 	var seqNo SeqNumber
@@ -270,9 +281,9 @@ func (r rpcResponseMessage) SeqNo() SeqNumber {
 	return r.c.seqid
 }
 
-func (r rpcResponseMessage) Name() string {
+func (r rpcResponseMessage) Name() Methoder {
 	if r.c == nil {
-		return ""
+		return &MethodV1{}
 	}
 	return r.c.method
 }
@@ -301,7 +312,7 @@ func (r rpcResponseMessage) ResponseCh() chan *rpcResponseMessage {
 
 type rpcNotifyMessage struct {
 	basicRPCData
-	name string
+	name Methoder
 	arg  interface{}
 	err  error
 }
@@ -310,14 +321,15 @@ func (r *rpcNotifyMessage) RecordAndFinish(ctx context.Context, size int64) erro
 	return r.instrumenter.RecordAndFinish(ctx, size)
 }
 
-func (r *rpcNotifyMessage) DecodeMessage(l int, d *fieldDecoder, p *protocolHandler, _ *callContainer,
+func (r *rpcNotifyMessage) DecodeMessage(l int, d *fieldDecoder, p protocolHandlers, _ *callContainer,
 	_ *compressorCacher, instrumenterStorage NetworkInstrumenterStorage) error {
-	if r.err = d.Decode(&r.name); r.err != nil {
+
+	if r.err = r.name.decodeInto(d); r.err != nil {
 		return r.err
 	}
-	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, InstrumentTag(r.Type(), r.Name()))
+	r.instrumenter = NewNetworkInstrumenter(instrumenterStorage, InstrumentTag(r.Type(), r.Name().String()))
 	r.instrumenter.IncrementSize(int64(d.totalSize))
-	if r.arg, r.err = p.getArg(r.name); r.err != nil {
+	if r.arg, r.err = r.name.getArg(p); r.err != nil {
 		return r.err
 	}
 	if r.err = d.Decode(r.arg); r.err != nil {
@@ -343,7 +355,7 @@ func (r rpcNotifyMessage) SeqNo() SeqNumber {
 	return -1
 }
 
-func (r rpcNotifyMessage) Name() string {
+func (r rpcNotifyMessage) Name() Methoder {
 	return r.name
 }
 
@@ -357,7 +369,7 @@ func (r rpcNotifyMessage) Err() error {
 
 type rpcCancelMessage struct {
 	seqno SeqNumber
-	name  string
+	name  Methoder
 	err   error
 }
 
@@ -365,12 +377,12 @@ func (r *rpcCancelMessage) RecordAndFinish(_ context.Context, _ int64) error {
 	return nil
 }
 
-func (r *rpcCancelMessage) DecodeMessage(_ int, d *fieldDecoder, _ *protocolHandler, _ *callContainer,
+func (r *rpcCancelMessage) DecodeMessage(_ int, d *fieldDecoder, _ protocolHandlers, _ *callContainer,
 	_ *compressorCacher, _ NetworkInstrumenterStorage) error {
 	if r.err = d.Decode(&r.seqno); r.err != nil {
 		return r.err
 	}
-	r.err = d.Decode(&r.name)
+	r.err = r.name.decodeInto(d)
 	return r.err
 }
 
@@ -390,7 +402,7 @@ func (r rpcCancelMessage) SeqNo() SeqNumber {
 	return r.seqno
 }
 
-func (r rpcCancelMessage) Name() string {
+func (r rpcCancelMessage) Name() Methoder {
 	return r.name
 }
 
@@ -433,7 +445,7 @@ func (dw *fieldDecoder) Decode(i interface{}) error {
 	return nil
 }
 
-func decodeRPC(l int, r *frameReader, p *protocolHandler, cc *callContainer, compressorCacher *compressorCacher,
+func decodeRPC(ctx context.Context, l int, r *frameReader, p protocolHandlers, cc *callContainer, compressorCacher *compressorCacher,
 	instrumenterStorage NetworkInstrumenterStorage) (rpcMessage, error) {
 	decoder := newFieldDecoder(r)
 
@@ -445,15 +457,21 @@ func decodeRPC(l int, r *frameReader, p *protocolHandler, cc *callContainer, com
 	var data rpcMessage
 	switch typ {
 	case MethodCall:
-		data = &rpcCallMessage{}
+		data = &rpcCallMessage{basicRPCData: basicRPCData{ctx: ctx}, name: &MethodV1{}}
+	case MethodCallV2:
+		data = &rpcCallMessage{basicRPCData: basicRPCData{ctx: ctx}, name: &MethodV2{}}
 	case MethodResponse:
 		data = &rpcResponseMessage{}
 	case MethodNotify:
-		data = &rpcNotifyMessage{}
+		data = &rpcNotifyMessage{name: &MethodV1{}}
+	case MethodNotifyV2:
+		data = &rpcNotifyMessage{name: &MethodV2{}}
 	case MethodCancel:
-		data = &rpcCancelMessage{}
+		data = &rpcCancelMessage{name: &MethodV1{}}
+	case MethodCancelV2:
+		data = &rpcCancelMessage{name: &MethodV2{}}
 	case MethodCallCompressed:
-		data = &rpcCallCompressedMessage{}
+		data = newRpcCallCompressedMessage()
 	default:
 		return nil, newRPCDecodeError(typ, "", l, CompressionNone, errors.New("invalid RPC type"))
 	}
@@ -464,7 +482,7 @@ func decodeRPC(l int, r *frameReader, p *protocolHandler, cc *callContainer, com
 	}
 
 	if err := data.DecodeMessage(dataLength, decoder, p, cc, compressorCacher, instrumenterStorage); err != nil {
-		return data, newRPCDecodeError(typ, data.Name(), l, data.Compression(), err)
+		return data, newRPCDecodeError(typ, data.Name().String(), l, data.Compression(), err)
 	}
 	return data, nil
 }

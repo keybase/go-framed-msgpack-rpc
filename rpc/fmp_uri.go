@@ -8,28 +8,28 @@ import (
 )
 
 const (
-	fmpSchemeStandard = "fmprpc"
-	fmpSchemeTLS      = "fmprpc+tls"
+	spSchemeStandard = "sprpc"
+	spSchemeTLS      = "sprpc+tls"
 )
 
-// FMPURI represents a URI with an FMP scheme.
-type FMPURI struct {
+// SPURI represents a URI with an FMP scheme.
+type SPURI struct {
 	Scheme   string
 	HostPort string
 	Host     string
 }
 
-// ParseFMPURI parses an FMPURI.
-func ParseFMPURI(s string) (*FMPURI, error) {
+// ParseSPURI parses an FMPURI.
+func ParseSPURI(s string) (*SPURI, error) {
 	uri, err := url.Parse(s)
 	if err != nil {
 		return nil, err
 	}
 
-	f := &FMPURI{Scheme: uri.Scheme, HostPort: uri.Host}
+	f := &SPURI{Scheme: uri.Scheme, HostPort: uri.Host}
 
 	switch f.Scheme {
-	case fmpSchemeStandard, fmpSchemeTLS:
+	case spSchemeStandard, spSchemeTLS:
 	default:
 		return nil, fmt.Errorf("invalid framed msgpack rpc scheme %s", uri.Scheme)
 	}
@@ -46,15 +46,15 @@ func ParseFMPURI(s string) (*FMPURI, error) {
 	return f, nil
 }
 
-func (f *FMPURI) UseTLS() bool {
-	return f.Scheme == fmpSchemeTLS
+func (f *SPURI) UseTLS() bool {
+	return f.Scheme == spSchemeTLS
 }
 
-func (f *FMPURI) String() string {
+func (f *SPURI) String() string {
 	return fmt.Sprintf("%s://%s", f.Scheme, f.HostPort)
 }
 
-func (f *FMPURI) DialWithConfig(config *tls.Config) (net.Conn, error) {
+func (f *SPURI) DialWithConfig(config *tls.Config) (net.Conn, error) {
 	network, addr := "tcp", f.HostPort
 	if f.UseTLS() {
 		return tls.Dial(network, addr, config)
@@ -62,6 +62,6 @@ func (f *FMPURI) DialWithConfig(config *tls.Config) (net.Conn, error) {
 	return net.Dial(network, addr)
 }
 
-func (f *FMPURI) Dial() (net.Conn, error) {
+func (f *SPURI) Dial() (net.Conn, error) {
 	return f.DialWithConfig(nil)
 }

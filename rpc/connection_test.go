@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -10,8 +11,6 @@ import (
 
 	"github.com/keybase/backoff"
 	"github.com/stretchr/testify/require"
-
-	"golang.org/x/net/context"
 )
 
 type unitTester struct {
@@ -49,7 +48,7 @@ func (ut *unitTester) OnDisconnected(context.Context, DisconnectStatus) {
 }
 
 // ShouldRetry implements the ConnectionHandler interface.
-func (ut *unitTester) ShouldRetry(_ string, err error) bool {
+func (ut *unitTester) ShouldRetry(_ Methoder, err error) bool {
 	_, isThrottle := err.(throttleError)
 	return isThrottle
 }
@@ -202,7 +201,7 @@ func TestReconnectCanceled(t *testing.T) {
 		testErrorUnwrapper{}, &output, opts)
 	defer conn.Shutdown()
 	// Test that any command fails with the expected error.
-	err := conn.DoCommand(context.Background(), "test", 0,
+	err := conn.DoCommand(context.Background(), newMethodV1("test"), 0,
 		func(GenericClient) error { return nil })
 	require.Equal(t, err, cancelErr)
 }
@@ -232,7 +231,7 @@ func TestDoCommandThrottle(t *testing.T) {
 
 	throttle := true
 	ctx := context.Background()
-	err := conn.DoCommand(ctx, "test", 0, func(GenericClient) error {
+	err := conn.DoCommand(ctx, newMethodV1("test"), 0, func(GenericClient) error {
 		if throttle {
 			throttle = false
 			err, _ := conn.errorUnwrapper.UnwrapError(
@@ -251,7 +250,7 @@ func TestConnectionClientCallError(t *testing.T) {
 	c := connectionClient{conn}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- c.Call(context.Background(), "callRpc", nil, nil, 0)
+		errCh <- c.Call(context.Background(), newMethodV1("callRpc"), nil, nil, 0)
 	}()
 	serverConn.Close()
 	err := <-errCh
@@ -266,7 +265,7 @@ func TestConnectionClientCallCompressedError(t *testing.T) {
 		c := connectionClient{conn}
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- c.CallCompressed(context.Background(), "callRpc", nil, nil, ctype, 0)
+			errCh <- c.CallCompressed(context.Background(), newMethodV1("callRpc"), nil, nil, ctype, 0)
 		}()
 		serverConn.Close()
 		err := <-errCh
@@ -281,7 +280,7 @@ func TestConnectionClientNotifyError(t *testing.T) {
 	c := connectionClient{conn}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- c.Notify(context.Background(), "notifyRpc", nil, 0)
+		errCh <- c.Notify(context.Background(), newMethodV1("notifyRpc"), nil, 0)
 	}()
 	serverConn.Close()
 	err := <-errCh
@@ -296,7 +295,7 @@ func TestConnectionClientCallCancel(t *testing.T) {
 	errCh := make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		errCh <- c.Call(ctx, "callRpc", nil, nil, 0)
+		errCh <- c.Call(ctx, newMethodV1("callRpc"), nil, nil, 0)
 	}()
 
 	// Wait for Call to make progress.
@@ -318,7 +317,7 @@ func TestConnectionClientNotifyCancel(t *testing.T) {
 	errCh := make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		errCh <- c.Notify(ctx, "notifyRpc", nil, 0)
+		errCh <- c.Notify(ctx, newMethodV1("notifyRpc"), nil, 0)
 	}()
 
 	// Wait for Notify to make progress.
@@ -362,8 +361,8 @@ func TestDialableTransport(t *testing.T) {
 		DontConnectNow: true,
 	}
 
-	uriStr := "fmprpc://localhost:8080"
-	uri, err := ParseFMPURI(uriStr)
+	uriStr := "sprpc://localhost:8080"
+	uri, err := ParseSPURI(uriStr)
 	require.NoError(t, err)
 
 	wef := func(err error) interface{} {
@@ -406,8 +405,8 @@ func TestDialableTLSConn(t *testing.T) {
 		DontConnectNow: true,
 	}
 
-	uriStr := "fmprpc+tls://localhost:8080"
-	uri, err := ParseFMPURI(uriStr)
+	uriStr := "sprpc+tls://localhost:8080"
+	uri, err := ParseSPURI(uriStr)
 	require.NoError(t, err)
 
 	md := mockedDialable{dialWasCalled: false, setoptsWasCalled: false}

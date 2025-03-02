@@ -17,6 +17,23 @@ type LogField struct {
 	Value interface{}
 }
 
+func (l LogField) String() string {
+	return fmt.Sprintf("%s=%v", l.Key, l.Value)
+}
+
+// Join all the Key/Values together with equal signs. If there are >0
+// of them, then add the prefix, otherwise, just return an empty string.
+func LogFieldsToString(lfs []LogField, prfx string) string {
+	if len(lfs) == 0 {
+		return ""
+	}
+	var tmp []string
+	for _, lf := range lfs {
+		tmp = append(tmp, lf.String())
+	}
+	return prfx + strings.Join(tmp, " ")
+}
+
 // Format implements the fmt.Formatter interface, to make the structured
 // LogField compatible with format-based non-structured loggers.
 func (f LogField) Format(s fmt.State, verb rune) {
@@ -27,9 +44,9 @@ func (f LogField) Format(s fmt.State, verb rune) {
 // implementation that does structural logging may ignore `format` completely
 // if `ConnectionLogMsgKey` is provided in LogField.
 type ConnectionLog interface {
-	Warning(format string, fields ...LogField)
-	Debug(format string, fields ...LogField)
-	Info(format string, fields ...LogField)
+	Warnw(format string, fields ...LogField)
+	Debugw(format string, fields ...LogField)
+	Infow(format string, fields ...LogField)
 }
 
 type ConnectionLogFactory interface {
@@ -53,27 +70,24 @@ func newConnectionLogUnstructured(
 }
 
 func formatLogFields(f string, lf ...LogField) string {
-	fields := make([]interface{}, 0, len(lf))
-	for _, lf := range lf {
-		fields = append(fields, lf)
-	}
-	return fmt.Sprintf(f, fields...)
+	lfs := LogFieldsToString(lf, " ")
+	return f + lfs
 }
 
-func (l *connectionLogUnstructured) Warning(
+func (l *connectionLogUnstructured) Warnw(
 	format string, fields ...LogField) {
-	l.LogOutput.Warning("(%s) %s", l.logPrefix,
+	l.LogOutput.Warnf("(%s) %s", l.logPrefix,
 		formatLogFields(format, fields...))
 }
 
-func (l *connectionLogUnstructured) Debug(
+func (l *connectionLogUnstructured) Debugw(
 	format string, fields ...LogField) {
-	l.LogOutput.Debug("(%s) %s", l.logPrefix,
+	l.LogOutput.Debugf("(%s) %s", l.logPrefix,
 		formatLogFields(format, fields...))
 }
 
-func (l *connectionLogUnstructured) Info(
+func (l *connectionLogUnstructured) Infow(
 	format string, fields ...LogField) {
-	l.LogOutput.Info("(%s) %s", l.logPrefix,
+	l.LogOutput.Infof("(%s) %s", l.logPrefix,
 		formatLogFields(format, fields...))
 }

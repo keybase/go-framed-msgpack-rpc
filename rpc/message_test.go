@@ -2,13 +2,14 @@ package rpc
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
+	"github.com/foks-proj/go-ctxlog"
 )
 
-func createMessageTestProtocol(t *testing.T) *protocolHandler {
+func createMessageTestProtocol(t *testing.T) protocolHandlers {
 	p := newProtocolHandler(nil)
 	err := p.registerProtocol(Protocol{
 		Name: "abc",
@@ -24,7 +25,7 @@ func createMessageTestProtocol(t *testing.T) *protocolHandler {
 		},
 	})
 	require.NoError(t, err)
-	return p
+	return protocolHandlers{v1: p}
 }
 
 func runMessageTest(t *testing.T, ctype CompressionType, v []interface{}) (rpcMessage, error) {
@@ -33,7 +34,7 @@ func runMessageTest(t *testing.T, ctype CompressionType, v []interface{}) (rpcMe
 	cc := newCallContainer()
 	instrumenterStorage := NewMemoryInstrumentationStorage()
 	record := NewNetworkInstrumenter(instrumenterStorage, "foo.bar")
-	c := cc.NewCall(context.Background(), "foo.bar", new(interface{}), new(string), ctype, nil, record)
+	c := cc.NewCall(context.Background(), newMethodV1("foo.bar"), new(interface{}), new(string), ctype, nil, record)
 	cc.AddCall(c)
 
 	log := newTestLog(t)
@@ -45,7 +46,7 @@ func runMessageTest(t *testing.T, ctype CompressionType, v []interface{}) (rpcMe
 	require.NoError(t, err, "expected encoding to succeed")
 	require.EqualValues(t, buf.Len(), size)
 
-	return pkt.NextFrame()
+	return pkt.NextFrame(context.Background())
 }
 
 func TestMessageDecodeValid(t *testing.T) {
@@ -58,7 +59,7 @@ func TestMessageDecodeValid(t *testing.T) {
 	require.Equal(t, MethodCall, c.Type())
 	require.Equal(t, CompressionNone, c.Compression())
 	require.Equal(t, SeqNumber(999), c.SeqNo())
-	require.Equal(t, "abc.hello", c.Name())
+	require.Equal(t, newMethodV1("abc.hello"), c.Name())
 	require.Equal(t, nil, c.Arg())
 }
 
@@ -73,13 +74,13 @@ func TestMessageDecodeValidCompressed(t *testing.T) {
 		require.Equal(t, MethodCallCompressed, c.Type())
 		require.Equal(t, ctype, c.Compression())
 		require.Equal(t, SeqNumber(999), c.SeqNo())
-		require.Equal(t, "abc.hello", c.Name())
+		require.Equal(t, newMethodV1("abc.hello"), c.Name())
 		require.Equal(t, nil, c.Arg())
 	})
 }
 
 func TestMessageDecodeValidExtraParams(t *testing.T) {
-	tags := CtxRPCTags{"hello": "world"}
+	tags := ctxlog.CtxLogTags{"hello": "world"}
 	v := []interface{}{MethodCall, 999, "abc.hello", new(interface{}), tags, "foo"}
 
 	rpc, err := runMessageTest(t, CompressionNone, v)
@@ -89,9 +90,9 @@ func TestMessageDecodeValidExtraParams(t *testing.T) {
 	require.Equal(t, MethodCall, c.Type())
 	require.Equal(t, SeqNumber(999), c.SeqNo())
 	require.Equal(t, CompressionNone, c.Compression())
-	require.Equal(t, "abc.hello", c.Name())
+	require.Equal(t, newMethodV1("abc.hello"), c.Name())
 	require.Equal(t, nil, c.Arg())
-	resultTags, ok := TagsFromContext(c.Context())
+	resultTags, ok := ctxlog.TagsFromContext(c.Context())
 	require.True(t, ok)
 	require.Equal(t, tags, resultTags)
 }

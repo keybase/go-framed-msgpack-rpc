@@ -56,12 +56,42 @@ func (m MethodNotFoundError) Error() string {
 	return fmt.Sprintf("method '%s' not found in protocol '%s'", m.m, m.p)
 }
 
+type MethodV2NotFoundError struct {
+	ProtID   ProtocolUniqueID
+	Method   Position
+	ProtName string
+}
+
+func NewMethodV2NotFoundError(protID ProtocolUniqueID, m Position, n string) MethodV2NotFoundError {
+	return MethodV2NotFoundError{
+		ProtID:   protID,
+		Method:   m,
+		ProtName: n,
+	}
+}
+
+func (m MethodV2NotFoundError) Error() string {
+	return fmt.Sprintf("no method %d found in %s (0x%x)", m.Method, m.ProtName, m.ProtID)
+}
+
 type ProtocolNotFoundError struct {
 	p string
 }
 
+type ProtocolV2NotFoundError struct {
+	U ProtocolUniqueID
+}
+
 func newProtocolNotFoundError(p string) ProtocolNotFoundError {
 	return ProtocolNotFoundError{p: p}
+}
+
+func NewProtocolV2NotFoundError(u ProtocolUniqueID) ProtocolV2NotFoundError {
+	return ProtocolV2NotFoundError{U: u}
+}
+
+func (p ProtocolV2NotFoundError) Error() string {
+	return fmt.Sprintf("protocol V2 not found: 0x%x", uint64(p.U))
 }
 
 func (p ProtocolNotFoundError) Error() string {
@@ -78,6 +108,22 @@ func newAlreadyRegisteredError(p string) AlreadyRegisteredError {
 
 func (a AlreadyRegisteredError) Error() string {
 	return a.p + ": protocol already registered"
+}
+
+type AlreadyRegisteredV2Error struct {
+	u ProtocolUniqueID
+	n string
+}
+
+func newAlreadyRegisteredV2Error(u ProtocolUniqueID, n string) AlreadyRegisteredV2Error {
+	return AlreadyRegisteredV2Error{
+		u: u,
+		n: n,
+	}
+}
+
+func (a AlreadyRegisteredV2Error) Error() string {
+	return fmt.Sprintf("%s (0x%x): protocol already registered", a.n, a.u)
 }
 
 type TypeError struct {

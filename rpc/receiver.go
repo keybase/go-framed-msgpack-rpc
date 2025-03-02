@@ -1,6 +1,8 @@
 package rpc
 
-import "golang.org/x/net/context"
+import (
+	"context"
+)
 
 type task struct {
 	seqid      SeqNumber
@@ -13,8 +15,8 @@ type receiver interface {
 }
 
 type receiveHandler struct {
-	writer      *framedMsgpackEncoder
-	protHandler *protocolHandler
+	writer    *framedMsgpackEncoder
+	protocols protocolHandlers
 
 	tasks map[int]context.CancelFunc
 
@@ -31,14 +33,14 @@ type receiveHandler struct {
 	log LogInterface
 }
 
-func newReceiveHandler(enc *framedMsgpackEncoder, protHandler *protocolHandler,
+func newReceiveHandler(enc *framedMsgpackEncoder, protHandlers protocolHandlers,
 	l LogInterface) *receiveHandler {
 	r := &receiveHandler{
-		writer:      enc,
-		protHandler: protHandler,
-		tasks:       make(map[int]context.CancelFunc),
-		stopCh:      make(chan struct{}),
-		closedCh:    make(chan struct{}),
+		writer:    enc,
+		protocols: protHandlers,
+		tasks:     make(map[int]context.CancelFunc),
+		stopCh:    make(chan struct{}),
+		closedCh:  make(chan struct{}),
 
 		taskBeginCh:  make(chan *task),
 		taskCancelCh: make(chan SeqNumber),
@@ -109,7 +111,7 @@ func (r *receiveHandler) receiveCallCompressed(rpc *rpcCallCompressedMessage) er
 }
 
 func (r *receiveHandler) receiveCancel(rpc *rpcCancelMessage) error {
-	r.log.ServerCancelCall(rpc.SeqNo(), rpc.Name())
+	r.log.ServerCancelCall(rpc.SeqNo(), rpc.Name().String())
 	r.taskCancelCh <- rpc.SeqNo()
 	return nil
 }
@@ -117,9 +119,9 @@ func (r *receiveHandler) receiveCancel(rpc *rpcCancelMessage) error {
 func (r *receiveHandler) handleReceiveDispatch(req request) error {
 	if req.Err() != nil {
 		req.LogInvocation(req.Err())
-		return req.Reply(r.writer, nil, wrapError(r.protHandler.wef, req.Err()))
+		return req.Reply(r.writer, nil, wrapError(r.protocols.v1.wef, req.Err()))
 	}
-	serveHandler, wrapErrorFunc, se := r.protHandler.findServeHandler(req.Name())
+	serveHandler, wrapErrorFunc, se := req.Name().findServeHandler(r.protocols)
 	if se != nil {
 		req.LogInvocation(se)
 		return req.Reply(r.writer, nil, wrapError(wrapErrorFunc, se))

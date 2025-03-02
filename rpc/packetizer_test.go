@@ -3,6 +3,7 @@ package rpc
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/keybase/go-codec/codec"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func TestFrameReaderReadByte(t *testing.T) {
@@ -109,7 +109,7 @@ func TestFrameReaderDrainFailure(t *testing.T) {
 	require.Equal(t, 0, buf.Len())
 }
 
-func createPacketizerTestProtocol(t *testing.T) *protocolHandler {
+func createPacketizerTestProtocol(t *testing.T) protocolHandlers {
 	p := newProtocolHandler(nil)
 	err := p.registerProtocol(Protocol{
 		Name: "abc",
@@ -125,7 +125,7 @@ func createPacketizerTestProtocol(t *testing.T) *protocolHandler {
 		},
 	})
 	require.NoError(t, err)
-	return p
+	return protocolHandlers{v1: p}
 }
 
 func TestPacketizerDecodeNegativeLength(t *testing.T) {
@@ -140,7 +140,7 @@ func TestPacketizerDecodeNegativeLength(t *testing.T) {
 	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(t),
 		cc, log, instrumenterStorage)
 
-	_, err = pkt.NextFrame()
+	_, err = pkt.NextFrame(context.Background())
 	require.Equal(t, NewPacketizerError("invalid frame length: -1"), err)
 }
 
@@ -156,7 +156,7 @@ func TestPacketizerDecodeTooLargeLength(t *testing.T) {
 	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(t),
 		cc, log, instrumenterStorage)
 
-	_, err = pkt.NextFrame()
+	_, err = pkt.NextFrame(context.Background())
 	require.Equal(t, NewPacketizerError("frame length too big: %d > %d", testMaxFrameLength+1, testMaxFrameLength), err)
 }
 
@@ -174,7 +174,7 @@ func TestPacketizerDecodeShortPacket(t *testing.T) {
 		cc, log, instrumenterStorage)
 
 	// Shouldn't try to allocate a buffer for the packet.
-	_, err = pkt.NextFrame()
+	_, err = pkt.NextFrame(context.Background())
 	require.Equal(t, io.ErrUnexpectedEOF, err)
 }
 
@@ -191,7 +191,7 @@ func TestPacketizerDecodeBadLengthField(t *testing.T) {
 	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(t),
 		cc, log, instrumenterStorage)
 
-	_, err = pkt.NextFrame()
+	_, err = pkt.NextFrame(context.Background())
 	require.Equal(t, NewPacketizerError("wrong message structure prefix (0x90)"), err)
 }
 
@@ -225,47 +225,48 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	cc := newCallContainer()
 	instrumenterStorage := NewMemoryInstrumentationStorage()
 	record := NewNetworkInstrumenter(instrumenterStorage, "Response foo.bar")
-	c := cc.NewCall(ctx, "foo.bar", new(interface{}), new(string), CompressionNone, nil, record)
+	c := cc.NewCall(ctx, newMethodV1("foo.bar"), new(interface{}), new(string), CompressionNone, nil, record)
 	cc.AddCall(c)
 
 	log := newTestLog(t)
 	pkt := newPacketizer(testMaxFrameLength, &buf, createPacketizerTestProtocol(t),
 		cc, log, instrumenterStorage)
 
-	f1, err := pkt.NextFrame()
+	f1, err := pkt.NextFrame(context.Background())
 	require.NoError(t, err)
 	record = f1.(*rpcCallMessage).basicRPCData.instrumenter
 	f1.(*rpcCallMessage).basicRPCData.instrumenter = nil
 	require.Equal(t, &rpcCallMessage{
-		seqno: 1,
-		name:  "abc.hello",
+		basicRPCData: basicRPCData{ctx: context.Background()},
+		seqno:        1,
+		name:         newMethodV1("abc.hello"),
 	}, f1)
 	require.EqualValues(t, sizes[0], record.Size)
 	require.Equal(t, InstrumentTag(MethodCall, "abc.hello"), record.tag)
 
-	f2, err := pkt.NextFrame()
+	f2, err := pkt.NextFrame(ctx)
 	require.IsType(t, PacketizerError{}, err)
 	require.Nil(t, f2)
 
-	f3, err := pkt.NextFrame()
+	f3, err := pkt.NextFrame(ctx)
 	require.IsType(t, PacketizerError{}, err)
 	require.Nil(t, f3)
 
-	f4, err := pkt.NextFrame()
+	f4, err := pkt.NextFrame(ctx)
 	require.NoError(t, err)
 	record = f4.(*rpcNotifyMessage).basicRPCData.instrumenter
 	f4.(*rpcNotifyMessage).basicRPCData.instrumenter = nil
 	require.Equal(t, &rpcNotifyMessage{
-		name: "abc.hello",
+		name: newMethodV1("abc.hello"),
 	}, f4)
 	require.EqualValues(t, sizes[3], record.Size)
 	require.Equal(t, InstrumentTag(MethodNotify, "abc.hello"), record.tag)
 
-	f5, err := pkt.NextFrame()
+	f5, err := pkt.NextFrame(ctx)
 	require.IsType(t, PacketizerError{}, err)
 	require.Nil(t, f5)
 
-	f6, err := pkt.NextFrame()
+	f6, err := pkt.NextFrame(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, f6.(*rpcResponseMessage).c)
 	record = f6.(*rpcResponseMessage).c.instrumenter
@@ -277,15 +278,15 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	require.EqualValues(t, sizes[5], record.Size)
 	require.Equal(t, InstrumentTag(MethodResponse, "foo.bar"), record.tag)
 
-	f7, err := pkt.NextFrame()
+	f7, err := pkt.NextFrame(ctx)
 	require.IsType(t, DecodeError{}, err)
 	require.Nil(t, f7)
 
-	f8, err := pkt.NextFrame()
+	f8, err := pkt.NextFrame(ctx)
 	require.NoError(t, err)
 	require.Equal(t, &rpcCancelMessage{
 		seqno: 1,
-		name:  "abc.hello",
+		name:  newMethodV1("abc.hello"),
 	}, f8)
 }
 
@@ -307,7 +308,7 @@ func TestPacketizerReaderOpError(t *testing.T) {
 	pkt := newPacketizer(testMaxFrameLength, errReader{opErr}, createPacketizerTestProtocol(t),
 		newCallContainer(), log, instrumenterStorage)
 
-	msg, err := pkt.NextFrame()
+	msg, err := pkt.NextFrame(context.Background())
 	require.Nil(t, msg)
 	require.Equal(t, io.EOF, err)
 }

@@ -1,4 +1,4 @@
-module github.com/keybase/go-framed-msgpack-rpc
+module github.com/foks-proj/go-snowpack-rpc
 
 go 1.21
 
@@ -14,6 +14,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/foks-proj/go-ctxlog v0.0.0-20250302122002-41ac32f428cb // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/reiver/go-oi v1.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

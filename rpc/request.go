@@ -1,7 +1,7 @@
 package rpc
 
 import (
-	"golang.org/x/net/context"
+	"context"
 )
 
 type request interface {
@@ -41,11 +41,11 @@ func newCallRequest(rpc *rpcCallMessage, log LogInterface) *callRequest {
 }
 
 func (r *callRequest) LogInvocation(err error) {
-	r.log.ServerCall(r.SeqNo(), r.Name(), err, r.Arg())
+	r.log.ServerCall(r.SeqNo(), r.Name().String(), err, r.Arg())
 }
 
 func (r *callRequest) LogCompletion(res interface{}, err error) {
-	r.log.ServerReply(r.SeqNo(), r.Name(), err, res)
+	r.log.ServerReply(r.SeqNo(), r.Name().String(), err, res)
 }
 
 func (r *callRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg interface{}) (err error) {
@@ -62,10 +62,13 @@ func (r *callRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg i
 	select {
 	case err := <-errCh:
 		if err != nil {
-			r.log.Warning("Reply error for %d: %s", r.SeqNo(), err.Error())
+			r.log.Warnw("reply error",
+				LogField{"seqno", r.SeqNo()},
+				LogField{"err", err.Error()},
+			)
 		}
 	case <-r.ctx.Done():
-		r.log.Info("Call canceled after reply sent. Seq: %d", r.SeqNo())
+		r.log.Infow("call canceled after reply sent", LogField{"seqno", r.SeqNo()})
 	}
 	return err
 }
@@ -81,7 +84,7 @@ func (r *callRequest) Serve(transmitter *framedMsgpackEncoder, handler *ServeHan
 	r.LogCompletion(res, err)
 
 	if err := r.Reply(transmitter, res, wrapError(wrapErrorFunc, err)); err != nil {
-		r.log.Info("Unable to reply: %v", err)
+		r.log.Infow("Unable to reply", LogField{"err", err})
 	}
 }
 
@@ -103,11 +106,11 @@ func newCallCompressedRequest(rpc *rpcCallCompressedMessage, log LogInterface) *
 }
 
 func (r *callCompressedRequest) LogInvocation(err error) {
-	r.log.ServerCallCompressed(r.SeqNo(), r.Name(), err, r.Arg(), r.Compression())
+	r.log.ServerCallCompressed(r.SeqNo(), r.Name().String(), err, r.Arg(), r.Compression())
 }
 
 func (r *callCompressedRequest) LogCompletion(res interface{}, err error) {
-	r.log.ServerReplyCompressed(r.SeqNo(), r.Name(), err, res, r.Compression())
+	r.log.ServerReplyCompressed(r.SeqNo(), r.Name().String(), err, res, r.Compression())
 }
 
 func (r *callCompressedRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg interface{}) (err error) {
@@ -128,10 +131,10 @@ func (r *callCompressedRequest) Reply(enc *framedMsgpackEncoder, res interface{}
 	select {
 	case err := <-errCh:
 		if err != nil {
-			r.log.Warning("Reply error for %d: %s", r.SeqNo(), err.Error())
+			r.log.Warnw("reply error", LogField{"seqno", r.SeqNo()}, LogField{"err", err})
 		}
 	case <-r.ctx.Done():
-		r.log.Info("Call canceled after reply sent. Seq: %d", r.SeqNo())
+		r.log.Infow("call canceled after reply sent", LogField{"seqno", r.SeqNo()})
 	}
 	return err
 }
@@ -147,7 +150,7 @@ func (r *callCompressedRequest) Serve(transmitter *framedMsgpackEncoder, handler
 	r.LogCompletion(res, err)
 
 	if err := r.Reply(transmitter, res, wrapError(wrapErrorFunc, err)); err != nil {
-		r.log.Info("Unable to reply: %v", err)
+		r.log.Infow("unable to reply", LogField{"err", err})
 	}
 }
 
@@ -169,11 +172,11 @@ func newNotifyRequest(rpc *rpcNotifyMessage, log LogInterface) *notifyRequest {
 }
 
 func (r *notifyRequest) LogInvocation(err error) {
-	r.log.ServerNotifyCall(r.Name(), err, r.Arg())
+	r.log.ServerNotifyCall(r.Name().String(), err, r.Arg())
 }
 
 func (r *notifyRequest) LogCompletion(_ interface{}, err error) {
-	r.log.ServerNotifyComplete(r.Name(), err)
+	r.log.ServerNotifyComplete(r.Name().String(), err)
 }
 
 func (r *notifyRequest) Serve(_ *framedMsgpackEncoder, handler *ServeHandlerDescription, _ WrapErrorFunc) {

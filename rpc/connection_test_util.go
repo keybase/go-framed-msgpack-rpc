@@ -1,12 +1,11 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 type testConnectionHandler struct{}
@@ -26,7 +25,7 @@ func (testConnectionHandler) OnDoCommandError(_ error, _ time.Duration) {
 func (testConnectionHandler) OnDisconnected(_ context.Context, _ DisconnectStatus) {
 }
 
-func (testConnectionHandler) ShouldRetry(_ string, _ error) bool {
+func (testConnectionHandler) ShouldRetry(_ Methoder, err error) bool {
 	return false
 }
 
@@ -134,7 +133,7 @@ func MakeConnectionForTest(t TestLogger) (net.Conn, *Connection) {
 	logOutput := testLogOutput{t: t}
 	logFactory := NewSimpleLogFactory(&logOutput, nil)
 	instrumenterStorage := NewMemoryInstrumentationStorage()
-	transporter := NewTransport(clientConn, logFactory,
+	transporter := NewTransport(context.TODO(), clientConn, logFactory,
 		instrumenterStorage, testWrapError, testMaxFrameLength)
 	st := singleTransport{transporter}
 	opts := ConnectionOpts{

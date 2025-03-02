@@ -5,29 +5,29 @@ import (
 	"testing"
 )
 
-type fmpURITest struct {
+type spURITest struct {
 	in  string
-	out *FMPURI
+	out *SPURI
 	err string
 	tls bool
 }
 
 var addrErr = net.AddrError{Err: "missing port in address", Addr: "gregor.api.keybase.io"}
 
-var fmpURITests = []fmpURITest{
-	{in: "fmprpc://gregor.api.keybase.io:80", out: &FMPURI{Scheme: fmpSchemeStandard, HostPort: "gregor.api.keybase.io:80", Host: "gregor.api.keybase.io"}},
-	{in: "fmprpc+tls://gregor.api.keybase.io:443", out: &FMPURI{Scheme: fmpSchemeTLS, HostPort: "gregor.api.keybase.io:443", Host: "gregor.api.keybase.io"}, tls: true},
-	{in: "fmprpc+tls://gregor.api.keybase.io:80", out: &FMPURI{Scheme: fmpSchemeTLS, HostPort: "gregor.api.keybase.io:80", Host: "gregor.api.keybase.io"}, tls: true},
-	{in: "fmprpc://gregor.api.keybase.io:443", out: &FMPURI{Scheme: fmpSchemeStandard, HostPort: "gregor.api.keybase.io:443", Host: "gregor.api.keybase.io"}},
+var spURITests = []spURITest{
+	{in: "sprpc://gregor.api.keybase.io:80", out: &SPURI{Scheme: spSchemeStandard, HostPort: "gregor.api.keybase.io:80", Host: "gregor.api.keybase.io"}},
+	{in: "sprpc+tls://gregor.api.keybase.io:443", out: &SPURI{Scheme: spSchemeTLS, HostPort: "gregor.api.keybase.io:443", Host: "gregor.api.keybase.io"}, tls: true},
+	{in: "sprpc+tls://gregor.api.keybase.io:80", out: &SPURI{Scheme: spSchemeTLS, HostPort: "gregor.api.keybase.io:80", Host: "gregor.api.keybase.io"}, tls: true},
+	{in: "sprpc://gregor.api.keybase.io:443", out: &SPURI{Scheme: spSchemeStandard, HostPort: "gregor.api.keybase.io:443", Host: "gregor.api.keybase.io"}},
 	{in: "https://gregor.api.keybase.io:443", err: "invalid framed msgpack rpc scheme https"},
-	{in: "fmprpc://gregor.api.keybase.io", err: addrErr.Error()},
-	{in: "fmprpc+tls://gregor.api.keybase.io", err: addrErr.Error()},
-	{in: "fmprpc+tls://:443", err: "missing host in address :443"},
+	{in: "sprpc://gregor.api.keybase.io", err: addrErr.Error()},
+	{in: "sprpc+tls://gregor.api.keybase.io", err: addrErr.Error()},
+	{in: "sprpc+tls://:443", err: "missing host in address :443"},
 }
 
-func TestParseFMPURI(t *testing.T) {
-	for _, test := range fmpURITests {
-		u, err := ParseFMPURI(test.in)
+func TestParseSPURI(t *testing.T) {
+	for _, test := range spURITests {
+		u, err := ParseSPURI(test.in)
 		if err != nil {
 			if test.err == "" {
 				t.Errorf("Parse(%q) error: %v, expected no error", test.in, err)

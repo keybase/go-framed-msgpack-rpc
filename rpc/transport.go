@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -17,9 +18,15 @@ type Transporter interface {
 	IsConnected() bool
 
 	registerProtocol(p Protocol) error
+	registerProtocolV2(p ProtocolV2) error
 
 	getDispatcher() (dispatcher, error)
 	getReceiver() (receiver, error)
+
+	// KillIncoming stops processing incoming RPC messages. For calls,
+	// it will reply with the given error. For notifies, it will ignore
+	// the message.
+	KillIncoming(err error)
 
 	// receiveFrames starts processing incoming frames in a
 	// background goroutine, if it's not already happening.
@@ -37,6 +44,9 @@ type Transporter interface {
 	// same value.
 	err() error
 
+	// Conn is the underlying Go connection that this Transport wraps
+	Conn() net.Conn
+
 	// Close closes the transport and releases resources.
 	Close()
 }
@@ -44,12 +54,13 @@ type Transporter interface {
 var _ Transporter = (*transport)(nil)
 
 type transport struct {
+	ctx        context.Context
 	c          net.Conn
 	enc        *framedMsgpackEncoder
 	dispatcher dispatcher
 	receiver   receiver
 	packetizer *packetizer
-	protocols  *protocolHandler
+	protocols  protocolHandlers
 	calls      *callContainer
 	log        LogInterface
 	closeOnce  sync.Once
@@ -67,7 +78,7 @@ const DefaultMaxFrameLength = 100 * 1024 * 1024
 // NewTransport creates a new Transporter from the given connection
 // and parameters. Both sides of a connection should use the same
 // number for maxFrameLength.
-func NewTransport(c net.Conn, l LogFactory, instrumenterStorage NetworkInstrumenterStorage, wef WrapErrorFunc, maxFrameLength int32) Transporter {
+func NewTransport(ctx context.Context, c net.Conn, l LogFactory, instrumenterStorage NetworkInstrumenterStorage, wef WrapErrorFunc, maxFrameLength int32) Transporter {
 	if maxFrameLength <= 0 {
 		panic(fmt.Sprintf("maxFrameLength must be positive: got %d", maxFrameLength))
 	}
@@ -81,11 +92,15 @@ func NewTransport(c net.Conn, l LogFactory, instrumenterStorage NetworkInstrumen
 	}
 
 	ret := &transport{
-		c:         c,
-		log:       log,
-		stopCh:    make(chan struct{}),
-		protocols: newProtocolHandler(wef),
-		calls:     newCallContainer(),
+		ctx:    ctx,
+		c:      c,
+		log:    log,
+		stopCh: make(chan struct{}),
+		protocols: protocolHandlers{
+			v1: newProtocolHandler(wef),
+			v2: newProtocolV2Handler(wef),
+		},
+		calls: newCallContainer(),
 	}
 	enc := newFramedMsgpackEncoder(maxFrameLength, c)
 	ret.enc = enc
@@ -121,6 +136,10 @@ func (t *transport) IsConnected() bool {
 	}
 }
 
+func (t *transport) Conn() net.Conn {
+	return t.c
+}
+
 func (t *transport) receiveFrames() <-chan struct{} {
 	t.startOnce.Do(func() {
 		go t.receiveFramesLoop()
@@ -146,9 +165,9 @@ func (t *transport) receiveFramesLoop() {
 	var err error
 	for shouldContinue(err) {
 		var rpc rpcMessage
-		if rpc, err = t.packetizer.NextFrame(); shouldReceive(rpc) {
+		if rpc, err = t.packetizer.NextFrame(t.ctx); shouldReceive(rpc) {
 			if rerr := t.receiver.Receive(rpc); rerr != nil {
-				t.log.Info("error on Receive: %v", rerr)
+				t.log.Infow("error on Receive", LogField{"err", err})
 			}
 		}
 	}
@@ -161,6 +180,10 @@ func (t *transport) receiveFramesLoop() {
 	t.stopErr = err
 
 	t.Close()
+}
+
+func (t *transport) KillIncoming(err error) {
+	t.protocols.killIncoming(err)
 }
 
 func (t *transport) getDispatcher() (dispatcher, error) {
@@ -178,7 +201,11 @@ func (t *transport) getReceiver() (receiver, error) {
 }
 
 func (t *transport) registerProtocol(p Protocol) error {
-	return t.protocols.registerProtocol(p)
+	return t.protocols.v1.registerProtocol(p)
+}
+
+func (t *transport) registerProtocolV2(p ProtocolV2) error {
+	return t.protocols.v2.registerProtocol(p)
 }
 
 func shouldContinue(err error) bool {
@@ -188,9 +215,9 @@ func shouldContinue(err error) bool {
 		return true
 	case CallNotFoundError:
 		return true
-	case MethodNotFoundError:
+	case MethodNotFoundError, MethodV2NotFoundError:
 		return true
-	case ProtocolNotFoundError:
+	case ProtocolNotFoundError, ProtocolV2NotFoundError:
 		return true
 	default:
 		return false
@@ -204,11 +231,13 @@ func shouldReceive(rpc rpcMessage) bool {
 	switch rpc.Err().(type) {
 	case nil:
 		return true
-	case MethodNotFoundError:
+	case MethodNotFoundError, MethodV2NotFoundError:
 		return true
-	case ProtocolNotFoundError:
+	case ProtocolNotFoundError, ProtocolV2NotFoundError:
 		return true
 	default:
 		return false
 	}
 }
+
+var _ Transporter = (*transport)(nil)

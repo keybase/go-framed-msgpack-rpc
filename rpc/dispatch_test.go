@@ -1,12 +1,12 @@
 package rpc
 
 import (
+	"context"
 	"io"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func dispatchTestCallWithContextAndCompressionType(ctx context.Context, t *testing.T, ctype CompressionType) (dispatcher, *callContainer, chan error) {
@@ -22,13 +22,13 @@ func dispatchTestCallWithContextAndCompressionType(ctx context.Context, t *testi
 	d := newDispatch(dispatchOut, calls, log, instrumenterStorage)
 
 	done := runInBg(func() error {
-		return d.Call(ctx, "abc.hello", new(interface{}), new(interface{}),
+		return d.Call(ctx, newMethodV1("abc.hello"), new(interface{}), new(interface{}),
 			ctype, nil, nil)
 	})
 
 	// Necessary to ensure the call is far enough along to
 	// be ready to respond
-	_, decoderErr := pkt.NextFrame()
+	_, decoderErr := pkt.NextFrame(context.Background())
 	require.NoError(t, decoderErr, "Expected no error")
 	return d, calls, done
 }
@@ -140,7 +140,7 @@ func TestDispatchCallAfterClose(t *testing.T) {
 	d.Close()
 
 	done = runInBg(func() error {
-		return d.Call(context.Background(), "whatever", new(interface{}), new(interface{}),
+		return d.Call(context.Background(), newMethodV1("whatever"), new(interface{}), new(interface{}),
 			CompressionNone, nil, nil)
 	})
 	err = <-done
@@ -159,7 +159,7 @@ func TestDispatchCancelEndToEnd(t *testing.T) {
 
 	ch := make(chan error)
 	go func() {
-		err := d.Call(ctx1, "abc.hello", nil, new(interface{}),
+		err := d.Call(ctx1, newMethodV1("abc.hello"), nil, new(interface{}),
 			CompressionNone, nil, nil)
 		ch <- err
 	}()

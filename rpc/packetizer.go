@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -26,14 +27,14 @@ type packetizer struct {
 	maxFrameLength      int32
 	lengthDecoder       *codec.Decoder
 	reader              *lastErrReader
-	protocols           *protocolHandler
+	protocols           protocolHandlers
 	calls               *callContainer
 	compressorCacher    *compressorCacher
 	instrumenterStorage NetworkInstrumenterStorage
 	log                 LogInterface
 }
 
-func newPacketizer(maxFrameLength int32, reader io.Reader, protocols *protocolHandler, calls *callContainer,
+func newPacketizer(maxFrameLength int32, reader io.Reader, protocols protocolHandlers, calls *callContainer,
 	log LogInterface, instrumenterStorage NetworkInstrumenterStorage) *packetizer {
 	wrappedReader := &lastErrReader{bufio.NewReader(reader), nil}
 	return &packetizer{
@@ -116,7 +117,7 @@ func (l *frameReader) drain() error {
 
 	// Shouldn't happen, but handle it anyway.
 	if l.remaining != 0 {
-		return fmt.Errorf("Unexpected remaining %d", l.remaining)
+		return fmt.Errorf("unexpected remaining %d", l.remaining)
 	}
 
 	return nil
@@ -138,7 +139,7 @@ var _ io.Reader = (*frameReader)(nil)
 //     rpcMessage will be non-nil, and its Err() will match this
 //     error. We can then process the error and continue with the next
 //     packet.
-func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
+func (p *packetizer) NextFrame(ctx context.Context) (msg rpcMessage, err error) {
 	// Get the packet length.
 	var l int32
 	if err := p.lengthDecoder.Decode(&l); err != nil {
@@ -182,5 +183,5 @@ func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
 		return nil, NewPacketizerError("wrong message structure prefix (0x%x)", nb)
 	}
 
-	return decodeRPC(int(nb-0x90), r, p.protocols, p.calls, p.compressorCacher, p.instrumenterStorage)
+	return decodeRPC(ctx, int(nb-0x90), r, p.protocols, p.calls, p.compressorCacher, p.instrumenterStorage)
 }

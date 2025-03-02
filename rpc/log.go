@@ -1,12 +1,14 @@
 package rpc
 
 import (
-	"encoding/json"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"time"
+
+	"github.com/keybase/go-codec/codec"
 )
 
 type Profiler interface {
@@ -32,8 +34,10 @@ type LogInterface interface {
 	ClientReply(SeqNumber, string, error, interface{})
 	StartProfiler(format string, args ...interface{}) Profiler
 	UnexpectedReply(SeqNumber)
-	Warning(format string, args ...interface{})
-	Info(format string, args ...interface{})
+	Warnf(format string, args ...interface{})
+	Warnw(format string, args ...LogField)
+	Infof(format string, args ...interface{})
+	Infow(format string, args ...LogField)
 }
 
 type LogFactory interface {
@@ -41,11 +45,16 @@ type LogFactory interface {
 }
 
 type LogOutput interface {
-	Error(s string, args ...interface{})
-	Warning(s string, args ...interface{})
-	Info(s string, args ...interface{})
-	Debug(s string, args ...interface{})
-	Profile(s string, args ...interface{})
+	Errorf(s string, args ...interface{})
+	Errorw(s string, args ...LogField)
+	Warnf(s string, args ...interface{})
+	Warnw(s string, args ...LogField)
+	Infof(s string, args ...interface{})
+	Infow(s string, args ...LogField)
+	Debugf(s string, args ...interface{})
+	Debugw(s string, args ...LogField)
+	Profilef(s string, args ...interface{})
+	Profilew(s string, args ...LogField)
 }
 
 type LogOutputWithDepthAdder interface {
@@ -85,11 +94,21 @@ func (s SimpleLogOutput) log(ch string, fmts string, args []interface{}) {
 	fmt.Fprintf(os.Stderr, fmts, args...)
 }
 
-func (s SimpleLogOutput) Info(fmt string, args ...interface{})    { s.log("I", fmt, args) }
-func (s SimpleLogOutput) Error(fmt string, args ...interface{})   { s.log("E", fmt, args) }
-func (s SimpleLogOutput) Debug(fmt string, args ...interface{})   { s.log("D", fmt, args) }
-func (s SimpleLogOutput) Warning(fmt string, args ...interface{}) { s.log("W", fmt, args) }
-func (s SimpleLogOutput) Profile(fmt string, args ...interface{}) { s.log("P", fmt, args) }
+func (s SimpleLogOutput) logw(ch string, msg string, args []LogField) {
+	fields := LogFieldsToString(args, " ")
+	fmt.Fprintf(os.Stderr, "[%s] %s%s\n", ch, msg, fields)
+}
+
+func (s SimpleLogOutput) Infof(fmt string, args ...interface{})    { s.log("I", fmt, args) }
+func (s SimpleLogOutput) Infow(fmt string, args ...LogField)       { s.logw("I", fmt, args) }
+func (s SimpleLogOutput) Errorf(fmt string, args ...interface{})   { s.log("E", fmt, args) }
+func (s SimpleLogOutput) Errorw(fmt string, args ...LogField)      { s.logw("E", fmt, args) }
+func (s SimpleLogOutput) Debugf(fmt string, args ...interface{})   { s.log("D", fmt, args) }
+func (s SimpleLogOutput) Debugw(fmt string, args ...LogField)      { s.logw("D", fmt, args) }
+func (s SimpleLogOutput) Warnf(fmt string, args ...interface{})    { s.log("W", fmt, args) }
+func (s SimpleLogOutput) Warnw(fmt string, args ...LogField)       { s.logw("W", fmt, args) }
+func (s SimpleLogOutput) Profilef(fmt string, args ...interface{}) { s.log("P", fmt, args) }
+func (s SimpleLogOutput) Profilew(fmt string, args ...LogField)    { s.logw("P", fmt, args) }
 
 func (so SimpleLogOptions) ShowAddress() bool    { return true }
 func (so SimpleLogOptions) ShowArg() bool        { return true }
@@ -119,8 +138,22 @@ func (s *StandardLogOptions) ClientTrace() bool    { return s.clientTrace }
 func (s *StandardLogOptions) ServerTrace() bool    { return s.serverTrace }
 func (s *StandardLogOptions) TransportStart() bool { return s.connectionInfo }
 
-func NewStandardLogOptions(opts string, log LogOutput) LogOptions {
+type BadLogFlagsError struct {
+	badOpts []rune
+}
+
+func (b BadLogFlagsError) String() string {
+	return string(b.badOpts)
+}
+
+func (b BadLogFlagsError) Error() string {
+	return "bad log flag(s): " + b.String()
+}
+
+func ParseStandardLogOptions(opts string) (LogOptions, error) {
 	var s StandardLogOptions
+	var badOpts []rune
+
 	for _, c := range opts {
 		switch c {
 		case 'A':
@@ -138,10 +171,22 @@ func NewStandardLogOptions(opts string, log LogOutput) LogOptions {
 		case 'p':
 			s.profile = true
 		default:
-			log.Warning("Unknown logging flag: %c", c)
+			badOpts = append(badOpts, c)
 		}
 	}
-	return &s
+	var err error
+	if len(badOpts) > 0 {
+		err = BadLogFlagsError{badOpts: badOpts}
+	}
+	return &s, err
+}
+
+func NewStandardLogOptions(opts string, log LogOutput) LogOptions {
+	ret, err := ParseStandardLogOptions(opts)
+	if err != nil {
+		log.Warnf("unknown logging flag: %s", err.(BadLogFlagsError).String())
+	}
+	return ret
 }
 
 func NewSimpleLogFactory(out LogOutput, opts LogOptions) SimpleLogFactory {
@@ -174,21 +219,21 @@ func AddrToString(addr net.Addr) string {
 
 func (s SimpleLog) TransportStart() {
 	if s.Opts.TransportStart() {
-		s.Out.Debug(s.msg(true, "New connection"))
+		s.Out.Debugf(s.msg(true, "New connection"))
 	}
 }
 
 func (s SimpleLog) TransportError(e error) {
 	if e != io.EOF {
-		s.Out.Error(s.msg(true, "Error in transport: %s", e.Error()))
+		s.Out.Errorf(s.msg(true, "Error in transport: %s", e.Error()))
 	} else if s.Opts.TransportStart() {
-		s.Out.Debug(s.msg(true, "EOF"))
+		s.Out.Debugf(s.msg(true, "EOF"))
 	}
 }
 
 func (s SimpleLog) FrameRead(bytes []byte) {
 	if s.Opts.FrameTrace() {
-		s.Out.Debug(s.msg(false, "Frame read: %x", bytes))
+		s.Out.Debugf(s.msg(false, "Frame read: %x", bytes))
 	}
 }
 
@@ -263,38 +308,32 @@ func (s SimpleLog) ClientReply(q SeqNumber, meth string, err error, res interfac
 
 func (s SimpleLog) trace(which string, objname string, verbose bool, q SeqNumber,
 	meth string, err error, obj interface{}, ctype *CompressionType) {
-	args := []interface{}{which, q}
-	fmts := "%s(%d):"
+
+	fields := []LogField{{"which", which}}
+
 	if len(meth) > 0 {
-		fmts += " method=%s;"
-		args = append(args, meth)
+		fields = append(fields, LogField{"method", meth})
 	}
 	if ctype != nil {
-		fmts += " ctype=%s;"
-		args = append(args, ctype)
+		fields = append(fields, LogField{"ctype", *ctype})
 	}
 
-	fmts += " err=%s;"
-	var es string
-	if err == nil {
-		es = "null"
-	} else {
-		es = err.Error()
-	}
-	args = append(args, es)
+	fields = append(fields, LogField{"err", err})
 	if verbose {
-		fmts += " %s=%s;"
-		eb, err := json.Marshal(obj)
-		var es string
+		var mh codec.MsgpackHandle
+		mh.WriteExt = true
+		var b []byte
+		enc := codec.NewEncoderBytes(&b, &mh)
+		err := enc.Encode(obj)
+		var val interface{}
 		if err != nil {
-			es = fmt.Sprintf(`{"error": "%s"}`, err.Error())
+			val = fmt.Sprintf("<encoding error: %s>", err.Error())
 		} else {
-			es = string(eb)
+			val = base64.StdEncoding.EncodeToString(b)
 		}
-		args = append(args, objname)
-		args = append(args, es)
+		fields = append(fields, LogField{objname, val})
 	}
-	s.Out.Debug(s.msg(false, fmts, args...))
+	s.Out.Debugw("trace", s.msgw(false, fields)...)
 }
 
 func (s SimpleLog) StartProfiler(format string, args ...interface{}) Profiler {
@@ -309,15 +348,30 @@ func (s SimpleLog) StartProfiler(format string, args ...interface{}) Profiler {
 }
 
 func (s SimpleLog) UnexpectedReply(seqno SeqNumber) {
-	s.Out.Warning(s.msg(false, "Unexpected seqno %d in incoming reply", seqno))
+	s.Warnw("unexepcted seqno in incoming reply", LogField{"seqno", seqno})
 }
 
-func (s SimpleLog) Warning(format string, args ...interface{}) {
-	s.Out.Warning(s.msg(false, format, args...))
+func (s SimpleLog) Warnf(format string, args ...interface{}) {
+	s.Out.Warnf(s.msg(false, format, args...))
 }
 
-func (s SimpleLog) Info(format string, args ...interface{}) {
-	s.Out.Info(s.msg(false, format, args...))
+func (s SimpleLog) Infof(format string, args ...interface{}) {
+	s.Out.Infof(s.msg(false, format, args...))
+}
+
+func (s SimpleLog) Infow(msg string, args ...LogField) {
+	s.Out.Infow(msg, s.msgw(false, args)...)
+}
+
+func (s SimpleLog) Warnw(msg string, args ...LogField) {
+	s.Out.Warnw(msg, s.msgw(false, args)...)
+}
+
+func (s SimpleLog) msgw(force bool, args []LogField) []LogField {
+	if s.Opts.ShowAddress() || force {
+		args = append(args, LogField{"addr", AddrToString(s.Addr)})
+	}
+	return args
 }
 
 func (s SimpleLog) msg(force bool, format string, args ...interface{}) string {
@@ -338,10 +392,25 @@ type SimpleProfiler struct {
 func (s *SimpleProfiler) Stop() {
 	stop := time.Now()
 	diff := stop.Sub(s.start)
-	s.log.Out.Profile(s.log.msg(false, "%s ran in %dms", s.msg, diff/time.Millisecond))
+	s.log.Out.Profilef(s.log.msg(false, "%s ran in %dms", s.msg, diff/time.Millisecond))
 }
 
 // Callers shouldn't have to worry about whether an interface is satisfied or not
 type NilProfiler struct{}
 
 func (n NilProfiler) Stop() {}
+
+type NilLogOutput struct{}
+
+func (s NilLogOutput) Infof(fmt string, args ...interface{})    {}
+func (s NilLogOutput) Infow(fmt string, args ...LogField)       {}
+func (s NilLogOutput) Errorf(fmt string, args ...interface{})   {}
+func (s NilLogOutput) Errorw(fmt string, args ...LogField)      {}
+func (s NilLogOutput) Debugf(fmt string, args ...interface{})   {}
+func (s NilLogOutput) Debugw(fmt string, args ...LogField)      {}
+func (s NilLogOutput) Warnf(fmt string, args ...interface{})    {}
+func (s NilLogOutput) Warnw(fmt string, args ...LogField)       {}
+func (s NilLogOutput) Profilef(fmt string, args ...interface{}) {}
+func (s NilLogOutput) Profilew(fmt string, args ...LogField)    {}
+
+var _ LogOutput = NilLogOutput{}

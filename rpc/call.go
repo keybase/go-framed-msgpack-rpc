@@ -1,9 +1,8 @@
 package rpc
 
 import (
+	"context"
 	"sync"
-
-	"golang.org/x/net/context"
 )
 
 type call struct {
@@ -11,7 +10,7 @@ type call struct {
 
 	resultCh chan *rpcResponseMessage
 
-	method         string
+	method         Methoder
 	seqid          SeqNumber
 	arg            interface{}
 	res            interface{}
@@ -34,7 +33,7 @@ func newCallContainer() *callContainer {
 	}
 }
 
-func (cc *callContainer) NewCall(ctx context.Context, m string, arg interface{}, res interface{},
+func (cc *callContainer) NewCall(ctx context.Context, m Methoder, arg interface{}, res interface{},
 	ctype CompressionType, u ErrorUnwrapper, instrumenter *NetworkInstrumenter) *call {
 	// Buffer one response to take into account that a call stops
 	// waiting for its result when its canceled. (See

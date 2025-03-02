@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -9,7 +10,7 @@ import (
 
 	telnet "github.com/reiver/go-telnet"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
+	"github.com/foks-proj/go-ctxlog"
 )
 
 var testPort = 8089
@@ -40,7 +41,7 @@ func prepClient(t *testing.T) (TestClient, net.Conn) {
 
 	lf := NewSimpleLogFactory(&testLogOutput{t: t}, nil)
 	instrumenterStorage := NewMemoryInstrumentationStorage()
-	xp := NewTransport(c, lf, instrumenterStorage, nil, testMaxFrameLength)
+	xp := NewTransport(context.Background(), c, lf, instrumenterStorage, nil, testMaxFrameLength)
 	return TestClient{GenericClient: NewClient(xp, nil, nil)}, c
 }
 
@@ -121,7 +122,7 @@ func TestLongCall(t *testing.T) {
 	defer endTest(t, conn, listener)
 
 	ctx := context.Background()
-	ctx = AddRPCTagsToContext(ctx, CtxRPCTags{"hello": []string{"world"}})
+	ctx = ctxlog.AddTagsToContext(ctx, ctxlog.CtxLogTags{"hello": []string{"world"}})
 
 	longResult, err := cli.LongCall(ctx)
 	require.NoError(t, err, "call should have succeeded")
@@ -133,7 +134,7 @@ func TestCallCompressed(t *testing.T) {
 	defer endTest(t, conn, listener)
 
 	ctx := context.Background()
-	ctx = AddRPCTagsToContext(ctx, CtxRPCTags{"hello": []string{"world"}})
+	ctx = ctxlog.AddTagsToContext(ctx, ctxlog.CtxLogTags{"hello": []string{"world"}})
 
 	nargs := NArgs{N: 50}
 	verifyRes := func(res []*Constants, err error) {
@@ -151,7 +152,7 @@ func TestCallCompressed(t *testing.T) {
 		for i := 0; i < numRuns; i++ {
 			go func(i int) {
 				res := []*Constants{}
-				err := cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, ctype, 0)
+				err := cli.CallCompressed(ctx, newMethodV1("test.1.testp.GetNConstants"), nargs, &res, ctype, 0)
 				verifyRes(res, err)
 				done <- i
 			}(i)
@@ -167,11 +168,11 @@ func TestCallCompressed(t *testing.T) {
 
 	// Also test CallCompressed w/CompressionNone and regular Call work identically
 	res = []*Constants{}
-	err = cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, CompressionNone, 0)
+	err = cli.CallCompressed(ctx, newMethodV1("test.1.testp.GetNConstants"), nargs, &res, CompressionNone, 0)
 	verifyRes(res, err)
 
 	res = []*Constants{}
-	err = cli.Call(ctx, "test.1.testp.GetNConstants", nargs, &res, 0)
+	err = cli.Call(ctx, newMethodV1("test.1.testp.GetNConstants"), nargs, &res, 0)
 	verifyRes(res, err)
 }
 
@@ -180,7 +181,7 @@ func TestLongCallCancel(t *testing.T) {
 	defer endTest(t, conn, listener)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = AddRPCTagsToContext(ctx, CtxRPCTags{"hello": []string{"world"}})
+	ctx = ctxlog.AddTagsToContext(ctx, ctxlog.CtxLogTags{"hello": []string{"world"}})
 
 	resultCh := make(chan longCallResult)
 	runInBg(func() error {
@@ -207,7 +208,7 @@ func TestLongCallCancel(t *testing.T) {
 
 	res = <-resultCh
 	require.Nil(t, res.err, "call should have succeeded")
-	require.Equal(t, CtxRPCTags{"hello": []interface{}{"world"}}, res.res, "canceled call should have set the debug tags")
+	require.Equal(t, ctxlog.CtxLogTags{"hello": []interface{}{"world"}, "server": "test123"}, res.res, "canceled call should have set the debug tags")
 }
 
 func TestLongCallTimeout(t *testing.T) {
@@ -218,7 +219,7 @@ func TestLongCallTimeout(t *testing.T) {
 	runInBg(func() error {
 		var res int
 		// specify a millisecond timeout
-		err := cli.Call(context.TODO(), "test.1.testp.LongCall", nil, &res, time.Millisecond)
+		err := cli.Call(context.Background(), newMethodV1("test.1.testp.LongCall"), nil, &res, time.Millisecond)
 		resultCh <- longCallResult{res, err}
 		return nil
 	})

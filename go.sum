@@ -1,5 +1,7 @@
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/foks-proj/go-ctxlog v0.0.0-20250302122002-41ac32f428cb h1:McWH3v7HnhUkbWmU60JKuStAjgb71VbBuELf49XDQAY=
+github.com/foks-proj/go-ctxlog v0.0.0-20250302122002-41ac32f428cb/go.mod h1:Krvn7SJOuBi1gZx2r40NBOAjftGg2j++3nHiAPis9Oo=
 github.com/keybase/backoff v1.0.1-0.20160517061000-726b63b835ec h1:D6qL2WCnAuxucGbmL+mDW8IKRK1pex+R1fw5rKa9nXc=
 github.com/keybase/backoff v1.0.1-0.20160517061000-726b63b835ec/go.mod h1:jeBKj+20GIDry3doFsAMYH9n7Y3l7ajE3xJrKvVB23s=
 github.com/keybase/go-codec v0.0.0-20180928230036-164397562123 h1:yg56lYPqh9suJepqxOMd/liFgU/x+maRPiB30JNYykM=

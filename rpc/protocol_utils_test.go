@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
+	"github.com/foks-proj/go-ctxlog"
 )
 
 type server struct {
@@ -21,7 +22,7 @@ func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan er
 	o := testLogOutput{t: t}
 	lf := NewSimpleLogFactory(&o, nil)
 	instrumenterStorage := NewMemoryInstrumentationStorage()
-	o.Info(fmt.Sprintf("Listening on port %d...", s.port))
+	o.Infof(fmt.Sprintf("Listening on port %d...", s.port))
 	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil {
 		return
 	}
@@ -32,7 +33,8 @@ func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan er
 			externalListener <- io.EOF
 			return err
 		}
-		xp := NewTransport(c, lf, instrumenterStorage, nil, testMaxFrameLength)
+		ctx := ctxlog.WithLogTagWithValue(context.Background(), "server", "test123")
+		xp := NewTransport(ctx, c, lf, instrumenterStorage, nil, testMaxFrameLength)
 		srv := NewServer(xp, nil)
 		err := srv.Register(createTestProtocol(newTestProtocol(c)))
 		require.NoError(t, err)
@@ -48,7 +50,7 @@ type testProtocol struct {
 	c              net.Conn
 	constants      Constants
 	longCallResult int
-	debugTags      CtxRPCTags
+	debugTags      ctxlog.CtxLogTags
 	notifyCh       chan struct{}
 }
 
@@ -91,7 +93,7 @@ func (a *testProtocol) LongCall(ctx context.Context) (int, error) {
 	defer func() {
 		close(a.notifyCh)
 	}()
-	tags, _ := TagsFromContext(ctx)
+	tags, _ := ctxlog.TagsFromContext(ctx)
 	a.debugTags = tags
 	a.longCallResult = 0
 	for i := 0; i < 100; i++ {
@@ -112,7 +114,7 @@ func (a *testProtocol) LongCallResult(_ context.Context) (int, error) {
 	return a.longCallResult, nil
 }
 
-func (a *testProtocol) LongCallDebugTags(_ context.Context) (CtxRPCTags, error) {
+func (a *testProtocol) LongCallDebugTags(_ context.Context) (ctxlog.CtxLogTags, error) {
 	return a.debugTags, nil
 }
 
@@ -140,7 +142,7 @@ type TestInterface interface {
 	GetNConstants(*NArgs) ([]*Constants, error)
 	LongCall(context.Context) (int, error)
 	LongCallResult(context.Context) (int, error)
-	LongCallDebugTags(context.Context) (CtxRPCTags, error)
+	LongCallDebugTags(context.Context) (ctxlog.CtxLogTags, error)
 }
 
 func createTestProtocol(i TestInterface) Protocol {
@@ -231,42 +233,42 @@ type TestClient struct {
 }
 
 func (a TestClient) Add(ctx context.Context, arg AddArgs) (ret int, err error) {
-	err = a.Call(ctx, "test.1.testp.add", arg, &ret, 0)
+	err = a.Call(ctx, newMethodV1("test.1.testp.add"), arg, &ret, 0)
 	return ret, err
 }
 func (a TestClient) BrokenMethod() (err error) {
-	return a.Call(context.Background(), "test.1.testp.broken", nil, nil, 0)
+	return a.Call(context.Background(), newMethodV1("test.1.testp.broken"), nil, nil, 0)
 }
 
 func (a TestClient) BrokenProtocol() error {
-	return a.Call(context.Background(), "test.2.testp.broken", nil, nil, 0)
+	return a.Call(context.Background(), newMethodV1("test.2.testp.broken"), nil, nil, 0)
 }
 
 func (a TestClient) UpdateConstants(ctx context.Context, arg Constants) error {
-	return a.Notify(ctx, "test.1.testp.updateConstants", arg, 0)
+	return a.Notify(ctx, newMethodV1("test.1.testp.updateConstants"), arg, 0)
 }
 
 func (a TestClient) GetConstants(ctx context.Context) (ret Constants, err error) {
-	err = a.Call(ctx, "test.1.testp.GetConstants", nil, &ret, 0)
+	err = a.Call(ctx, newMethodV1("test.1.testp.GetConstants"), nil, &ret, 0)
 	return ret, err
 }
 
 func (a TestClient) GetNConstants(ctx context.Context, nargs NArgs) (ret []*Constants, err error) {
-	err = a.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &ret, CompressionGzip, 0)
+	err = a.CallCompressed(ctx, newMethodV1("test.1.testp.GetNConstants"), nargs, &ret, CompressionGzip, 0)
 	return ret, err
 }
 
 func (a TestClient) LongCall(ctx context.Context) (ret int, err error) {
-	err = a.Call(ctx, "test.1.testp.LongCall", nil, &ret, 0)
+	err = a.Call(ctx, newMethodV1("test.1.testp.LongCall"), nil, &ret, 0)
 	return ret, err
 }
 
 func (a TestClient) LongCallResult(ctx context.Context) (ret int, err error) {
-	err = a.Call(ctx, "test.1.testp.LongCallResult", nil, &ret, 0)
+	err = a.Call(ctx, newMethodV1("test.1.testp.LongCallResult"), nil, &ret, 0)
 	return ret, err
 }
 
-func (a TestClient) LongCallDebugTags(ctx context.Context) (ret CtxRPCTags, err error) {
-	err = a.Call(ctx, "test.1.testp.LongCallDebugTags", nil, &ret, 0)
+func (a TestClient) LongCallDebugTags(ctx context.Context) (ret ctxlog.CtxLogTags, err error) {
+	err = a.Call(ctx, newMethodV1("test.1.testp.LongCallDebugTags"), nil, &ret, 0)
 	return ret, err
 }
