@@ -111,7 +111,7 @@ type rpcCallCompressedMessage struct {
 	ctype CompressionType
 }
 
-func newRpcCallCompressedMessage() *rpcCallCompressedMessage {
+func newRPCCallCompressedMessage() *rpcCallCompressedMessage {
 	return &rpcCallCompressedMessage{
 		rpcCallMessage: rpcCallMessage{
 			name: &MethodV1{},
@@ -195,7 +195,7 @@ func (r *rpcResponseMessage) RecordAndFinish(ctx context.Context, size int64) er
 	return r.c.instrumenter.RecordAndFinish(ctx, size)
 }
 
-func (r *rpcResponseMessage) DecodeMessage(l int, d *fieldDecoder, _ protocolHandlers, cc *callContainer,
+func (r *rpcResponseMessage) DecodeMessage(_ int, d *fieldDecoder, _ protocolHandlers, cc *callContainer,
 	compressorCacher *compressorCacher, _ NetworkInstrumenterStorage) error {
 
 	var seqNo SeqNumber
@@ -471,7 +471,7 @@ func decodeRPC(ctx context.Context, l int, r *frameReader, p protocolHandlers, c
 	case MethodCancelV2:
 		data = &rpcCancelMessage{name: &MethodV2{}}
 	case MethodCallCompressed:
-		data = newRpcCallCompressedMessage()
+		data = newRPCCallCompressedMessage()
 	default:
 		return nil, newRPCDecodeError(typ, "", l, CompressionNone, errors.New("invalid RPC type"))
 	}

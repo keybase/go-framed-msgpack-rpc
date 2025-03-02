@@ -100,7 +100,7 @@ type Protocol struct {
 
 type ProtocolV2 struct {
 	Name      string
-	Id        ProtocolUniqueID
+	ID        ProtocolUniqueID
 	Methods   map[Position]ServeHandlerDescriptionV2
 	WrapError WrapErrorFunc
 }
@@ -178,10 +178,10 @@ func (h *protocolHandlerV2) registerProtocol(p ProtocolV2) error {
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
 
-	if _, found := h.protocols[p.Id]; found {
-		return newAlreadyRegisteredV2Error(p.Id, p.Name)
+	if _, found := h.protocols[p.ID]; found {
+		return newAlreadyRegisteredV2Error(p.ID, p.Name)
 	}
-	h.protocols[p.Id] = p
+	h.protocols[p.ID] = p
 	return nil
 }
 
@@ -206,7 +206,7 @@ func (h *protocolHandler) findServeHandler(method Methoder) (*ServeHandlerDescri
 		return nil, h.wef, newMethodNotFoundError(p, m)
 	}
 	if h.killWith != nil {
-		srv.Handler = func(ctx context.Context, arg interface{}) (ret interface{}, err error) {
+		srv.Handler = func(_ context.Context, _ interface{}) (ret interface{}, err error) {
 			return nil, h.killWith
 		}
 	}
@@ -225,7 +225,7 @@ func (h *protocolHandlerV2) findServeHandler(meth MethodV2) (*ServeHandlerDescri
 		return nil, h.wef, NewMethodV2NotFoundError(meth.puid, meth.method, prot.Name)
 	}
 	if h.killWith != nil {
-		srv.Handler = func(ctx context.Context, arg interface{}) (ret interface{}, err error) {
+		srv.Handler = func(_ context.Context, _ interface{}) (ret interface{}, err error) {
 			return nil, h.killWith
 		}
 	}

@@ -306,7 +306,7 @@ func (s SimpleLog) ClientReply(q SeqNumber, meth string, err error, res interfac
 	}
 }
 
-func (s SimpleLog) trace(which string, objname string, verbose bool, q SeqNumber,
+func (s SimpleLog) trace(which string, objname string, verbose bool, _ SeqNumber,
 	meth string, err error, obj interface{}, ctype *CompressionType) {
 
 	fields := []LogField{{"which", which}}
@@ -402,15 +402,15 @@ func (n NilProfiler) Stop() {}
 
 type NilLogOutput struct{}
 
-func (s NilLogOutput) Infof(fmt string, args ...interface{})    {}
-func (s NilLogOutput) Infow(fmt string, args ...LogField)       {}
-func (s NilLogOutput) Errorf(fmt string, args ...interface{})   {}
-func (s NilLogOutput) Errorw(fmt string, args ...LogField)      {}
-func (s NilLogOutput) Debugf(fmt string, args ...interface{})   {}
-func (s NilLogOutput) Debugw(fmt string, args ...LogField)      {}
-func (s NilLogOutput) Warnf(fmt string, args ...interface{})    {}
-func (s NilLogOutput) Warnw(fmt string, args ...LogField)       {}
-func (s NilLogOutput) Profilef(fmt string, args ...interface{}) {}
-func (s NilLogOutput) Profilew(fmt string, args ...LogField)    {}
+func (s NilLogOutput) Infof(_ string, _ ...interface{})    {}
+func (s NilLogOutput) Infow(_ string, _ ...LogField)       {}
+func (s NilLogOutput) Errorf(_ string, _ ...interface{})   {}
+func (s NilLogOutput) Errorw(_ string, _ ...LogField)      {}
+func (s NilLogOutput) Debugf(_ string, _ ...interface{})   {}
+func (s NilLogOutput) Debugw(_ string, _ ...LogField)      {}
+func (s NilLogOutput) Warnf(_ string, _ ...interface{})    {}
+func (s NilLogOutput) Warnw(_ string, _ ...LogField)       {}
+func (s NilLogOutput) Profilef(_ string, _ ...interface{}) {}
+func (s NilLogOutput) Profilew(_ string, _ ...LogField)    {}
 
 var _ LogOutput = NilLogOutput{}

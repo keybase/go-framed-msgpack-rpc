@@ -936,6 +936,6 @@ func (c connectionClient) Notify(ctx context.Context, s Methoder, args interface
 	})
 }
 
-func (c connectionClient) Transport(ctx context.Context) (Transporter, error) {
+func (c connectionClient) Transport(_ context.Context) (Transporter, error) {
 	return nil, errors.New("Transport not available")
 }

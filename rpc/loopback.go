@@ -79,7 +79,7 @@ func NewLoopbackConnPair() (*LoopbackConn, *LoopbackConn) {
 
 // LoopbackDial dials the given LoopbackListener and yields an new net.Conn
 // that's a connection to it.
-func (ll *LoopbackListener) Dial(ctx context.Context) (net.Conn, error) {
+func (ll *LoopbackListener) Dial(_ context.Context) (net.Conn, error) {
 	ll.log("+ LoopbackListener.Dial")
 	ll.mutex.Lock()
 	defer ll.mutex.Unlock()
@@ -189,13 +189,13 @@ func (lc *LoopbackConn) RemoteAddr() (addr net.Addr) {
 // the deadline after successful Read or Write calls.
 //
 // A zero value for t means I/O operations will not time out.
-func (lc *LoopbackConn) SetDeadline(t time.Time) (err error) {
+func (lc *LoopbackConn) SetDeadline(_ time.Time) (err error) {
 	return
 }
 
 // SetReadDeadline sets the deadline for future Read calls.
 // A zero value for t means Read will not time out.
-func (lc *LoopbackConn) SetReadDeadline(t time.Time) (err error) {
+func (lc *LoopbackConn) SetReadDeadline(_ time.Time) (err error) {
 	return
 }
 
@@ -203,7 +203,7 @@ func (lc *LoopbackConn) SetReadDeadline(t time.Time) (err error) {
 // Even if write times out, it may return n > 0, indicating that
 // some of the data was successfully written.
 // A zero value for t means Write will not time out.
-func (lc *LoopbackConn) SetWriteDeadline(t time.Time) (err error) {
+func (lc *LoopbackConn) SetWriteDeadline(_ time.Time) (err error) {
 	return
 }
 

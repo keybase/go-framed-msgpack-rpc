@@ -36,8 +36,8 @@ func LogFieldsToString(lfs []LogField, prfx string) string {
 
 // Format implements the fmt.Formatter interface, to make the structured
 // LogField compatible with format-based non-structured loggers.
-func (f LogField) Format(s fmt.State, verb rune) {
-	fmt.Fprintf(s, "%"+string(verb), f.Value)
+func (l LogField) Format(s fmt.State, verb rune) {
+	fmt.Fprintf(s, "%"+string(verb), l.Value)
 }
 
 // ConnectionLog defines an interface used by connection.go for logging. An

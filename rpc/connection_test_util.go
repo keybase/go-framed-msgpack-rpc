@@ -25,7 +25,7 @@ func (testConnectionHandler) OnDoCommandError(_ error, _ time.Duration) {
 func (testConnectionHandler) OnDisconnected(_ context.Context, _ DisconnectStatus) {
 }
 
-func (testConnectionHandler) ShouldRetry(_ Methoder, err error) bool {
+func (testConnectionHandler) ShouldRetry(_ Methoder, _ error) bool {
 	return false
 }
 

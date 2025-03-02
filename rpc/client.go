@@ -116,7 +116,7 @@ func (c *Client) Notify(ctx context.Context, method Methoder, arg interface{}, t
 	return d.Notify(ctx, method, arg, c.sendNotifier)
 }
 
-func (c *Client) Transport(ctx context.Context) (Transporter, error) {
+func (c *Client) Transport(_ context.Context) (Transporter, error) {
 	return c.xp, nil
 }
 
