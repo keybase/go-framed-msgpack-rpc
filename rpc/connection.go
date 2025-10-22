@@ -148,7 +148,9 @@ func (t *connTransport) Finalize() {
 }
 
 func (t *connTransport) Close() {
-	t.conn.Close()
+	if t.conn != nil {
+		t.conn.Close()
+	}
 	if t.transport != nil {
 		t.transport.Close()
 	}
@@ -602,7 +604,7 @@ func (c *Connection) setReconnectCompleteForTest(ch chan struct{}) {
 }
 
 // connect performs the actual connect() and rpc setup.
-func (c *Connection) connect(ctx context.Context) error {
+func (c *Connection) connect(ctx context.Context) (err error) {
 	c.log.Debug("Connection: %s",
 		LogField{Key: ConnectionLogMsgKey, Value: "dialing transport"})
 
@@ -614,6 +616,17 @@ func (c *Connection) connect(ctx context.Context) error {
 			LogField{Key: "error", Value: err})
 		return err
 	}
+
+	// If we encounter any errors before successfully completing the connection,
+	// close the transport to prevent resource leaks and duplicate servers.
+	// This provides immediate cleanup without waiting for Shutdown() to be called.
+	defer func() {
+		if err != nil {
+			c.log.Debug("Connection: %s",
+				LogField{Key: ConnectionLogMsgKey, Value: "closing transport due to connection failure"})
+			transport.Close()
+		}
+	}()
 
 	client := NewClient(transport, c.errorUnwrapper, c.tagsFunc)
 	server := NewServer(transport, c.wef)
@@ -700,7 +713,7 @@ func (c *Connection) DoCommand(ctx context.Context, name string, timeout time.Du
 	}
 }
 
-// Blocks until a connnection is ready for use or the context is canceled.
+// Blocks until a connection is ready for use or the context is canceled.
 func (c *Connection) waitForConnection(
 	ctx context.Context, forceReconnect bool) error {
 	reconnectChan, disconnectStatus, reconnectErrPtr, wait :=
@@ -890,8 +903,10 @@ func (c *Connection) Shutdown() {
 	if c.cancelFunc != nil {
 		c.cancelFunc()
 	}
-	if c.transport != nil && c.transport.IsConnected() {
-		// close the connection
+	if c.transport != nil {
+		// Close the transport unconditionally. Don't check
+		// IsConnected() to allow for transports with internal
+		// connections that need cleanup.
 		c.transport.Close()
 	}
 }
