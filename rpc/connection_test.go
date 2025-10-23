@@ -435,3 +435,194 @@ func TestDialableTLSConn(t *testing.T) {
 	require.True(t, md.setoptsWasCalled)
 	md.mutex.Unlock()
 }
+
+// closeTrackingTransport wraps a Transporter and counts Close() calls
+type closeTrackingTransport struct {
+	Transporter
+	closeCount int
+	mu         sync.Mutex
+}
+
+func (t *closeTrackingTransport) Close() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.closeCount++
+	t.Transporter.Close()
+}
+
+func (t *closeTrackingTransport) getCloseCount() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.closeCount
+}
+
+// trackingConnectionTransport wraps a ConnectionTransport and tracks the created Transporter
+type trackingConnectionTransport struct {
+	ConnectionTransport
+	tracked *closeTrackingTransport
+	mu      sync.Mutex
+}
+
+func (t *trackingConnectionTransport) Dial(ctx context.Context) (Transporter, error) {
+	transport, err := t.ConnectionTransport.Dial(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.tracked = &closeTrackingTransport{Transporter: transport}
+	return t.tracked, nil
+}
+
+func (t *trackingConnectionTransport) Close() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.tracked != nil {
+		t.tracked.Close()
+	}
+	t.ConnectionTransport.Close()
+}
+
+func (t *trackingConnectionTransport) getCloseCount() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.tracked != nil {
+		return t.tracked.getCloseCount()
+	}
+	return 0
+}
+
+// newTestTransport creates a simple ConnectionTransport that creates pipe-based transports
+func newTestTransport(logOutput LogOutput) ConnectionTransport {
+	return ConnectionFunc(func(_ context.Context) (Transporter, error) {
+		serverConn, clientConn := net.Pipe()
+		serverConn.Close()
+		return NewTransport(clientConn,
+			NewSimpleLogFactory(logOutput, nil), nil, testWrapError, testMaxFrameLength), nil
+	})
+}
+
+// ConnectionFunc is a function adapter for ConnectionTransport.Dial
+type ConnectionFunc func(context.Context) (Transporter, error)
+
+func (f ConnectionFunc) Dial(ctx context.Context) (Transporter, error) { return f(ctx) }
+func (f ConnectionFunc) IsConnected() bool                             { return false }
+func (f ConnectionFunc) Finalize()                                     {}
+func (f ConnectionFunc) Close()                                        {}
+
+// failingConnectionHandler always returns an error from OnConnect
+type failingConnectionHandler struct {
+	testConnectionHandler
+}
+
+func (failingConnectionHandler) OnConnect(context.Context, *Connection, GenericClient, *Server) error {
+	return errors.New("intentional OnConnect failure")
+}
+
+// successfulConnectionHandler always succeeds on OnConnect
+type successfulConnectionHandler struct {
+	testConnectionHandler
+}
+
+func (successfulConnectionHandler) OnConnect(context.Context, *Connection, GenericClient, *Server) error {
+	return nil
+}
+
+// TestTransportClosedOnConnectFailure verifies that when OnConnect fails,
+// the transport is closed immediately by the defer in connect() to prevent
+// zombie RPC servers from remaining active.
+func TestTransportClosedOnConnectFailure(t *testing.T) {
+	logOutput := &testLogOutput{t: t}
+	tracked := &trackingConnectionTransport{
+		ConnectionTransport: newTestTransport(logOutput),
+	}
+
+	conn := NewConnectionWithTransport(
+		failingConnectionHandler{},
+		tracked,
+		testErrorUnwrapper{},
+		logOutput,
+		ConnectionOpts{
+			WrapErrorFunc:  testWrapError,
+			TagsFunc:       testLogTags,
+			DontConnectNow: true,
+		},
+	)
+
+	// Attempt to connect - should fail in OnConnect
+	err := conn.connect(context.Background())
+	require.Error(t, err, "connect should fail when OnConnect fails")
+
+	// Verify transport was closed immediately by the defer
+	require.Equal(t, 1, tracked.getCloseCount(),
+		"transport should be closed immediately by defer when OnConnect fails")
+
+	conn.Shutdown()
+}
+
+// TestMultipleConnectionsAfterFailure simulates the production scenario:
+// First connection fails, Shutdown() is called, then a SECOND Connection is created.
+// Without the defer fix, TWO transports would remain active, causing duplicate broadcasts.
+func TestMultipleConnectionsAfterFailure(t *testing.T) {
+	logOutput := &testLogOutput{t: t}
+
+	// First Connection (simulates failing Connection)
+	firstTracked := &trackingConnectionTransport{
+		ConnectionTransport: newTestTransport(logOutput),
+	}
+	firstConn := NewConnectionWithTransport(
+		failingConnectionHandler{},
+		firstTracked,
+		testErrorUnwrapper{},
+		logOutput,
+		ConnectionOpts{
+			WrapErrorFunc:  testWrapError,
+			TagsFunc:       testLogTags,
+			DontConnectNow: true,
+		},
+	)
+
+	// First connection attempt fails
+	err := firstConn.connect(context.Background())
+	require.Error(t, err, "first connect should fail")
+
+	// The defer fix ensures this transport is closed immediately
+	require.Equal(t, 1, firstTracked.getCloseCount(),
+		"first transport should be closed by defer immediately")
+
+	// Simulate gregorHandler.Shutdown() being called (as in production logs)
+	firstConn.Shutdown()
+
+	// Shutdown closes the ConnectionTransport again, so closeCount becomes 2
+	require.Equal(t, 2, firstTracked.getCloseCount(),
+		"first transport closed by defer (1) + Shutdown (1) = 2")
+
+	// Second Connection (simulates successful Connection)
+	secondTracked := &trackingConnectionTransport{
+		ConnectionTransport: newTestTransport(logOutput),
+	}
+	secondConn := NewConnectionWithTransport(
+		successfulConnectionHandler{},
+		secondTracked,
+		testErrorUnwrapper{},
+		logOutput,
+		ConnectionOpts{
+			WrapErrorFunc:  testWrapError,
+			TagsFunc:       testLogTags,
+			DontConnectNow: true,
+		},
+	)
+
+	// Second connection succeeds
+	err = secondConn.connect(context.Background())
+	require.NoError(t, err, "second connect should succeed")
+
+	// Verify final state: first transport closed, second transport active
+	require.Equal(t, 2, firstTracked.getCloseCount(),
+		"first transport must remain closed")
+	require.Equal(t, 0, secondTracked.getCloseCount(),
+		"second transport should be active - no Close() called yet")
+
+	secondConn.Shutdown()
+}
