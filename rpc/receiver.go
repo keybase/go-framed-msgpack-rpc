@@ -110,7 +110,12 @@ func (r *receiveHandler) receiveCallCompressed(rpc *rpcCallCompressedMessage) er
 
 func (r *receiveHandler) receiveCancel(rpc *rpcCancelMessage) error {
 	r.log.ServerCancelCall(rpc.SeqNo(), rpc.Name())
-	r.taskCancelCh <- rpc.SeqNo()
+	// Only notify taskLoop if it's still running
+	select {
+	case r.taskCancelCh <- rpc.SeqNo():
+	case <-r.stopCh:
+		// Connection closed, taskLoop already exited
+	}
 	return nil
 }
 
@@ -124,10 +129,26 @@ func (r *receiveHandler) handleReceiveDispatch(req request) error {
 		req.LogInvocation(se)
 		return req.Reply(r.writer, nil, wrapError(wrapErrorFunc, se))
 	}
-	r.taskBeginCh <- &task{req.SeqNo(), req.CancelFunc()}
+	// Only notify taskLoop if it's still running and request isn't already cancelled
+	select {
+	case r.taskBeginCh <- &task{req.SeqNo(), req.CancelFunc()}:
+	case <-r.stopCh:
+		// Connection closed, taskLoop already exited - don't start the handler
+		return nil
+	case <-req.Context().Done():
+		// Request was cancelled before we could start - don't start the handler
+		return nil
+	}
 	go func() {
 		req.Serve(r.writer, serveHandler, wrapErrorFunc)
-		r.taskEndCh <- req.SeqNo()
+		// Only notify taskLoop if it's still running and the request wasn't cancelled
+		select {
+		case r.taskEndCh <- req.SeqNo():
+		case <-r.stopCh:
+			// Connection closed, taskLoop already exited
+		case <-req.Context().Done():
+			// Request was cancelled
+		}
 	}()
 	return nil
 }

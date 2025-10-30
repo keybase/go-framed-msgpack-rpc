@@ -7,6 +7,7 @@ import (
 type request interface {
 	rpcMessage
 	CancelFunc() context.CancelFunc
+	Context() context.Context
 	Reply(*framedMsgpackEncoder, interface{}, interface{}) error
 	Serve(*framedMsgpackEncoder, *ServeHandlerDescription, WrapErrorFunc)
 	LogInvocation(err error)
@@ -21,6 +22,10 @@ type requestImpl struct {
 
 func (req *requestImpl) CancelFunc() context.CancelFunc {
 	return req.cancelFunc
+}
+
+func (req *requestImpl) Context() context.Context {
+	return req.ctx
 }
 
 type callRequest struct {
