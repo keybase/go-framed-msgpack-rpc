@@ -19,6 +19,7 @@ type server struct {
 func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan error) (err error) {
 	var listener net.Listener
 	o := testLogOutput{t: t}
+	t.Cleanup(func() { o.MarkDone() })
 	lf := NewSimpleLogFactory(&o, nil)
 	instrumenterStorage := NewMemoryInstrumentationStorage()
 	o.Info(fmt.Sprintf("Listening on port %d...", s.port))
