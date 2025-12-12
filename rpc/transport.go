@@ -106,9 +106,9 @@ func (t *transport) Close() {
 		// First inform the encoder that it should close
 		encoderClosed := t.enc.Close()
 		// Unblock any remaining writes
-		if err := t.c.Close(); err != nil {
-			t.log.TransportError(err)
-		}
+		// Ignore close error - Close() is called from background goroutines and logging
+		// here can cause data races with test loggers after test completion
+		_ = t.c.Close()
 		// Wait for the encoder to finish handling the now unblocked writes
 		<-encoderClosed
 	})

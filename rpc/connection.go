@@ -313,10 +313,9 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
 	if ct.conn != nil {
-		// Best effort close of old connection before handshake - log error but proceed
-		if err := ct.conn.Close(); err != nil {
-			ct.log.Warning("Error closing old connection during handshake: %s", LogField{Key: "error", Value: err.Error()})
-		}
+		// Best effort close of old connection before handshake - ignore errors
+		// Logging here can cause data races with test loggers
+		_ = ct.conn.Close()
 	}
 	transport := NewTransport(conn, ct.logFactory, ct.instrumenterStorage, ct.wef, ct.maxFrameLength)
 	ct.conn = conn
@@ -351,9 +350,9 @@ func (ct *ConnectionTransportTLS) Close() {
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
 	if ct.conn != nil {
-		if err := ct.conn.Close(); err != nil {
-			ct.log.Warning("Error closing connection: %s", LogField{Key: "error", Value: err.Error()})
-		}
+		// Ignore close error - Close() can be called from background goroutines and logging
+		// here can cause data races with test loggers after test completion
+		_ = ct.conn.Close()
 	}
 	if ct.transport != nil {
 		ct.transport.Close()
