@@ -20,7 +20,7 @@ type LogField struct {
 // Format implements the fmt.Formatter interface, to make the structured
 // LogField compatible with format-based non-structured loggers.
 func (f LogField) Format(s fmt.State, verb rune) {
-	fmt.Fprintf(s, "%"+string(verb), f.Value)
+	_, _ = fmt.Fprintf(s, "%"+string(verb), f.Value)
 }
 
 // ConnectionLog defines an interface used by connection.go for logging. An
@@ -42,7 +42,8 @@ type connectionLogUnstructured struct {
 }
 
 func newConnectionLogUnstructured(
-	logOutput LogOutputWithDepthAdder, prefix string) *connectionLogUnstructured {
+	logOutput LogOutputWithDepthAdder, prefix string,
+) *connectionLogUnstructured {
 	randBytes := make([]byte, 4)
 	_, _ = rand.Read(randBytes)
 	return &connectionLogUnstructured{
@@ -61,19 +62,22 @@ func formatLogFields(f string, lf ...LogField) string {
 }
 
 func (l *connectionLogUnstructured) Warning(
-	format string, fields ...LogField) {
+	format string, fields ...LogField,
+) {
 	l.LogOutput.Warning("(%s) %s", l.logPrefix,
 		formatLogFields(format, fields...))
 }
 
 func (l *connectionLogUnstructured) Debug(
-	format string, fields ...LogField) {
+	format string, fields ...LogField,
+) {
 	l.LogOutput.Debug("(%s) %s", l.logPrefix,
 		formatLogFields(format, fields...))
 }
 
 func (l *connectionLogUnstructured) Info(
-	format string, fields ...LogField) {
+	format string, fields ...LogField,
+) {
 	l.LogOutput.Info("(%s) %s", l.logPrefix,
 		formatLogFields(format, fields...))
 }

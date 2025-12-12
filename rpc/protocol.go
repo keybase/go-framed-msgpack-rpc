@@ -1,10 +1,9 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
 	"sync"
-
-	"golang.org/x/net/context"
 )
 
 type ServeHandlerDescription struct {

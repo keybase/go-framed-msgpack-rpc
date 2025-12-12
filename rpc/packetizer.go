@@ -34,7 +34,8 @@ type packetizer struct {
 }
 
 func newPacketizer(maxFrameLength int32, reader io.Reader, protocols *protocolHandler, calls *callContainer,
-	log LogInterface, instrumenterStorage NetworkInstrumenterStorage) *packetizer {
+	log LogInterface, instrumenterStorage NetworkInstrumenterStorage,
+) *packetizer {
 	wrappedReader := &lastErrReader{bufio.NewReader(reader), nil}
 	return &packetizer{
 		maxFrameLength:      maxFrameLength,
@@ -74,10 +75,11 @@ func (l *frameReader) ReadByte() (byte, error) {
 	b, err := l.r.ReadByte()
 	// ReadByte() returning a non-nil error is equivalent to
 	// Read() returning (0, err).
-	if err == nil {
+	switch err {
+	case nil:
 		l.remaining--
 		l.log.FrameRead([]byte{b})
-	} else if err == io.EOF {
+	case io.EOF:
 		err = io.ErrUnexpectedEOF
 	}
 
@@ -94,7 +96,7 @@ func (l *frameReader) Read(p []byte) (int, error) {
 	}
 
 	n, err := l.r.Read(p)
-	l.remaining -= int32(n)
+	l.remaining -= int32(n) //nolint:gosec // G115: n is bounded by len(p) which is bounded by l.remaining
 	if n > 0 {
 		l.log.FrameRead(p[:n])
 	}
@@ -106,7 +108,7 @@ func (l *frameReader) Read(p []byte) (int, error) {
 
 func (l *frameReader) drain() error {
 	n, err := l.r.Discard(int(l.remaining))
-	l.remaining -= int32(n)
+	l.remaining -= int32(n) //nolint:gosec // G115: n is bounded by l.remaining which is int32
 
 	if l.remaining != 0 && err == io.EOF {
 		return io.ErrUnexpectedEOF

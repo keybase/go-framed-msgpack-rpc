@@ -1,6 +1,6 @@
 package rpc
 
-import "golang.org/x/net/context"
+import "context"
 
 type task struct {
 	seqid      SeqNumber
@@ -32,7 +32,8 @@ type receiveHandler struct {
 }
 
 func newReceiveHandler(enc *framedMsgpackEncoder, protHandler *protocolHandler,
-	l LogInterface) *receiveHandler {
+	l LogInterface,
+) *receiveHandler {
 	r := &receiveHandler{
 		writer:      enc,
 		protHandler: protHandler,

@@ -1,10 +1,10 @@
 package rpc
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func TestRpcTags(t *testing.T) {

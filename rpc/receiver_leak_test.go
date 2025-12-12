@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"net"
 	"runtime"
 	"sync/atomic"
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 // setupReceiverTest creates a receiver with a protocol for testing
@@ -80,7 +80,7 @@ func TestReceiverGoroutineLeakOnClose(t *testing.T) {
 
 	// Start multiple RPCs
 	for i := 0; i < numCalls; i++ {
-		err := r.Receive(makeCall(SeqNumber(i), "slowservice.slowcall", nil))
+		err := r.Receive(makeCall(SeqNumber(i), "slowservice.slowcall"))
 		require.NoError(t, err)
 	}
 
@@ -95,8 +95,8 @@ func TestReceiverGoroutineLeakOnClose(t *testing.T) {
 
 	// Close receiver while handlers are running
 	closeCh := r.Close()
-	conn1.Close()
-	conn2.Close()
+	require.NoError(t, conn1.Close())
+	require.NoError(t, conn2.Close())
 	close(handlerCanFinish)
 
 	select {
@@ -131,14 +131,14 @@ func TestReceiverTaskEndChDoesNotBlockOnClose(t *testing.T) {
 
 	r, conn1, conn2 := setupReceiverTest(t, p)
 
-	err := r.Receive(makeCall(1, "testservice.testcall", nil))
+	err := r.Receive(makeCall(1, "testservice.testcall"))
 	require.NoError(t, err)
 
 	<-handlerDone
 
 	closeCh := r.Close()
-	conn1.Close()
-	conn2.Close()
+	require.NoError(t, conn1.Close())
+	require.NoError(t, conn2.Close())
 
 	go func() {
 		<-closeCh
@@ -175,14 +175,14 @@ func TestReceiverContextCancellationExitPath(t *testing.T) {
 
 	r, conn1, conn2 := setupReceiverTest(t, p)
 
-	err := r.Receive(makeCall(1, "cancelservice.cancelcall", nil))
+	err := r.Receive(makeCall(1, "cancelservice.cancelcall"))
 	require.NoError(t, err)
 
 	<-handlerStarted
 
 	closeCh := r.Close()
-	conn1.Close()
-	conn2.Close()
+	require.NoError(t, conn1.Close())
+	require.NoError(t, conn2.Close())
 
 	select {
 	case <-closeCh:
@@ -228,7 +228,7 @@ func TestReceiverMultipleSimultaneousRPCs(t *testing.T) {
 
 	// Start many RPCs
 	for i := 0; i < numCalls; i++ {
-		err := r.Receive(makeCall(SeqNumber(i), "loadtest.work", nil))
+		err := r.Receive(makeCall(SeqNumber(i), "loadtest.work"))
 		require.NoError(t, err)
 	}
 
@@ -243,8 +243,8 @@ func TestReceiverMultipleSimultaneousRPCs(t *testing.T) {
 
 	// Close while handlers are running
 	closeCh := r.Close()
-	conn1.Close()
-	conn2.Close()
+	require.NoError(t, conn1.Close())
+	require.NoError(t, conn2.Close())
 
 	select {
 	case <-closeCh:

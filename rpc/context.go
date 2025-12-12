@@ -1,6 +1,6 @@
 package rpc
 
-import "golang.org/x/net/context"
+import "context"
 
 // CtxRPCKey is a type defining the context key for the RPC context
 type CtxRPCKey int

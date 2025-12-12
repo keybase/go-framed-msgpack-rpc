@@ -57,9 +57,9 @@ func (f *FMPURI) String() string {
 func (f *FMPURI) DialWithConfig(config *tls.Config) (net.Conn, error) {
 	network, addr := "tcp", f.HostPort
 	if f.UseTLS() {
-		return tls.Dial(network, addr, config)
+		return tls.Dial(network, addr, config) //nolint:noctx // context management handled at higher level
 	}
-	return net.Dial(network, addr)
+	return net.Dial(network, addr) //nolint:noctx // context management handled at higher level
 }
 
 func (f *FMPURI) Dial() (net.Conn, error) {

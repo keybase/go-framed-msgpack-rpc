@@ -1,11 +1,11 @@
 package rpc
 
 import (
+	"context"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan error) {
@@ -38,11 +38,11 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 	return r, errCh
 }
 
-func makeCall(seq SeqNumber, name string, arg interface{}) *rpcCallMessage {
+func makeCall(seq SeqNumber, name string) *rpcCallMessage {
 	return &rpcCallMessage{
 		seqno: seq,
 		name:  name,
-		arg:   arg,
+		arg:   nil,
 	}
 }
 
@@ -112,7 +112,6 @@ func TestCloseReceiver(t *testing.T) {
 		makeCall(
 			0,
 			"waiter.wait",
-			nil,
 		),
 	)
 	<-receiver.Close()

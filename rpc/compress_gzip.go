@@ -34,6 +34,7 @@ func (c *gzipCompressor) getGzipWriter(writer io.Writer) (*gzip.Writer, func()) 
 		gzipWriterPool.Put(gzipWriter)
 	}
 }
+
 func (c *gzipCompressor) getGzipReader(reader io.Reader) (*gzip.Reader, func(), error) {
 	gzipReader := gzipReaderPool.Get().(*gzip.Reader)
 	if err := gzipReader.Reset(reader); err != nil {
@@ -45,7 +46,6 @@ func (c *gzipCompressor) getGzipReader(reader io.Reader) (*gzip.Reader, func(), 
 }
 
 func (c *gzipCompressor) Compress(data []byte) ([]byte, error) {
-
 	var buf bytes.Buffer
 	writer, reclaim := c.getGzipWriter(&buf)
 	defer reclaim()
@@ -60,7 +60,6 @@ func (c *gzipCompressor) Compress(data []byte) ([]byte, error) {
 }
 
 func (c *gzipCompressor) Decompress(data []byte) ([]byte, error) {
-
 	in := bytes.NewReader(data)
 	reader, reclaim, err := c.getGzipReader(in)
 	if err != nil {

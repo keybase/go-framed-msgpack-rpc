@@ -1,11 +1,11 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/keybase/go-codec/codec"
-	"golang.org/x/net/context"
 )
 
 func newCodecMsgpackHandle() codec.Handle {

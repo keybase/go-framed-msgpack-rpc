@@ -106,7 +106,9 @@ func (t *transport) Close() {
 		// First inform the encoder that it should close
 		encoderClosed := t.enc.Close()
 		// Unblock any remaining writes
-		t.c.Close()
+		if err := t.c.Close(); err != nil {
+			t.log.TransportError(err)
+		}
 		// Wait for the encoder to finish handling the now unblocked writes
 		<-encoderClosed
 	})
