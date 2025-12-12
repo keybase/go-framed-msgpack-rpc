@@ -106,7 +106,7 @@ func TestCloseReceiver(t *testing.T) {
 			},
 		},
 	}
-	receiver, _ := testReceive(
+	receiver, errCh := testReceive(
 		t,
 		p,
 		makeCall(
@@ -115,6 +115,9 @@ func TestCloseReceiver(t *testing.T) {
 		),
 	)
 	<-receiver.Close()
+
+	// Wait for the background goroutine in testReceive to complete
+	<-errCh
 
 	err := <-waitCh
 	require.EqualError(t, err, context.Canceled.Error())
