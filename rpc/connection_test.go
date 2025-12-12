@@ -120,6 +120,7 @@ func TestReconnectBasic(t *testing.T) {
 		errToThrow: errors.New("intentional error to trigger reconnect"),
 	}
 	output := testLogOutput{t: t}
+	t.Cleanup(func() { output.MarkDone() })
 	reconnectBackoffFn := func() backoff.BackOff {
 		reconnectBackoff := backoff.NewExponentialBackOff()
 		reconnectBackoff.InitialInterval = 5 * time.Millisecond
@@ -153,6 +154,7 @@ func TestForceReconnect(t *testing.T) {
 		errToThrow: errors.New("intentional error to trigger reconnect"),
 	}
 	output := testLogOutput{t: t}
+	t.Cleanup(func() { output.MarkDone() })
 	reconnectBackoffFn := func() backoff.BackOff {
 		reconnectBackoff := backoff.NewExponentialBackOff()
 		reconnectBackoff.InitialInterval = 5 * time.Millisecond
@@ -194,6 +196,7 @@ func TestReconnectCanceled(t *testing.T) {
 		alwaysFail: true,
 	}
 	output := testLogOutput{t: t}
+	t.Cleanup(func() { output.MarkDone() })
 	opts := ConnectionOpts{
 		WrapErrorFunc: testWrapError,
 		TagsFunc:      testLogTags,
@@ -215,6 +218,7 @@ func TestDoCommandThrottle(t *testing.T) {
 
 	throttleErr := errors.New("throttle")
 	output := testLogOutput{t: t}
+	t.Cleanup(func() { output.MarkDone() })
 	commandBackoffFn := func() backoff.BackOff {
 		commandBackoff := backoff.NewExponentialBackOff()
 		commandBackoff.InitialInterval = 5 * time.Millisecond
@@ -356,6 +360,7 @@ func TestDialableTransport(t *testing.T) {
 		doneChan: make(chan bool),
 	}
 	output := testLogOutput{t: t}
+	t.Cleanup(func() { output.MarkDone() })
 	opts := ConnectionOpts{
 		WrapErrorFunc:  testWrapError,
 		TagsFunc:       testLogTags,
@@ -400,6 +405,7 @@ func TestDialableTLSConn(t *testing.T) {
 		doneChan: make(chan bool),
 	}
 	output := testLogOutput{t: t}
+	t.Cleanup(func() { output.MarkDone() })
 	opts := ConnectionOpts{
 		WrapErrorFunc:  testWrapError,
 		TagsFunc:       testLogTags,
@@ -534,6 +540,7 @@ func (successfulConnectionHandler) OnConnect(context.Context, *Connection, Gener
 // zombie RPC servers from remaining active.
 func TestTransportClosedOnConnectFailure(t *testing.T) {
 	logOutput := &testLogOutput{t: t}
+	t.Cleanup(func() { logOutput.MarkDone() })
 	tracked := &trackingConnectionTransport{
 		ConnectionTransport: newTestTransport(logOutput),
 	}
@@ -566,6 +573,7 @@ func TestTransportClosedOnConnectFailure(t *testing.T) {
 // Without the defer fix, TWO transports would remain active, causing duplicate broadcasts.
 func TestMultipleConnectionsAfterFailure(t *testing.T) {
 	logOutput := &testLogOutput{t: t}
+	t.Cleanup(func() { logOutput.MarkDone() })
 
 	// First Connection (simulates failing Connection)
 	firstTracked := &trackingConnectionTransport{
