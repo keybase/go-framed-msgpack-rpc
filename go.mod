@@ -2,6 +2,8 @@ module github.com/keybase/go-framed-msgpack-rpc
 
 go 1.24.0
 
+toolchain go1.25.5
+
 require (
 	github.com/keybase/backoff v1.0.1-0.20160517061000-726b63b835ec
 	github.com/keybase/go-codec v0.0.0-20180928230036-164397562123
