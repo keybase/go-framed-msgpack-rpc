@@ -105,9 +105,8 @@ func NewConnectionTransportWithDialable(uri *FMPURI, l LogFactory, instrumenterS
 func (t *connTransport) Dial(ctx context.Context) (Transporter, error) {
 	var err error
 	if t.conn != nil {
-		if err := t.conn.Close(); err != nil {
-			return nil, err
-		}
+		// Best effort close of old connection - ignore errors and proceed with new dial
+		t.conn.Close() //nolint:errcheck,gosec // Cleanup of old connection before dial, no logger available
 	}
 	if t.dialable != nil {
 		t.conn, err = t.dialable.Dial(ctx, "tcp", t.uri.HostPort)
@@ -314,8 +313,9 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
 	if ct.conn != nil {
+		// Best effort close of old connection before handshake - log error but proceed
 		if err := ct.conn.Close(); err != nil {
-			return nil, err
+			ct.log.Warning("Error closing old connection during handshake: %s", LogField{Key: "error", Value: err.Error()})
 		}
 	}
 	transport := NewTransport(conn, ct.logFactory, ct.instrumenterStorage, ct.wef, ct.maxFrameLength)
