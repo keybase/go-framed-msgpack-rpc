@@ -8,6 +8,7 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/keybase/backoff"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 type nullLogOutput struct{}

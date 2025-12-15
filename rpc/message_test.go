@@ -2,10 +2,10 @@ package rpc
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func createMessageTestProtocol(t *testing.T) *protocolHandler {

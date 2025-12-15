@@ -1,14 +1,14 @@
 package rpc
 
 import (
+	"context"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
-func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan error) {
+func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan error, net.Conn, net.Conn) {
 	conn1, conn2 := net.Pipe()
 	receiveOut := newFramedMsgpackEncoder(testMaxFrameLength, conn2)
 
@@ -35,14 +35,14 @@ func testReceive(t *testing.T, p *Protocol, rpc rpcMessage) (receiver, chan erro
 		}()
 	}
 
-	return r, errCh
+	return r, errCh, conn1, conn2
 }
 
-func makeCall(seq SeqNumber, name string, arg interface{}) *rpcCallMessage {
+func makeCall(seq SeqNumber, name string) *rpcCallMessage {
 	return &rpcCallMessage{
 		seqno: seq,
 		name:  name,
-		arg:   arg,
+		arg:   nil,
 	}
 }
 
@@ -61,27 +61,48 @@ func TestReceiveResponse(t *testing.T) {
 		nil,
 		"hi",
 	)
+
+	type result struct {
+		r     receiver
+		errCh chan error
+		conn1 net.Conn
+		conn2 net.Conn
+	}
+	resultCh := make(chan result, 1)
+
 	go func() {
-		_, errCh := testReceive(
+		r, errCh, conn1, conn2 := testReceive(
 			t,
 			nil,
 			c,
 		)
-		err := <-errCh
-		require.Nil(t, err)
+		resultCh <- result{r, errCh, conn1, conn2}
 	}()
 
 	resp := <-c.ResponseCh()
 	require.Equal(t, "hi", resp.Res())
+
+	// Get the connections from the goroutine
+	res := <-resultCh
+
+	// Close connections to unblock NextFrame()
+	require.NoError(t, res.conn1.Close())
+	require.NoError(t, res.conn2.Close())
+
+	// The NextFrame goroutine will get EOF, which is expected
+	err := <-res.errCh
+	require.Error(t, err) // EOF is expected when we close the connection
 }
 
 func TestReceiveResponseNilCall(t *testing.T) {
 	c := &rpcResponseMessage{c: &call{}}
-	_, errCh := testReceive(
+	_, errCh, conn1, conn2 := testReceive(
 		t,
 		nil,
 		c,
 	)
+	defer func() { require.NoError(t, conn1.Close()) }()
+	defer func() { require.NoError(t, conn2.Close()) }()
 	err := <-errCh
 
 	require.True(t, shouldContinue(err))
@@ -106,16 +127,22 @@ func TestCloseReceiver(t *testing.T) {
 			},
 		},
 	}
-	receiver, _ := testReceive(
+	receiver, errCh, conn1, conn2 := testReceive(
 		t,
 		p,
 		makeCall(
 			0,
 			"waiter.wait",
-			nil,
 		),
 	)
 	<-receiver.Close()
+
+	// Close connections to unblock the background goroutine
+	require.NoError(t, conn1.Close())
+	require.NoError(t, conn2.Close())
+
+	// Wait for the background goroutine in testReceive to complete
+	<-errCh
 
 	err := <-waitCh
 	require.EqualError(t, err, context.Canceled.Error())

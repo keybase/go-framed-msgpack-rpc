@@ -1,10 +1,9 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 // Client allows calls and notifies on the given transporter, or any protocol
@@ -20,14 +19,16 @@ type Client struct {
 // NewClient constructs a new client from the given RPC Transporter and the
 // ErrorUnwrapper.
 func NewClient(xp Transporter, u ErrorUnwrapper,
-	tagsFunc LogTagsFromContext) *Client {
+	tagsFunc LogTagsFromContext,
+) *Client {
 	return &Client{xp, u, tagsFunc, nil}
 }
 
 // NewClientWithSendNotifier constructs a new client from the given RPC Transporter, the
 // ErrorUnwrapper, and the SendNotifier
 func NewClientWithSendNotifier(xp Transporter, u ErrorUnwrapper,
-	tagsFunc LogTagsFromContext, sendNotifier SendNotifier) *Client {
+	tagsFunc LogTagsFromContext, sendNotifier SendNotifier,
+) *Client {
 	return &Client{xp, u, tagsFunc, sendNotifier}
 }
 
@@ -52,12 +53,14 @@ func (c *Client) Call(ctx context.Context, method string, arg interface{}, res i
 // CallCompressed acts as Call but allows the response to be compressed with
 // the given CompressionType.
 func (c *Client) CallCompressed(ctx context.Context, method string,
-	arg interface{}, res interface{}, ctype CompressionType, timeout time.Duration) error {
+	arg interface{}, res interface{}, ctype CompressionType, timeout time.Duration,
+) error {
 	return c.call(ctx, method, arg, res, ctype, timeout)
 }
 
 func (c *Client) call(ctx context.Context, method string,
-	arg interface{}, res interface{}, ctype CompressionType, timeout time.Duration) error {
+	arg interface{}, res interface{}, ctype CompressionType, timeout time.Duration,
+) error {
 	if ctx == nil {
 		return errors.New("No Context provided for this call")
 	}

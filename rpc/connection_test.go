@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -10,8 +11,6 @@ import (
 
 	"github.com/keybase/backoff"
 	"github.com/stretchr/testify/require"
-
-	"golang.org/x/net/context"
 )
 
 type unitTester struct {
@@ -39,7 +38,7 @@ func (ut *unitTester) OnConnectError(error, time.Duration) {
 	ut.numConnectErrors++
 }
 
-// OnDoCommandError implements the ConnectionHandler interace
+// OnDoCommandError implements the ConnectionHandler interface
 func (ut *unitTester) OnDoCommandError(error, time.Duration) {
 }
 
@@ -63,7 +62,8 @@ func (ut *unitTester) ShouldRetryOnConnect(err error) bool {
 
 // Dial implements the ConnectionTransport interface.
 func (ut *unitTester) Dial(_ context.Context) (
-	Transporter, error) {
+	Transporter, error,
+) {
 	if ut.alwaysFail || ut.numConnectErrors == 0 {
 		return nil, ut.errToThrow
 	}
@@ -102,7 +102,8 @@ func (ut *unitTester) Err() error {
 }
 
 func (ut *unitTester) WaitForDoneOrBust(t *testing.T,
-	timeout time.Duration, opName string) {
+	timeout time.Duration, opName string,
+) {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	select {
@@ -176,7 +177,7 @@ func TestForceReconnect(t *testing.T) {
 	select {
 	case <-ch:
 	case <-time.After(2 * time.Second):
-		require.Fail(t, "intial reconnect never completed")
+		require.Fail(t, "initial reconnect never completed")
 	}
 
 	forceReconnectErrCh := make(chan error)
@@ -257,7 +258,7 @@ func TestConnectionClientCallError(t *testing.T) {
 	go func() {
 		errCh <- c.Call(context.Background(), "callRpc", nil, nil, 0)
 	}()
-	serverConn.Close()
+	require.NoError(t, serverConn.Close())
 	err := <-errCh
 	require.Error(t, err)
 }
@@ -272,7 +273,7 @@ func TestConnectionClientCallCompressedError(t *testing.T) {
 		go func() {
 			errCh <- c.CallCompressed(context.Background(), "callRpc", nil, nil, ctype, 0)
 		}()
-		serverConn.Close()
+		require.NoError(t, serverConn.Close())
 		err := <-errCh
 		require.Error(t, err)
 	})
@@ -287,7 +288,7 @@ func TestConnectionClientNotifyError(t *testing.T) {
 	go func() {
 		errCh <- c.Notify(context.Background(), "notifyRpc", nil, 0)
 	}()
-	serverConn.Close()
+	require.NoError(t, serverConn.Close())
 	err := <-errCh
 	require.Error(t, err)
 }
@@ -503,7 +504,9 @@ func (t *trackingConnectionTransport) getCloseCount() int {
 func newTestTransport(logOutput LogOutput) ConnectionTransport {
 	return ConnectionFunc(func(_ context.Context) (Transporter, error) {
 		serverConn, clientConn := net.Pipe()
-		serverConn.Close()
+		if err := serverConn.Close(); err != nil {
+			return nil, err
+		}
 		return NewTransport(clientConn,
 			NewSimpleLogFactory(logOutput, nil), nil, testWrapError, testMaxFrameLength), nil
 	})

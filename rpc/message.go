@@ -2,11 +2,11 @@ package rpc
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/keybase/go-codec/codec"
-	"golang.org/x/net/context"
 )
 
 type rpcMessage interface {
@@ -61,7 +61,8 @@ func (r *rpcCallMessage) RecordAndFinish(ctx context.Context, size int64) error 
 }
 
 func (r *rpcCallMessage) DecodeMessage(l int, d *fieldDecoder, p *protocolHandler, _ *callContainer,
-	_ *compressorCacher, instrumenterStorage NetworkInstrumenterStorage) error {
+	_ *compressorCacher, instrumenterStorage NetworkInstrumenterStorage,
+) error {
 	if r.err = d.Decode(&r.seqno); r.err != nil {
 		return r.err
 	}
@@ -118,7 +119,8 @@ func (r *rpcCallCompressedMessage) RecordAndFinish(ctx context.Context, size int
 }
 
 func (r *rpcCallCompressedMessage) DecodeMessage(l int, d *fieldDecoder, p *protocolHandler, _ *callContainer,
-	compressorCacher *compressorCacher, instrumenterStorage NetworkInstrumenterStorage) error {
+	compressorCacher *compressorCacher, instrumenterStorage NetworkInstrumenterStorage,
+) error {
 	if r.err = d.Decode(&r.seqno); r.err != nil {
 		return r.err
 	}
@@ -185,8 +187,8 @@ func (r *rpcResponseMessage) RecordAndFinish(ctx context.Context, size int64) er
 }
 
 func (r *rpcResponseMessage) DecodeMessage(_ int, d *fieldDecoder, _ *protocolHandler, cc *callContainer,
-	compressorCacher *compressorCacher, _ NetworkInstrumenterStorage) error {
-
+	compressorCacher *compressorCacher, _ NetworkInstrumenterStorage,
+) error {
 	var seqNo SeqNumber
 	if r.err = d.Decode(&seqNo); r.err != nil {
 		return r.err
@@ -311,7 +313,8 @@ func (r *rpcNotifyMessage) RecordAndFinish(ctx context.Context, size int64) erro
 }
 
 func (r *rpcNotifyMessage) DecodeMessage(l int, d *fieldDecoder, p *protocolHandler, _ *callContainer,
-	_ *compressorCacher, instrumenterStorage NetworkInstrumenterStorage) error {
+	_ *compressorCacher, instrumenterStorage NetworkInstrumenterStorage,
+) error {
 	if r.err = d.Decode(&r.name); r.err != nil {
 		return r.err
 	}
@@ -366,7 +369,8 @@ func (r *rpcCancelMessage) RecordAndFinish(_ context.Context, _ int64) error {
 }
 
 func (r *rpcCancelMessage) DecodeMessage(_ int, d *fieldDecoder, _ *protocolHandler, _ *callContainer,
-	_ *compressorCacher, _ NetworkInstrumenterStorage) error {
+	_ *compressorCacher, _ NetworkInstrumenterStorage,
+) error {
 	if r.err = d.Decode(&r.seqno); r.err != nil {
 		return r.err
 	}
@@ -417,7 +421,7 @@ func newUncompressedDecoder(data []byte, fieldNumber int) *fieldDecoder {
 	return &fieldDecoder{
 		d:           codec.NewDecoder(bytes.NewBuffer(data), newCodecMsgpackHandle()),
 		fieldNumber: fieldNumber,
-		totalSize:   int32(len(data)),
+		totalSize:   int32(len(data)), //nolint:gosec // G115: len(data) is bounded by frame size limits
 	}
 }
 
@@ -434,7 +438,8 @@ func (dw *fieldDecoder) Decode(i interface{}) error {
 }
 
 func decodeRPC(l int, r *frameReader, p *protocolHandler, cc *callContainer, compressorCacher *compressorCacher,
-	instrumenterStorage NetworkInstrumenterStorage) (rpcMessage, error) {
+	instrumenterStorage NetworkInstrumenterStorage,
+) (rpcMessage, error) {
 	decoder := newFieldDecoder(r)
 
 	typ := MethodInvalid

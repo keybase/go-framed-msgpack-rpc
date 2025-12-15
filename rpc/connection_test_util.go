@@ -1,12 +1,11 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 type testConnectionHandler struct{}

@@ -3,6 +3,7 @@ package rpc
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/keybase/go-codec/codec"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func TestFrameReaderReadByte(t *testing.T) {
@@ -234,8 +234,8 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 
 	f1, err := pkt.NextFrame()
 	require.NoError(t, err)
-	record = f1.(*rpcCallMessage).basicRPCData.instrumenter
-	f1.(*rpcCallMessage).basicRPCData.instrumenter = nil
+	record = f1.(*rpcCallMessage).basicRPCData.instrumenter //nolint:staticcheck // QF1008: embedded field access is intentional for testing
+	f1.(*rpcCallMessage).basicRPCData.instrumenter = nil    //nolint:staticcheck // QF1008: embedded field access is intentional for testing
 	require.Equal(t, &rpcCallMessage{
 		seqno: 1,
 		name:  "abc.hello",
@@ -253,8 +253,8 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 
 	f4, err := pkt.NextFrame()
 	require.NoError(t, err)
-	record = f4.(*rpcNotifyMessage).basicRPCData.instrumenter
-	f4.(*rpcNotifyMessage).basicRPCData.instrumenter = nil
+	record = f4.(*rpcNotifyMessage).basicRPCData.instrumenter //nolint:staticcheck // QF1008: embedded field access is intentional for testing
+	f4.(*rpcNotifyMessage).basicRPCData.instrumenter = nil    //nolint:staticcheck // QF1008: embedded field access is intentional for testing
 	require.Equal(t, &rpcNotifyMessage{
 		name: "abc.hello",
 	}, f4)

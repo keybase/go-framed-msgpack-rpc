@@ -1,12 +1,12 @@
 package rpc
 
 import (
+	"context"
 	"io"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 func dispatchTestCallWithContextAndCompressionType(ctx context.Context, t *testing.T, ctype CompressionType) (dispatcher, *callContainer, chan error) {
@@ -41,9 +41,9 @@ func dispatchTestCall(t *testing.T) (dispatcher, *callContainer, chan error) {
 	return dispatchTestCallWithContext(context.Background(), t)
 }
 
-func sendResponse(c *call, err error) {
+func sendResponse(c *call) {
 	c.resultCh <- &rpcResponseMessage{
-		err: err,
+		err: nil,
 		c:   c,
 	}
 }
@@ -54,7 +54,7 @@ func TestDispatchSuccessfulCall(t *testing.T) {
 	c := calls.RetrieveCall(0)
 	require.NotNil(t, c, "Expected c not to be nil")
 
-	sendResponse(c, nil)
+	sendResponse(c)
 	err := <-done
 	require.NoError(t, err, "Expected no error")
 
@@ -69,7 +69,7 @@ func TestDispatchSuccessfulCallCompressed(t *testing.T) {
 		require.NotNil(t, c, "Expected c not to be nil")
 		require.Equal(t, ctype, c.ctype)
 
-		sendResponse(c, nil)
+		sendResponse(c)
 		err := <-done
 		require.NoError(t, err, "Expected no error")
 
@@ -88,7 +88,7 @@ func TestDispatchCanceledBeforeResult(t *testing.T) {
 	cancel()
 
 	// Should not hang.
-	sendResponse(c, nil)
+	sendResponse(c)
 
 	err := <-done
 	require.True(t, err == nil || err == context.Canceled,
@@ -107,7 +107,7 @@ func TestDispatchCanceledAfterResult(t *testing.T) {
 	c := calls.RetrieveCall(0)
 	require.NotNil(t, c, "Expected c not to be nil")
 
-	sendResponse(c, nil)
+	sendResponse(c)
 
 	cancel()
 
@@ -133,7 +133,7 @@ func TestDispatchCallAfterClose(t *testing.T) {
 	d, calls, done := dispatchTestCall(t)
 
 	c := calls.RetrieveCall(0)
-	sendResponse(c, nil)
+	sendResponse(c)
 
 	err := <-done
 	require.NoError(t, err)

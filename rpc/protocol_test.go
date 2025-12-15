@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -9,11 +10,12 @@ import (
 
 	telnet "github.com/reiver/go-telnet"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
-var testPort = 8089
-var testHostPort = fmt.Sprintf("127.0.0.1:%d", testPort)
+var (
+	testPort     = 8089
+	testHostPort = fmt.Sprintf("127.0.0.1:%d", testPort)
+)
 
 type longCallResult struct {
 	res interface{}
@@ -35,7 +37,7 @@ func prepServer(t *testing.T, listener chan error) error {
 }
 
 func prepClient(t *testing.T) (TestClient, net.Conn) {
-	c, err := net.Dial("tcp", testHostPort)
+	c, err := net.Dial("tcp", testHostPort) //nolint:noctx // test code
 	require.NoError(t, err, "a dialer error occurred")
 
 	logOutput := &testLogOutput{t: t}
@@ -55,7 +57,7 @@ func prepTest(t *testing.T) (TestClient, chan error, net.Conn) {
 }
 
 func endTest(t *testing.T, c net.Conn, listener chan error) {
-	c.Close()
+	c.Close() //nolint:errcheck,gosec // test cleanup - connection may already be closed
 	err := <-listener
 	require.EqualError(t, err, io.EOF.Error(), "expected EOF")
 }
@@ -243,7 +245,7 @@ func TestClosedConnection(t *testing.T) {
 	})
 	// TODO figure out a way to avoid this sleep
 	time.Sleep(time.Millisecond)
-	conn.Close()
+	require.NoError(t, conn.Close())
 	res := <-resultCh
 	require.EqualError(t, res.err, io.EOF.Error())
 	require.Equal(t, 0, res.res)

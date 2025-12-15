@@ -1,12 +1,11 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 type NetworkInstrumenterStorage interface {

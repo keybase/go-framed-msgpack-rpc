@@ -103,8 +103,8 @@ func (b *CancellableTimer) StartRandom(maxWait time.Duration) time.Duration {
 		if _, err := rand.Read(buf[:]); err != nil {
 			panic(err)
 		}
-		buf[0] &= 127 // clear the high bit, because casting to time.Duration makes it signed
-		waitDur = time.Duration(binary.BigEndian.Uint64(buf[:])) % maxWait
+		buf[0] &= 127                                                      // clear the high bit, because casting to time.Duration makes it signed
+		waitDur = time.Duration(binary.BigEndian.Uint64(buf[:])) % maxWait //nolint:gosec // G115: high bit is cleared above to ensure conversion is safe
 	}
 	time.AfterFunc(waitDur, f.fire)
 	return waitDur

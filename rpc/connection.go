@@ -4,6 +4,7 @@
 package rpc
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/keybase/backoff"
 	"github.com/keybase/go-framed-msgpack-rpc/rpc/resinit"
-	"golang.org/x/net/context"
 )
 
 // DisconnectStatus is the connection information passed to
@@ -77,7 +77,8 @@ var _ ConnectionTransport = (*connTransport)(nil)
 
 // NewConnectionTransport creates a ConnectionTransport for a given FMPURI.
 func NewConnectionTransport(uri *FMPURI, l LogFactory, instrumenterStorage NetworkInstrumenterStorage,
-	wef WrapErrorFunc, maxFrameLength int32) ConnectionTransport {
+	wef WrapErrorFunc, maxFrameLength int32,
+) ConnectionTransport {
 	return &connTransport{
 		uri:                 uri,
 		l:                   l,
@@ -89,7 +90,8 @@ func NewConnectionTransport(uri *FMPURI, l LogFactory, instrumenterStorage Netwo
 
 // NewConnectionTransportWithDialable creates a ConnectionTransport for a given FMPURI via the given Dialable
 func NewConnectionTransportWithDialable(uri *FMPURI, l LogFactory, instrumenterStorage NetworkInstrumenterStorage,
-	wef WrapErrorFunc, maxFrameLength int32, dialable Dialable) ConnectionTransport {
+	wef WrapErrorFunc, maxFrameLength int32, dialable Dialable,
+) ConnectionTransport {
 	return &connTransport{
 		uri:                 uri,
 		l:                   l,
@@ -103,7 +105,8 @@ func NewConnectionTransportWithDialable(uri *FMPURI, l LogFactory, instrumenterS
 func (t *connTransport) Dial(ctx context.Context) (Transporter, error) {
 	var err error
 	if t.conn != nil {
-		t.conn.Close()
+		// Best effort close of old connection - ignore errors and proceed with new dial
+		t.conn.Close() //nolint:errcheck,gosec // Cleanup of old connection before dial, no logger available
 	}
 	if t.dialable != nil {
 		t.conn, err = t.dialable.Dial(ctx, "tcp", t.uri.HostPort)
@@ -149,7 +152,7 @@ func (t *connTransport) Finalize() {
 
 func (t *connTransport) Close() {
 	if t.conn != nil {
-		t.conn.Close()
+		t.conn.Close() //nolint:errcheck,gosec // Close() interface cannot return errors, no logger available for cleanup path
 	}
 	if t.transport != nil {
 		t.transport.Close()
@@ -223,7 +226,8 @@ const keepAlive = 10 * time.Second
 
 // Dial is an implementation of the ConnectionTransport interface.
 func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
-	Transporter, error) {
+	Transporter, error,
+) {
 	addr := ct.srvRemote.GetAddress()
 	config := ct.tlsConfig
 	host, _, err := net.SplitHostPort(addr)
@@ -243,12 +247,16 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 		config = &tls.Config{
 			RootCAs:    certs,
 			ServerName: host,
+			MinVersion: tls.VersionTLS12,
 		}
 	}
 	// Final check to make sure we have a TLS config since tls.Client requires
 	// either ServerName or InsecureSkipVerify to be set.
 	if config == nil {
-		config = &tls.Config{ServerName: host}
+		config = &tls.Config{
+			ServerName: host,
+			MinVersion: tls.VersionTLS12,
+		}
 	}
 
 	ct.log.Debug("%s %s",
@@ -285,21 +293,14 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	conn := tls.Client(baseConn, config)
 
 	// run TLS handshake with a timeout
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- conn.Handshake()
-	}()
 	handshakeTimeout := ct.handshakeTimeout
 	if handshakeTimeout == 0 {
 		handshakeTimeout = time.Minute
 	}
-	select {
-	case err := <-errCh:
-		if err != nil {
-			return nil, err
-		}
-	case <-time.After(handshakeTimeout):
-		return nil, errors.New("handshake timeout")
+	handshakeCtx, cancel := context.WithTimeout(context.Background(), handshakeTimeout)
+	defer cancel()
+	if err := conn.HandshakeContext(handshakeCtx); err != nil {
+		return nil, err
 	}
 	ct.log.Debug("%s", LogField{Key: ConnectionLogMsgKey, Value: "Handshaken"})
 
@@ -312,7 +313,10 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
 	if ct.conn != nil {
-		ct.conn.Close()
+		// Close old connection before handshake
+		if err := ct.conn.Close(); err != nil {
+			ct.log.Warning("Error closing old connection: %s", LogField{Key: "err", Value: err.Error()})
+		}
 	}
 	transport := NewTransport(conn, ct.logFactory, ct.instrumenterStorage, ct.wef, ct.maxFrameLength)
 	ct.conn = conn
@@ -347,7 +351,9 @@ func (ct *ConnectionTransportTLS) Close() {
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
 	if ct.conn != nil {
-		ct.conn.Close()
+		if err := ct.conn.Close(); err != nil {
+			ct.log.Warning("Error closing connection: %s", LogField{Key: "err", Value: err.Error()})
+		}
 	}
 	if ct.transport != nil {
 		ct.transport.Close()
@@ -552,7 +558,8 @@ func NewConnectionWithTransport(
 
 func newConnectionWithTransportAndProtocolsWithLog(handler ConnectionHandler,
 	transport ConnectionTransport, errorUnwrapper ErrorUnwrapper,
-	log ConnectionLog, opts ConnectionOpts) *Connection {
+	log ConnectionLog, opts ConnectionOpts,
+) *Connection {
 	// use exponential backoffs by default which never give up on reconnecting
 	defaultBackoff := func() backoff.BackOff {
 		b := backoff.NewExponentialBackOff()
@@ -591,7 +598,8 @@ func newConnectionWithTransportAndProtocolsWithLog(handler ConnectionHandler,
 
 func newConnectionWithTransportAndProtocols(handler ConnectionHandler,
 	transport ConnectionTransport, errorUnwrapper ErrorUnwrapper,
-	log LogOutputWithDepthAdder, opts ConnectionOpts) *Connection {
+	log LogOutputWithDepthAdder, opts ConnectionOpts,
+) *Connection {
 	return newConnectionWithTransportAndProtocolsWithLog(
 		handler, transport, errorUnwrapper,
 		newConnectionLogUnstructured(log, "CONN "+handler.HandlerName()), opts)
@@ -662,7 +670,8 @@ func (c *Connection) connect(ctx context.Context) (err error) {
 
 // DoCommand executes the specific rpc command wrapped in rpcFunc.
 func (c *Connection) DoCommand(ctx context.Context, name string, timeout time.Duration,
-	rpcFunc func(GenericClient) error) error {
+	rpcFunc func(GenericClient) error,
+) error {
 	if timeout > 0 {
 		var timeoutCancel context.CancelFunc
 		ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
@@ -715,21 +724,20 @@ func (c *Connection) DoCommand(ctx context.Context, name string, timeout time.Du
 
 // Blocks until a connection is ready for use or the context is canceled.
 func (c *Connection) waitForConnection(
-	ctx context.Context, forceReconnect bool) error {
-	reconnectChan, disconnectStatus, reconnectErrPtr, wait :=
-		func() (chan struct{}, DisconnectStatus, *error, bool) {
-			c.mutex.Lock()
-			defer c.mutex.Unlock()
-			if !forceReconnect && c.isConnectedLocked() {
-				// already connected
-				return nil, UsingExistingConnection, nil, false
-			}
-			// kick-off a connection and wait for it to complete
-			// or for the caller to cancel.
-			reconnectChan, disconnectStatus, reconnectErrPtr :=
-				c.getReconnectChanLocked()
-			return reconnectChan, disconnectStatus, reconnectErrPtr, true
-		}()
+	ctx context.Context, forceReconnect bool,
+) error {
+	reconnectChan, disconnectStatus, reconnectErrPtr, wait := func() (chan struct{}, DisconnectStatus, *error, bool) {
+		c.mutex.Lock()
+		defer c.mutex.Unlock()
+		if !forceReconnect && c.isConnectedLocked() {
+			// already connected
+			return nil, UsingExistingConnection, nil, false
+		}
+		// kick-off a connection and wait for it to complete
+		// or for the caller to cancel.
+		reconnectChan, disconnectStatus, reconnectErrPtr := c.getReconnectChanLocked()
+		return reconnectChan, disconnectStatus, reconnectErrPtr, true
+	}()
 	if !wait {
 		return nil
 	}
@@ -775,7 +783,8 @@ func (c *Connection) IsConnected() bool {
 // closed.
 func (c *Connection) getReconnectChanLocked() (
 	reconnectChan chan struct{}, disconnectStatus DisconnectStatus,
-	reconnectErrPtr *error) {
+	reconnectErrPtr *error,
+) {
 	c.log.Debug("Connection: %s",
 		LogField{Key: ConnectionLogMsgKey, Value: "getReconnectChan"})
 	if c.reconnectChan == nil {
@@ -797,9 +806,11 @@ func (c *Connection) getReconnectChanLocked() (
 	return c.reconnectChan, disconnectStatus, c.reconnectErrPtr
 }
 
+//nolint:unparam // reconnectChan is part of the return signature but used for side effects
 func (c *Connection) getReconnectChan() (
 	reconnectChan chan struct{}, disconnectStatus DisconnectStatus,
-	reconnectErrPtr *error) {
+	reconnectErrPtr *error,
+) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	return c.getReconnectChanLocked()
@@ -809,7 +820,8 @@ func (c *Connection) getReconnectChan() (
 // and reconnectErrPtr are the same ones in c, but are passed in to
 // avoid having to take the mutex at the beginning of the method.
 func (c *Connection) doReconnect(ctx context.Context, disconnectStatus DisconnectStatus,
-	reconnectChan chan struct{}, reconnectErrPtr *error) {
+	reconnectChan chan struct{}, reconnectErrPtr *error,
+) {
 	// inform the handler of our disconnected state
 	c.handler.OnDisconnected(ctx, disconnectStatus)
 	if c.firstConnectDelayDuration != 0 &&
@@ -817,21 +829,25 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 		c.connectDelayTimer.StartConstant(c.firstConnectDelayDuration)
 		c.log.Debug("starting %s: %s",
 			LogField{
-				Key: ConnectionLogMsgKey, Value: "initial connect backoff"},
+				Key: ConnectionLogMsgKey, Value: "initial connect backoff",
+			},
 			LogField{Key: "duration", Value: c.firstConnectDelayDuration})
 		c.connectDelayTimer.Wait()
 		c.log.Debug("%s!", LogField{
-			Key: ConnectionLogMsgKey, Value: "initial connect backoff done"})
+			Key: ConnectionLogMsgKey, Value: "initial connect backoff done",
+		})
 	} else if c.initialReconnectBackoffWindow != nil &&
 		disconnectStatus == StartingNonFirstConnection {
 		waitDur := c.connectDelayTimer.StartRandom(c.initialReconnectBackoffWindow())
 		c.log.Debug("starting random %s: %s",
 			LogField{
-				Key: ConnectionLogMsgKey, Value: "initial reconnect backoff"},
+				Key: ConnectionLogMsgKey, Value: "initial reconnect backoff",
+			},
 			LogField{Key: "duration", Value: waitDur})
 		c.connectDelayTimer.Wait()
 		c.log.Debug("%s!", LogField{
-			Key: ConnectionLogMsgKey, Value: "initial reconnect backoff done"})
+			Key: ConnectionLogMsgKey, Value: "initial reconnect backoff done",
+		})
 	}
 	c.log.Debug("RetryNotify %s", LogField{Key: ConnectionLogMsgKey, Value: "beginning"})
 	err := backoff.RetryNotifyWithContext(ctx, func() (err error) {
@@ -924,21 +940,24 @@ type connectionClient struct {
 var _ GenericClient = connectionClient{}
 
 func (c connectionClient) Call(ctx context.Context, s string, args interface{},
-	res interface{}, timeout time.Duration) error {
+	res interface{}, timeout time.Duration,
+) error {
 	return c.conn.DoCommand(ctx, s, timeout, func(rawClient GenericClient) error {
 		return rawClient.Call(ctx, s, args, res, timeout)
 	})
 }
 
 func (c connectionClient) CallCompressed(ctx context.Context, s string,
-	args interface{}, res interface{}, ctype CompressionType, timeout time.Duration) error {
+	args interface{}, res interface{}, ctype CompressionType, timeout time.Duration,
+) error {
 	return c.conn.DoCommand(ctx, s, timeout, func(rawClient GenericClient) error {
 		return rawClient.CallCompressed(ctx, s, args, res, ctype, timeout)
 	})
 }
 
 func (c connectionClient) Notify(ctx context.Context, s string, args interface{},
-	timeout time.Duration) error {
+	timeout time.Duration,
+) error {
 	return c.conn.DoCommand(ctx, s, timeout, func(rawClient GenericClient) error {
 		return rawClient.Notify(ctx, s, args, timeout)
 	})

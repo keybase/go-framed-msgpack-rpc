@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 )
 
 type server struct {
@@ -23,7 +23,7 @@ func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan er
 	lf := NewSimpleLogFactory(&o, nil)
 	instrumenterStorage := NewMemoryInstrumentationStorage()
 	o.Info(fmt.Sprintf("Listening on port %d...", s.port))
-	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil {
+	if listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.port)); err != nil { //nolint:noctx // test code
 		return
 	}
 	close(ready)
@@ -40,7 +40,7 @@ func (s *server) Run(t *testing.T, ready chan struct{}, externalListener chan er
 		done := srv.Run()
 		go func() {
 			<-done
-			listener.Close()
+			require.NoError(t, listener.Close())
 		}()
 	}
 }
@@ -235,6 +235,7 @@ func (a TestClient) Add(ctx context.Context, arg AddArgs) (ret int, err error) {
 	err = a.Call(ctx, "test.1.testp.add", arg, &ret, 0)
 	return ret, err
 }
+
 func (a TestClient) BrokenMethod() (err error) {
 	return a.Call(context.Background(), "test.1.testp.broken", nil, nil, 0)
 }

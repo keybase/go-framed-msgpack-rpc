@@ -1,9 +1,8 @@
 package rpc
 
 import (
+	"context"
 	"io"
-
-	"golang.org/x/net/context"
 )
 
 type dispatcher interface {
@@ -27,7 +26,8 @@ type dispatch struct {
 }
 
 func newDispatch(enc *framedMsgpackEncoder, calls *callContainer,
-	l LogInterface, instrumenterStorage NetworkInstrumenterStorage) *dispatch {
+	l LogInterface, instrumenterStorage NetworkInstrumenterStorage,
+) *dispatch {
 	d := &dispatch{
 		writer:   enc,
 		calls:    calls,
@@ -50,7 +50,8 @@ func currySendNotifier(sendNotifier SendNotifier, seqid SeqNumber) func() {
 }
 
 func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res interface{},
-	ctype CompressionType, u ErrorUnwrapper, sendNotifier SendNotifier) error {
+	ctype CompressionType, u ErrorUnwrapper, sendNotifier SendNotifier,
+) error {
 	profiler := d.log.StartProfiler("call %s", name)
 	defer profiler.Stop()
 

@@ -1,7 +1,7 @@
 package rpc
 
 import (
-	"golang.org/x/net/context"
+	"context"
 )
 
 type request interface {
@@ -76,7 +76,6 @@ func (r *callRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg i
 }
 
 func (r *callRequest) Serve(transmitter *framedMsgpackEncoder, handler *ServeHandlerDescription, wrapErrorFunc WrapErrorFunc) {
-
 	prof := r.log.StartProfiler("serve %s", r.Name())
 	arg := r.Arg()
 
@@ -142,7 +141,6 @@ func (r *callCompressedRequest) Reply(enc *framedMsgpackEncoder, res interface{}
 }
 
 func (r *callCompressedRequest) Serve(transmitter *framedMsgpackEncoder, handler *ServeHandlerDescription, wrapErrorFunc WrapErrorFunc) {
-
 	prof := r.log.StartProfiler("serve-compressed %s", r.Name())
 	arg := r.Arg()
 
@@ -182,7 +180,6 @@ func (r *notifyRequest) LogCompletion(_ interface{}, err error) {
 }
 
 func (r *notifyRequest) Serve(_ *framedMsgpackEncoder, handler *ServeHandlerDescription, _ WrapErrorFunc) {
-
 	prof := r.log.StartProfiler("serve-notify %s", r.Name())
 	arg := r.Arg()
 
