@@ -12,7 +12,7 @@ type testLogOutput struct {
 	done atomic.Bool
 }
 
-func (t *testLogOutput) log(ch string, fmts string, args []interface{}) {
+func (t *testLogOutput) log(ch string, fmts string, args []any) {
 	// Don't log if test is done to avoid data races
 	if t.done.Load() {
 		return
@@ -37,27 +37,27 @@ func (t *testLogOutput) MarkDone() {
 	t.done.Store(true)
 }
 
-func (t *testLogOutput) Info(fmt string, args ...interface{}) {
+func (t *testLogOutput) Info(fmt string, args ...any) {
 	t.t.Helper()
 	t.log("I", fmt, args)
 }
 
-func (t *testLogOutput) Error(fmt string, args ...interface{}) {
+func (t *testLogOutput) Error(fmt string, args ...any) {
 	t.t.Helper()
 	t.log("E", fmt, args)
 }
 
-func (t *testLogOutput) Debug(fmt string, args ...interface{}) {
+func (t *testLogOutput) Debug(fmt string, args ...any) {
 	t.t.Helper()
 	t.log("D", fmt, args)
 }
 
-func (t *testLogOutput) Warning(fmt string, args ...interface{}) {
+func (t *testLogOutput) Warning(fmt string, args ...any) {
 	t.t.Helper()
 	t.log("W", fmt, args)
 }
 
-func (t *testLogOutput) Profile(fmt string, args ...interface{}) {
+func (t *testLogOutput) Profile(fmt string, args ...any) {
 	t.t.Helper()
 	t.log("P", fmt, args)
 }

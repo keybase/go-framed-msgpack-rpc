@@ -18,7 +18,7 @@ var (
 )
 
 type longCallResult struct {
-	res interface{}
+	res any
 	err error
 }
 
@@ -69,7 +69,7 @@ func TestCall(t *testing.T) {
 	B := 34
 	numRuns := 15
 	done := make(chan int)
-	for A := 0; A < numRuns; A++ {
+	for A := range numRuns {
 		go func(A, B int) {
 			res, err := cli.Add(context.Background(), AddArgs{A: A, B: B})
 			require.NoError(t, err, "an error occurred while adding parameters")
@@ -77,7 +77,7 @@ func TestCall(t *testing.T) {
 			done <- 0
 		}(A, B)
 	}
-	for i := 0; i < numRuns; i++ {
+	for range numRuns {
 		<-done
 	}
 }
@@ -152,7 +152,7 @@ func TestCallCompressed(t *testing.T) {
 	numRuns := 15
 	doWithAllCompressionTypes(func(ctype CompressionType) {
 		done := make(chan int)
-		for i := 0; i < numRuns; i++ {
+		for i := range numRuns {
 			go func(i int) {
 				res := []*Constants{}
 				err := cli.CallCompressed(ctx, "test.1.testp.GetNConstants", nargs, &res, ctype, 0)
@@ -160,7 +160,7 @@ func TestCallCompressed(t *testing.T) {
 				done <- i
 			}(i)
 		}
-		for i := 0; i < numRuns; i++ {
+		for range numRuns {
 			<-done
 		}
 	})
@@ -188,7 +188,7 @@ func TestLongCallCancel(t *testing.T) {
 
 	resultCh := make(chan longCallResult)
 	runInBg(func() error {
-		var longResult interface{}
+		var longResult any
 		var err error
 		longResult, err = cli.LongCall(ctx)
 		resultCh <- longCallResult{longResult, err}
@@ -211,7 +211,7 @@ func TestLongCallCancel(t *testing.T) {
 
 	res = <-resultCh
 	require.Nil(t, res.err, "call should have succeeded")
-	require.Equal(t, CtxRPCTags{"hello": []interface{}{"world"}}, res.res, "canceled call should have set the debug tags")
+	require.Equal(t, CtxRPCTags{"hello": []any{"world"}}, res.res, "canceled call should have set the debug tags")
 }
 
 func TestLongCallTimeout(t *testing.T) {
@@ -237,7 +237,7 @@ func TestClosedConnection(t *testing.T) {
 
 	resultCh := make(chan longCallResult)
 	runInBg(func() error {
-		var longResult interface{}
+		var longResult any
 		var err error
 		longResult, err = cli.LongCall(context.Background())
 		resultCh <- longCallResult{longResult, err}

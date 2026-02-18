@@ -14,7 +14,7 @@ const ConnectionLogMsgKey string = "msg"
 
 type LogField struct {
 	Key   string
-	Value interface{}
+	Value any
 }
 
 // Format implements the fmt.Formatter interface, to make the structured
@@ -54,7 +54,7 @@ func newConnectionLogUnstructured(
 }
 
 func formatLogFields(f string, lf ...LogField) string {
-	fields := make([]interface{}, 0, len(lf))
+	fields := make([]any, 0, len(lf))
 	for _, lf := range lf {
 		fields = append(fields, lf)
 	}

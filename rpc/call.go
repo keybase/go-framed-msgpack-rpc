@@ -12,8 +12,8 @@ type call struct {
 
 	method         string
 	seqid          SeqNumber
-	arg            interface{}
-	res            interface{}
+	arg            any
+	res            any
 	ctype          CompressionType
 	errorUnwrapper ErrorUnwrapper
 	instrumenter   *NetworkInstrumenter
@@ -33,7 +33,7 @@ func newCallContainer() *callContainer {
 	}
 }
 
-func (cc *callContainer) NewCall(ctx context.Context, m string, arg interface{}, res interface{},
+func (cc *callContainer) NewCall(ctx context.Context, m string, arg any, res any,
 	ctype CompressionType, u ErrorUnwrapper, instrumenter *NetworkInstrumenter,
 ) *call {
 	// Buffer one response to take into account that a call stops

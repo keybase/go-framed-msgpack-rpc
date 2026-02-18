@@ -95,7 +95,7 @@ func (a *testProtocol) LongCall(ctx context.Context) (int, error) {
 	tags, _ := TagsFromContext(ctx)
 	a.debugTags = tags
 	a.longCallResult = 0
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		select {
 		case <-time.After(time.Millisecond):
 			a.longCallResult++
@@ -149,10 +149,10 @@ func createTestProtocol(i TestInterface) Protocol {
 		Name: "test.1.testp",
 		Methods: map[string]ServeHandlerDescription{
 			"add": {
-				MakeArg: func() interface{} {
+				MakeArg: func() any {
 					return new(AddArgs)
 				},
-				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
+				Handler: func(_ context.Context, args any) (any, error) {
 					addArgs, ok := args.(*AddArgs)
 					if !ok {
 						return nil, NewTypeError((*AddArgs)(nil), args)
@@ -161,18 +161,18 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"GetConstants": {
-				MakeArg: func() interface{} {
-					return new(interface{})
+				MakeArg: func() any {
+					return new(any)
 				},
-				Handler: func(_ context.Context, _ interface{}) (interface{}, error) {
+				Handler: func(_ context.Context, _ any) (any, error) {
 					return i.GetConstants()
 				},
 			},
 			"GetNConstants": {
-				MakeArg: func() interface{} {
+				MakeArg: func() any {
 					return new(NArgs)
 				},
-				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
+				Handler: func(_ context.Context, args any) (any, error) {
 					nargs, ok := args.(*NArgs)
 					if !ok {
 						return nil, NewTypeError((*NArgs)(nil), args)
@@ -181,10 +181,10 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"updateConstants": {
-				MakeArg: func() interface{} {
+				MakeArg: func() any {
 					return new(Constants)
 				},
-				Handler: func(_ context.Context, args interface{}) (interface{}, error) {
+				Handler: func(_ context.Context, args any) (any, error) {
 					constants, ok := args.(*Constants)
 					if !ok {
 						return nil, NewTypeError((*Constants)(nil), args)
@@ -194,26 +194,26 @@ func createTestProtocol(i TestInterface) Protocol {
 				},
 			},
 			"LongCall": {
-				MakeArg: func() interface{} {
-					return new(interface{})
+				MakeArg: func() any {
+					return new(any)
 				},
-				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
+				Handler: func(ctx context.Context, _ any) (any, error) {
 					return i.LongCall(ctx)
 				},
 			},
 			"LongCallResult": {
-				MakeArg: func() interface{} {
-					return new(interface{})
+				MakeArg: func() any {
+					return new(any)
 				},
-				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
+				Handler: func(ctx context.Context, _ any) (any, error) {
 					return i.LongCallResult(ctx)
 				},
 			},
 			"LongCallDebugTags": {
-				MakeArg: func() interface{} {
-					return new(interface{})
+				MakeArg: func() any {
+					return new(any)
 				},
-				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
+				Handler: func(ctx context.Context, _ any) (any, error) {
 					return i.LongCallDebugTags(ctx)
 				},
 			},

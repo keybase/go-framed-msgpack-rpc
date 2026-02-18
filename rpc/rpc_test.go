@@ -26,7 +26,7 @@ func TestObjcOutput(t *testing.T) {
 	require.NoError(t, err, "an error occurred while decoding an integer")
 	require.Equal(t, buf.Len(), i, "Bad frame")
 
-	var a interface{}
+	var a any
 	err = dec.Decode(&a)
 	require.NoError(t, err, "an error occurred while decoding object")
 }

@@ -6,9 +6,9 @@ import (
 )
 
 type dispatcher interface {
-	Call(ctx context.Context, name string, arg interface{}, res interface{},
+	Call(ctx context.Context, name string, arg any, res any,
 		ctype CompressionType, u ErrorUnwrapper, sendNotifier SendNotifier) error
-	Notify(ctx context.Context, name string, arg interface{}, sendNotifier SendNotifier) error
+	Notify(ctx context.Context, name string, arg any, sendNotifier SendNotifier) error
 	Close()
 }
 
@@ -49,7 +49,7 @@ func currySendNotifier(sendNotifier SendNotifier, seqid SeqNumber) func() {
 	}
 }
 
-func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res interface{},
+func (d *dispatch) Call(ctx context.Context, name string, arg any, res any,
 	ctype CompressionType, u ErrorUnwrapper, sendNotifier SendNotifier,
 ) error {
 	profiler := d.log.StartProfiler("call %s", name)
@@ -70,18 +70,18 @@ func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res i
 	d.calls.AddCall(c)
 	defer d.calls.RemoveCall(c.seqid)
 
-	var v []interface{}
+	var v []any
 	var logCall func()
 	switch ctype {
 	case CompressionNone:
-		v = []interface{}{method, c.seqid, c.method, c.arg}
+		v = []any{method, c.seqid, c.method, c.arg}
 		logCall = func() { d.log.ClientCall(c.seqid, c.method, c.arg) }
 	default:
 		arg, err := d.writer.compressData(c.ctype, c.arg)
 		if err != nil {
 			return err
 		}
-		v = []interface{}{method, c.seqid, c.ctype, c.method, arg}
+		v = []any{method, c.seqid, c.ctype, c.method, arg}
 		logCall = func() { d.log.ClientCallCompressed(c.seqid, c.method, c.arg, c.ctype) }
 	}
 
@@ -118,9 +118,9 @@ func (d *dispatch) Call(ctx context.Context, name string, arg interface{}, res i
 	}
 }
 
-func (d *dispatch) Notify(ctx context.Context, name string, arg interface{}, sendNotifier SendNotifier) error {
+func (d *dispatch) Notify(ctx context.Context, name string, arg any, sendNotifier SendNotifier) error {
 	rpcTags, _ := TagsFromContext(ctx)
-	v := []interface{}{MethodNotify, name, arg}
+	v := []any{MethodNotify, name, arg}
 	if len(rpcTags) > 0 {
 		v = append(v, rpcTags)
 	}
@@ -149,7 +149,7 @@ func (d *dispatch) Close() {
 
 func (d *dispatch) handleCancel(ctx context.Context, c *call) error {
 	d.log.ClientCancel(c.seqid, c.method, nil)
-	size, errCh := d.writer.EncodeAndWriteAsync([]interface{}{MethodCancel, c.seqid, c.method})
+	size, errCh := d.writer.EncodeAndWriteAsync([]any{MethodCancel, c.seqid, c.method})
 	record := NewNetworkInstrumenter(d.instrumenterStorage, InstrumentTag(MethodCancel, c.method))
 	defer func() { _ = record.RecordAndFinish(ctx, size) }()
 	select {

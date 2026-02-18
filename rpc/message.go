@@ -48,7 +48,7 @@ type rpcCallMessage struct {
 	basicRPCData
 	seqno SeqNumber
 	name  string
-	arg   interface{}
+	arg   any
 	err   error
 }
 
@@ -93,7 +93,7 @@ func (r rpcCallMessage) Name() string {
 	return r.name
 }
 
-func (r rpcCallMessage) Arg() interface{} {
+func (r rpcCallMessage) Arg() any {
 	return r.arg
 }
 
@@ -203,7 +203,7 @@ func (r *rpcResponseMessage) DecodeMessage(_ int, d *fieldDecoder, _ *protocolHa
 	r.c.instrumenter.IncrementSize(int64(d.totalSize))
 
 	// Decode the error
-	var responseErr interface{}
+	var responseErr any
 	if r.c.errorUnwrapper != nil {
 		responseErr = r.c.errorUnwrapper.MakeArg()
 	} else {
@@ -287,7 +287,7 @@ func (r rpcResponseMessage) ResponseErr() error {
 	return r.responseErr
 }
 
-func (r rpcResponseMessage) Res() interface{} {
+func (r rpcResponseMessage) Res() any {
 	if r.c == nil {
 		return nil
 	}
@@ -304,7 +304,7 @@ func (r rpcResponseMessage) ResponseCh() chan *rpcResponseMessage {
 type rpcNotifyMessage struct {
 	basicRPCData
 	name string
-	arg  interface{}
+	arg  any
 	err  error
 }
 
@@ -350,7 +350,7 @@ func (r rpcNotifyMessage) Name() string {
 	return r.name
 }
 
-func (r rpcNotifyMessage) Arg() interface{} {
+func (r rpcNotifyMessage) Arg() any {
 	return r.arg
 }
 
@@ -426,7 +426,7 @@ func newUncompressedDecoder(data []byte, fieldNumber int) *fieldDecoder {
 }
 
 // Decode decodes the next field into the given interface.
-func (dw *fieldDecoder) Decode(i interface{}) error {
+func (dw *fieldDecoder) Decode(i any) error {
 	defer func() {
 		dw.fieldNumber++
 	}()

@@ -18,22 +18,22 @@ type LogInterface interface {
 	TransportError(error)
 	// The passed-in slice should not be mutated.
 	FrameRead([]byte)
-	ClientCall(SeqNumber, string, interface{})
-	ServerCall(SeqNumber, string, error, interface{})
-	ServerReply(SeqNumber, string, error, interface{})
-	ClientCallCompressed(SeqNumber, string, interface{}, CompressionType)
-	ServerCallCompressed(SeqNumber, string, error, interface{}, CompressionType)
-	ServerReplyCompressed(SeqNumber, string, error, interface{}, CompressionType)
-	ClientNotify(string, interface{})
-	ServerNotifyCall(string, error, interface{})
+	ClientCall(SeqNumber, string, any)
+	ServerCall(SeqNumber, string, error, any)
+	ServerReply(SeqNumber, string, error, any)
+	ClientCallCompressed(SeqNumber, string, any, CompressionType)
+	ServerCallCompressed(SeqNumber, string, error, any, CompressionType)
+	ServerReplyCompressed(SeqNumber, string, error, any, CompressionType)
+	ClientNotify(string, any)
+	ServerNotifyCall(string, error, any)
 	ServerNotifyComplete(string, error)
 	ClientCancel(SeqNumber, string, error)
 	ServerCancelCall(SeqNumber, string)
-	ClientReply(SeqNumber, string, error, interface{})
-	StartProfiler(format string, args ...interface{}) Profiler
+	ClientReply(SeqNumber, string, error, any)
+	StartProfiler(format string, args ...any) Profiler
 	UnexpectedReply(SeqNumber)
-	Warning(format string, args ...interface{})
-	Info(format string, args ...interface{})
+	Warning(format string, args ...any)
+	Info(format string, args ...any)
 }
 
 type LogFactory interface {
@@ -41,11 +41,11 @@ type LogFactory interface {
 }
 
 type LogOutput interface {
-	Error(s string, args ...interface{})
-	Warning(s string, args ...interface{})
-	Info(s string, args ...interface{})
-	Debug(s string, args ...interface{})
-	Profile(s string, args ...interface{})
+	Error(s string, args ...any)
+	Warning(s string, args ...any)
+	Info(s string, args ...any)
+	Debug(s string, args ...any)
+	Profile(s string, args ...any)
 }
 
 type LogOutputWithDepthAdder interface {
@@ -82,16 +82,16 @@ type (
 	SimpleLogOptions struct{}
 )
 
-func (s SimpleLogOutput) log(ch string, fmts string, args []interface{}) {
+func (s SimpleLogOutput) log(ch string, fmts string, args []any) {
 	fmts = fmt.Sprintf("[%s] %s\n", ch, fmts)
 	fmt.Fprintf(os.Stderr, fmts, args...)
 }
 
-func (s SimpleLogOutput) Info(fmt string, args ...interface{})    { s.log("I", fmt, args) }
-func (s SimpleLogOutput) Error(fmt string, args ...interface{})   { s.log("E", fmt, args) }
-func (s SimpleLogOutput) Debug(fmt string, args ...interface{})   { s.log("D", fmt, args) }
-func (s SimpleLogOutput) Warning(fmt string, args ...interface{}) { s.log("W", fmt, args) }
-func (s SimpleLogOutput) Profile(fmt string, args ...interface{}) { s.log("P", fmt, args) }
+func (s SimpleLogOutput) Info(fmt string, args ...any)    { s.log("I", fmt, args) }
+func (s SimpleLogOutput) Error(fmt string, args ...any)   { s.log("E", fmt, args) }
+func (s SimpleLogOutput) Debug(fmt string, args ...any)   { s.log("D", fmt, args) }
+func (s SimpleLogOutput) Warning(fmt string, args ...any) { s.log("W", fmt, args) }
+func (s SimpleLogOutput) Profile(fmt string, args ...any) { s.log("P", fmt, args) }
 
 func (so SimpleLogOptions) ShowAddress() bool    { return true }
 func (so SimpleLogOptions) ShowArg() bool        { return true }
@@ -195,51 +195,51 @@ func (s SimpleLog) FrameRead(bytes []byte) {
 }
 
 // Call
-func (s SimpleLog) ClientCall(q SeqNumber, meth string, arg interface{}) {
+func (s SimpleLog) ClientCall(q SeqNumber, meth string, arg any) {
 	if s.Opts.ClientTrace() {
 		s.trace("call", "arg", s.Opts.ShowArg(), q, meth, nil, arg, nil)
 	}
 }
 
-func (s SimpleLog) ServerCall(q SeqNumber, meth string, err error, arg interface{}) {
+func (s SimpleLog) ServerCall(q SeqNumber, meth string, err error, arg any) {
 	if s.Opts.ServerTrace() {
 		s.trace("serve", "arg", s.Opts.ShowArg(), q, meth, err, arg, nil)
 	}
 }
 
-func (s SimpleLog) ServerReply(q SeqNumber, meth string, err error, res interface{}) {
+func (s SimpleLog) ServerReply(q SeqNumber, meth string, err error, res any) {
 	if s.Opts.ServerTrace() {
 		s.trace("reply", "res", s.Opts.ShowResult(), q, meth, err, res, nil)
 	}
 }
 
 // CallCompressed
-func (s SimpleLog) ClientCallCompressed(q SeqNumber, meth string, arg interface{}, ctype CompressionType) {
+func (s SimpleLog) ClientCallCompressed(q SeqNumber, meth string, arg any, ctype CompressionType) {
 	if s.Opts.ClientTrace() {
 		s.trace("call-compressed", "arg", s.Opts.ShowArg(), q, meth, nil, arg, &ctype)
 	}
 }
 
-func (s SimpleLog) ServerCallCompressed(q SeqNumber, meth string, err error, arg interface{}, ctype CompressionType) {
+func (s SimpleLog) ServerCallCompressed(q SeqNumber, meth string, err error, arg any, ctype CompressionType) {
 	if s.Opts.ServerTrace() {
 		s.trace("serve-compressed", "arg", s.Opts.ShowArg(), q, meth, err, arg, &ctype)
 	}
 }
 
-func (s SimpleLog) ServerReplyCompressed(q SeqNumber, meth string, err error, res interface{}, ctype CompressionType) {
+func (s SimpleLog) ServerReplyCompressed(q SeqNumber, meth string, err error, res any, ctype CompressionType) {
 	if s.Opts.ServerTrace() {
 		s.trace("reply-compressed", "res", s.Opts.ShowResult(), q, meth, err, res, &ctype)
 	}
 }
 
 // Notify
-func (s SimpleLog) ClientNotify(meth string, arg interface{}) {
+func (s SimpleLog) ClientNotify(meth string, arg any) {
 	if s.Opts.ClientTrace() {
 		s.trace("notify", "arg", s.Opts.ShowArg(), 0, meth, nil, arg, nil)
 	}
 }
 
-func (s SimpleLog) ServerNotifyCall(meth string, err error, arg interface{}) {
+func (s SimpleLog) ServerNotifyCall(meth string, err error, arg any) {
 	if s.Opts.ServerTrace() {
 		s.trace("serve-notify", "arg", s.Opts.ShowArg(), 0, meth, err, arg, nil)
 	}
@@ -264,16 +264,16 @@ func (s SimpleLog) ServerCancelCall(q SeqNumber, meth string) {
 	}
 }
 
-func (s SimpleLog) ClientReply(q SeqNumber, meth string, err error, res interface{}) {
+func (s SimpleLog) ClientReply(q SeqNumber, meth string, err error, res any) {
 	if s.Opts.ClientTrace() {
 		s.trace("reply", "res", s.Opts.ShowResult(), q, meth, err, res, nil)
 	}
 }
 
 func (s SimpleLog) trace(which string, objname string, verbose bool, q SeqNumber,
-	meth string, err error, obj interface{}, ctype *CompressionType,
+	meth string, err error, obj any, ctype *CompressionType,
 ) {
-	args := []interface{}{which, q}
+	args := []any{which, q}
 	fmts := "%s(%d):"
 	if len(meth) > 0 {
 		fmts += " method=%s;"
@@ -307,7 +307,7 @@ func (s SimpleLog) trace(which string, objname string, verbose bool, q SeqNumber
 	s.Out.Debug(s.msg(false, fmts, args...))
 }
 
-func (s SimpleLog) StartProfiler(format string, args ...interface{}) Profiler {
+func (s SimpleLog) StartProfiler(format string, args ...any) Profiler {
 	if s.Opts.Profile() {
 		return &SimpleProfiler{
 			start: time.Now(),
@@ -322,15 +322,15 @@ func (s SimpleLog) UnexpectedReply(seqno SeqNumber) {
 	s.Out.Warning(s.msg(false, "Unexpected seqno %d in incoming reply", seqno))
 }
 
-func (s SimpleLog) Warning(format string, args ...interface{}) {
+func (s SimpleLog) Warning(format string, args ...any) {
 	s.Out.Warning(s.msg(false, format, args...))
 }
 
-func (s SimpleLog) Info(format string, args ...interface{}) {
+func (s SimpleLog) Info(format string, args ...any) {
 	s.Out.Info(s.msg(false, format, args...))
 }
 
-func (s SimpleLog) msg(force bool, format string, args ...interface{}) string {
+func (s SimpleLog) msg(force bool, format string, args ...any) string {
 	m1 := fmt.Sprintf(format, args...)
 	if s.Opts.ShowAddress() || force {
 		m2 := fmt.Sprintf("{%s} %s", AddrToString(s.Addr), m1)

@@ -27,7 +27,7 @@ func runInBg(f func() error) chan error {
 	return done
 }
 
-func wrapError(f WrapErrorFunc, e error) interface{} {
+func wrapError(f WrapErrorFunc, e error) any {
 	if f != nil {
 		return f(e)
 	}

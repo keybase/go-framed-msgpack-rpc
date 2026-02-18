@@ -7,8 +7,8 @@ import (
 )
 
 type ServeHandlerDescription struct {
-	MakeArg func() interface{}
-	Handler func(ctx context.Context, arg interface{}) (ret interface{}, err error)
+	MakeArg func() any
+	Handler func(ctx context.Context, arg any) (ret any, err error)
 }
 
 type MethodType int
@@ -74,8 +74,8 @@ func (t CompressionType) NewCompressor() compressor {
 }
 
 type ErrorUnwrapper interface {
-	MakeArg() interface{}
-	UnwrapError(arg interface{}) (appError error, dispatchError error)
+	MakeArg() any
+	UnwrapError(arg any) (appError error, dispatchError error)
 }
 
 type Protocol struct {
@@ -128,7 +128,7 @@ func (h *protocolHandler) findServeHandler(name string) (*ServeHandlerDescriptio
 	return &srv, prot.WrapError, nil
 }
 
-func (h *protocolHandler) getArg(name string) (interface{}, error) {
+func (h *protocolHandler) getArg(name string) (any, error) {
 	handler, _, err := h.findServeHandler(name)
 	if err != nil {
 		return nil, err

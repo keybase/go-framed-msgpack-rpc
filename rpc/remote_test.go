@@ -54,7 +54,7 @@ func TestPrioritizedRoundRobinRemote(t *testing.T) {
 
 	getAndConfirmA := func() {
 		seen := make(map[string]bool)
-		for i := 0; i < 4; i++ {
+		for range 4 {
 			seen[getParallel()] = true
 		}
 
@@ -66,7 +66,7 @@ func TestPrioritizedRoundRobinRemote(t *testing.T) {
 
 	getAndConfirmB := func() {
 		seen := make(map[string]bool)
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			seen[getParallel()] = true
 		}
 

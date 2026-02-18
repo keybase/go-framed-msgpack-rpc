@@ -1,5 +1,7 @@
 package rpc
 
+import "maps"
+
 import "context"
 
 // CtxRPCKey is a type defining the context key for the RPC context
@@ -10,7 +12,7 @@ const (
 	CtxRPCTagsKey CtxRPCKey = iota
 )
 
-type CtxRPCTags map[string]interface{}
+type CtxRPCTags map[string]any
 
 // AddRPCTagsToContext adds the given log tag mappings (logTagsToAdd) to the
 // given context, creating a new one if necessary. Returns the resulting
@@ -20,9 +22,7 @@ func AddRPCTagsToContext(ctx context.Context, logTagsToAdd CtxRPCTags) context.C
 	if !ok {
 		currTags = make(CtxRPCTags)
 	}
-	for key, tag := range logTagsToAdd {
-		currTags[key] = tag
-	}
+	maps.Copy(currTags, logTagsToAdd)
 
 	return context.WithValue(ctx, CtxRPCTagsKey, currTags)
 }
@@ -32,9 +32,7 @@ func TagsFromContext(ctx context.Context) (CtxRPCTags, bool) {
 	logTags, ok := ctx.Value(CtxRPCTagsKey).(CtxRPCTags)
 	if ok {
 		ret := make(CtxRPCTags)
-		for k, v := range logTags {
-			ret[k] = v
-		}
+		maps.Copy(ret, logTags)
 		return ret, true
 	}
 	return nil, false

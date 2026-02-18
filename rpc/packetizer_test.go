@@ -115,10 +115,10 @@ func createPacketizerTestProtocol(t *testing.T) *protocolHandler {
 		Name: "abc",
 		Methods: map[string]ServeHandlerDescription{
 			"hello": {
-				MakeArg: func() interface{} {
+				MakeArg: func() any {
 					return nil
 				},
-				Handler: func(context.Context, interface{}) (interface{}, error) {
+				Handler: func(context.Context, any) (any, error) {
 					return nil, nil
 				},
 			},
@@ -199,16 +199,16 @@ func TestPacketizerDecodeBadLengthField(t *testing.T) {
 // can handle invalid frames and skip over them.
 func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	// Encode a mix of valid and invalid frames.
-	v1 := []interface{}{MethodCall, 1, "abc.hello", new(interface{})}
+	v1 := []any{MethodCall, 1, "abc.hello", new(any)}
 	iv1 := "some string"
 	iv2 := 53
-	v2 := []interface{}{MethodNotify, "abc.hello", new(interface{})}
+	v2 := []any{MethodNotify, "abc.hello", new(any)}
 	iv3 := false
-	v3 := []interface{}{MethodResponse, 0, "response err", new(interface{})}
-	iv4 := []interface{}{"some string"}
-	v4 := []interface{}{MethodCancel, 1, "abc.hello"}
+	v3 := []any{MethodResponse, 0, "response err", new(any)}
+	iv4 := []any{"some string"}
+	v4 := []any{MethodCancel, 1, "abc.hello"}
 
-	frames := []interface{}{v1, iv1, iv2, v2, iv3, v3, iv4, v4}
+	frames := []any{v1, iv1, iv2, v2, iv3, v3, iv4, v4}
 
 	var buf bytes.Buffer
 	enc := newFramedMsgpackEncoder(testMaxFrameLength, &buf)
@@ -225,7 +225,7 @@ func TestPacketizerDecodeInvalidFrames(t *testing.T) {
 	cc := newCallContainer()
 	instrumenterStorage := NewMemoryInstrumentationStorage()
 	record := NewNetworkInstrumenter(instrumenterStorage, "Response foo.bar")
-	c := cc.NewCall(ctx, "foo.bar", new(interface{}), new(string), CompressionNone, nil, record)
+	c := cc.NewCall(ctx, "foo.bar", new(any), new(string), CompressionNone, nil, record)
 	cc.AddCall(c)
 
 	log := newTestLog(t)

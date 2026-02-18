@@ -22,7 +22,7 @@ func dispatchTestCallWithContextAndCompressionType(ctx context.Context, t *testi
 	d := newDispatch(dispatchOut, calls, log, instrumenterStorage)
 
 	done := runInBg(func() error {
-		return d.Call(ctx, "abc.hello", new(interface{}), new(interface{}),
+		return d.Call(ctx, "abc.hello", new(any), new(any),
 			ctype, nil, nil)
 	})
 
@@ -140,7 +140,7 @@ func TestDispatchCallAfterClose(t *testing.T) {
 	d.Close()
 
 	done = runInBg(func() error {
-		return d.Call(context.Background(), "whatever", new(interface{}), new(interface{}),
+		return d.Call(context.Background(), "whatever", new(any), new(any),
 			CompressionNone, nil, nil)
 	})
 	err = <-done
@@ -159,7 +159,7 @@ func TestDispatchCancelEndToEnd(t *testing.T) {
 
 	ch := make(chan error)
 	go func() {
-		err := d.Call(ctx1, "abc.hello", nil, new(interface{}),
+		err := d.Call(ctx1, "abc.hello", nil, new(any),
 			CompressionNone, nil, nil)
 		ch <- err
 	}()

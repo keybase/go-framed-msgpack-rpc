@@ -27,7 +27,7 @@ func TestMap(t *testing.T) {
 	require.Equal(t, m, targetMap)
 
 	var zeroMap map[string]string
-	var targetMapInterface interface{}
+	var targetMapInterface any
 	err = enc.Encode(zeroMap)
 	require.NoError(t, err, "expected encoding to succeed")
 
@@ -35,12 +35,12 @@ func TestMap(t *testing.T) {
 	require.NoError(t, err, "expected decoding to succeed")
 	require.Equal(t, 0, len(buf.Bytes()))
 
-	err = enc.Encode([]interface{}{"hello", "world", m})
+	err = enc.Encode([]any{"hello", "world", m})
 	require.NoError(t, err, "expected encoding to succeed")
 	var a string
 	var b string
 	var c map[string]string
-	i := []interface{}{&a, &b, &c}
+	i := []any{&a, &b, &c}
 	err = dec.Decode(&i)
 	require.NoError(t, err, "expected decoding to succeed")
 	require.Equal(t, 0, len(buf.Bytes()))

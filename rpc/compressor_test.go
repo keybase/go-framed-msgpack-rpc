@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func MPackEncode(input interface{}) ([]byte, error) {
+func MPackEncode(input any) ([]byte, error) {
 	mh := codec.MsgpackHandle{WriteExt: true}
 	var data []byte
 	enc := codec.NewEncoderBytes(&data, &mh)
