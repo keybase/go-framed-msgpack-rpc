@@ -46,7 +46,7 @@ func makeCall(seq SeqNumber, name string) *rpcCallMessage {
 	}
 }
 
-func makeResponse(err error, res interface{}) *rpcResponseMessage {
+func makeResponse(err error, res any) *rpcResponseMessage {
 	return &rpcResponseMessage{
 		err: err,
 		c: &call{
@@ -116,10 +116,10 @@ func TestCloseReceiver(t *testing.T) {
 		Name: "waiter",
 		Methods: map[string]ServeHandlerDescription{
 			"wait": {
-				MakeArg: func() interface{} {
+				MakeArg: func() any {
 					return nil
 				},
-				Handler: func(c context.Context, _ interface{}) (interface{}, error) {
+				Handler: func(c context.Context, _ any) (any, error) {
 					<-c.Done()
 					waitCh <- c.Err()
 					return nil, c.Err()

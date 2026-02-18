@@ -66,11 +66,11 @@ type testStatus struct {
 	Code int
 }
 
-func testWrapError(_ error) interface{} {
+func testWrapError(_ error) any {
 	return &testStatus{}
 }
 
-func testLogTags(_ context.Context) (map[interface{}]string, bool) {
+func testLogTags(_ context.Context) (map[any]string, bool) {
 	return nil, false
 }
 
@@ -95,11 +95,11 @@ func (eu testErrorUnwrapper) Timeout() time.Duration {
 	return 0
 }
 
-func (eu testErrorUnwrapper) MakeArg() interface{} {
+func (eu testErrorUnwrapper) MakeArg() any {
 	return &testStatus{}
 }
 
-func (eu testErrorUnwrapper) UnwrapError(arg interface{}) (appError error, dispatchError error) {
+func (eu testErrorUnwrapper) UnwrapError(arg any) (appError error, dispatchError error) {
 	s, ok := arg.(*testStatus)
 	if !ok {
 		return nil, errors.New("Error converting arg to testStatus object")
@@ -120,7 +120,7 @@ func (eu testErrorUnwrapper) UnwrapError(arg interface{}) (appError error, dispa
 // TestLogger is an interface for things, like *testing.T, that have a
 // Logf and Helper function.
 type TestLogger interface {
-	Logf(format string, args ...interface{})
+	Logf(format string, args ...any)
 	Helper()
 }
 

@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-type WrapErrorFunc func(error) interface{}
+type WrapErrorFunc func(error) any
 
 type Transporter interface {
 	// IsConnected returns false when incoming packets have

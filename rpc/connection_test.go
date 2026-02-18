@@ -372,7 +372,7 @@ func TestDialableTransport(t *testing.T) {
 	uri, err := ParseFMPURI(uriStr)
 	require.NoError(t, err)
 
-	wef := func(err error) interface{} {
+	wef := func(err error) any {
 		require.NoError(t, err)
 		return err
 	}

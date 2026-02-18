@@ -56,8 +56,8 @@ func TestReceiverGoroutineLeakOnClose(t *testing.T) {
 		Name: "slowservice",
 		Methods: map[string]ServeHandlerDescription{
 			"slowcall": {
-				MakeArg: func() interface{} { return nil },
-				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
+				MakeArg: func() any { return nil },
+				Handler: func(ctx context.Context, _ any) (any, error) {
 					handlerStarted <- struct{}{}
 					select {
 					case <-handlerCanFinish:
@@ -79,13 +79,13 @@ func TestReceiverGoroutineLeakOnClose(t *testing.T) {
 	baseline := runtime.NumGoroutine()
 
 	// Start multiple RPCs
-	for i := 0; i < numCalls; i++ {
+	for i := range numCalls {
 		err := r.Receive(makeCall(SeqNumber(i), "slowservice.slowcall"))
 		require.NoError(t, err)
 	}
 
 	// Wait for all handlers to start
-	for i := 0; i < numCalls; i++ {
+	for i := range numCalls {
 		select {
 		case <-handlerStarted:
 		case <-time.After(5 * time.Second):
@@ -119,8 +119,8 @@ func TestReceiverTaskEndChDoesNotBlockOnClose(t *testing.T) {
 		Name: "testservice",
 		Methods: map[string]ServeHandlerDescription{
 			"testcall": {
-				MakeArg: func() interface{} { return nil },
-				Handler: func(_ context.Context, _ interface{}) (interface{}, error) {
+				MakeArg: func() any { return nil },
+				Handler: func(_ context.Context, _ any) (any, error) {
 					close(handlerDone)
 					time.Sleep(10 * time.Millisecond)
 					return "result", nil
@@ -162,8 +162,8 @@ func TestReceiverContextCancellationExitPath(t *testing.T) {
 		Name: "cancelservice",
 		Methods: map[string]ServeHandlerDescription{
 			"cancelcall": {
-				MakeArg: func() interface{} { return nil },
-				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
+				MakeArg: func() any { return nil },
+				Handler: func(ctx context.Context, _ any) (any, error) {
 					close(handlerStarted)
 					<-ctx.Done()
 					atomic.StoreInt32(&handlerExited, 1)
@@ -206,8 +206,8 @@ func TestReceiverMultipleSimultaneousRPCs(t *testing.T) {
 		Name: "loadtest",
 		Methods: map[string]ServeHandlerDescription{
 			"work": {
-				MakeArg: func() interface{} { return nil },
-				Handler: func(ctx context.Context, _ interface{}) (interface{}, error) {
+				MakeArg: func() any { return nil },
+				Handler: func(ctx context.Context, _ any) (any, error) {
 					running <- struct{}{}
 					select {
 					case <-time.After(100 * time.Millisecond):
@@ -227,13 +227,13 @@ func TestReceiverMultipleSimultaneousRPCs(t *testing.T) {
 	baseline := runtime.NumGoroutine()
 
 	// Start many RPCs
-	for i := 0; i < numCalls; i++ {
+	for i := range numCalls {
 		err := r.Receive(makeCall(SeqNumber(i), "loadtest.work"))
 		require.NoError(t, err)
 	}
 
 	// Wait for all handlers to start
-	for i := 0; i < numCalls; i++ {
+	for range numCalls {
 		select {
 		case <-running:
 		case <-time.After(5 * time.Second):

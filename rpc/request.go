@@ -8,10 +8,10 @@ type request interface {
 	rpcMessage
 	CancelFunc() context.CancelFunc
 	Context() context.Context
-	Reply(*framedMsgpackEncoder, interface{}, interface{}) error
+	Reply(*framedMsgpackEncoder, any, any) error
 	Serve(*framedMsgpackEncoder, *ServeHandlerDescription, WrapErrorFunc)
 	LogInvocation(err error)
-	LogCompletion(res interface{}, err error)
+	LogCompletion(res any, err error)
 }
 
 type requestImpl struct {
@@ -49,12 +49,12 @@ func (r *callRequest) LogInvocation(err error) {
 	r.log.ServerCall(r.SeqNo(), r.Name(), err, r.Arg())
 }
 
-func (r *callRequest) LogCompletion(res interface{}, err error) {
+func (r *callRequest) LogCompletion(res any, err error) {
 	r.log.ServerReply(r.SeqNo(), r.Name(), err, res)
 }
 
-func (r *callRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg interface{}) (err error) {
-	v := []interface{}{
+func (r *callRequest) Reply(enc *framedMsgpackEncoder, res any, errArg any) (err error) {
+	v := []any{
 		MethodResponse,
 		r.SeqNo(),
 		errArg,
@@ -110,16 +110,16 @@ func (r *callCompressedRequest) LogInvocation(err error) {
 	r.log.ServerCallCompressed(r.SeqNo(), r.Name(), err, r.Arg(), r.Compression())
 }
 
-func (r *callCompressedRequest) LogCompletion(res interface{}, err error) {
+func (r *callCompressedRequest) LogCompletion(res any, err error) {
 	r.log.ServerReplyCompressed(r.SeqNo(), r.Name(), err, res, r.Compression())
 }
 
-func (r *callCompressedRequest) Reply(enc *framedMsgpackEncoder, res interface{}, errArg interface{}) (err error) {
+func (r *callCompressedRequest) Reply(enc *framedMsgpackEncoder, res any, errArg any) (err error) {
 	res, err = enc.compressData(r.Compression(), res)
 	if err != nil {
 		return err
 	}
-	v := []interface{}{
+	v := []any{
 		MethodResponse,
 		r.SeqNo(),
 		errArg,
@@ -175,7 +175,7 @@ func (r *notifyRequest) LogInvocation(err error) {
 	r.log.ServerNotifyCall(r.Name(), err, r.Arg())
 }
 
-func (r *notifyRequest) LogCompletion(_ interface{}, err error) {
+func (r *notifyRequest) LogCompletion(_ any, err error) {
 	r.log.ServerNotifyComplete(r.Name(), err)
 }
 
@@ -189,6 +189,6 @@ func (r *notifyRequest) Serve(_ *framedMsgpackEncoder, handler *ServeHandlerDesc
 	r.LogCompletion(nil, err)
 }
 
-func (r *notifyRequest) Reply(_ *framedMsgpackEncoder, _ interface{}, _ interface{}) (err error) {
+func (r *notifyRequest) Reply(_ *framedMsgpackEncoder, _ any, _ any) (err error) {
 	return nil
 }

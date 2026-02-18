@@ -12,7 +12,7 @@ func (p PacketizerError) Error() string {
 	return "packetizer error: " + p.msg
 }
 
-func NewPacketizerError(d string, a ...interface{}) PacketizerError {
+func NewPacketizerError(d string, a ...any) PacketizerError {
 	return PacketizerError{msg: fmt.Sprintf(d, a...)}
 }
 
@@ -24,7 +24,7 @@ func (p DispatcherError) Error() string {
 	return "dispatcher error: " + p.msg
 }
 
-func NewDispatcherError(d string, a ...interface{}) DispatcherError {
+func NewDispatcherError(d string, a ...any) DispatcherError {
 	return DispatcherError{msg: fmt.Sprintf(d, a...)}
 }
 
@@ -36,7 +36,7 @@ func (p ReceiverError) Error() string {
 	return "receiver error: " + p.msg
 }
 
-func NewReceiverError(d string, a ...interface{}) ReceiverError {
+func NewReceiverError(d string, a ...any) ReceiverError {
 	return ReceiverError{msg: fmt.Sprintf(d, a...)}
 }
 
@@ -88,7 +88,7 @@ func (t TypeError) Error() string {
 	return t.p
 }
 
-func NewTypeError(expected, actual interface{}) TypeError {
+func NewTypeError(expected, actual any) TypeError {
 	return TypeError{p: fmt.Sprintf("Invalid type for arguments. Expected: %T, actual: %T", expected, actual)}
 }
 

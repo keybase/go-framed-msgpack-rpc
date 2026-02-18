@@ -344,7 +344,7 @@ func (ct *ConnectionTransportTLS) Close() {
 	}
 }
 
-type LogTagsFromContext func(ctx context.Context) (map[interface{}]string, bool)
+type LogTagsFromContext func(ctx context.Context) (map[any]string, bool)
 
 // Connection encapsulates all client connection handling.
 type Connection struct {
@@ -920,8 +920,8 @@ type connectionClient struct {
 
 var _ GenericClient = connectionClient{}
 
-func (c connectionClient) Call(ctx context.Context, s string, args interface{},
-	res interface{}, timeout time.Duration,
+func (c connectionClient) Call(ctx context.Context, s string, args any,
+	res any, timeout time.Duration,
 ) error {
 	return c.conn.DoCommand(ctx, s, timeout, func(rawClient GenericClient) error {
 		return rawClient.Call(ctx, s, args, res, timeout)
@@ -929,14 +929,14 @@ func (c connectionClient) Call(ctx context.Context, s string, args interface{},
 }
 
 func (c connectionClient) CallCompressed(ctx context.Context, s string,
-	args interface{}, res interface{}, ctype CompressionType, timeout time.Duration,
+	args any, res any, ctype CompressionType, timeout time.Duration,
 ) error {
 	return c.conn.DoCommand(ctx, s, timeout, func(rawClient GenericClient) error {
 		return rawClient.CallCompressed(ctx, s, args, res, ctype, timeout)
 	})
 }
 
-func (c connectionClient) Notify(ctx context.Context, s string, args interface{},
+func (c connectionClient) Notify(ctx context.Context, s string, args any,
 	timeout time.Duration,
 ) error {
 	return c.conn.DoCommand(ctx, s, timeout, func(rawClient GenericClient) error {

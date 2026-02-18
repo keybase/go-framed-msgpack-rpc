@@ -45,13 +45,13 @@ func newFramedMsgpackEncoder(maxFrameLength int32, writer io.Writer) *framedMsgp
 	return e
 }
 
-func encodeToBytes(enc *codec.Encoder, i interface{}) (v []byte, err error) {
+func encodeToBytes(enc *codec.Encoder, i any) (v []byte, err error) {
 	enc.ResetBytes(&v)
 	err = enc.Encode(i)
 	return v, err
 }
 
-func (e *framedMsgpackEncoder) compressData(ctype CompressionType, i interface{}) (interface{}, error) {
+func (e *framedMsgpackEncoder) compressData(ctype CompressionType, i any) (any, error) {
 	c := e.compressorCacher.getCompressor(ctype)
 	if c == nil {
 		return i, nil
@@ -65,11 +65,11 @@ func (e *framedMsgpackEncoder) compressData(ctype CompressionType, i interface{}
 	if err != nil {
 		return nil, err
 	}
-	compressedI := interface{}(compressedContent)
+	compressedI := any(compressedContent)
 	return compressedI, nil
 }
 
-func (e *framedMsgpackEncoder) encodeFrame(i interface{}) ([]byte, error) {
+func (e *framedMsgpackEncoder) encodeFrame(i any) ([]byte, error) {
 	enc := codec.NewEncoderBytes(nil, e.handle)
 	content, err := encodeToBytes(enc, i)
 	if err != nil {
@@ -87,7 +87,7 @@ func (e *framedMsgpackEncoder) encodeFrame(i interface{}) ([]byte, error) {
 
 // encodeAndWriteInternal is called directly by tests that need to
 // write invalid frames.
-func (e *framedMsgpackEncoder) encodeAndWriteInternal(ctx context.Context, frame interface{}, sendNotifier func()) (int64, <-chan error) {
+func (e *framedMsgpackEncoder) encodeAndWriteInternal(ctx context.Context, frame any, sendNotifier func()) (int64, <-chan error) {
 	bytes, err := e.encodeFrame(frame)
 	ch := make(chan error, 1)
 	if err != nil {
@@ -104,11 +104,11 @@ func (e *framedMsgpackEncoder) encodeAndWriteInternal(ctx context.Context, frame
 	return int64(len(bytes)), ch
 }
 
-func (e *framedMsgpackEncoder) EncodeAndWrite(ctx context.Context, frame []interface{}, sendNotifier func()) (int64, <-chan error) {
+func (e *framedMsgpackEncoder) EncodeAndWrite(ctx context.Context, frame []any, sendNotifier func()) (int64, <-chan error) {
 	return e.encodeAndWriteInternal(ctx, frame, sendNotifier)
 }
 
-func (e *framedMsgpackEncoder) EncodeAndWriteAsync(frame []interface{}) (int64, <-chan error) {
+func (e *framedMsgpackEncoder) EncodeAndWriteAsync(frame []any) (int64, <-chan error) {
 	bytes, err := e.encodeFrame(frame)
 	ch := make(chan error, 1)
 	if err != nil {
