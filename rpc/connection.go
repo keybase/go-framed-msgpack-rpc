@@ -439,7 +439,8 @@ func NewTLSConnectionWithConnectionLogFactory(
 	}
 	connLog := connectionLogFactory.Make("conn")
 	return newConnectionWithTransportAndProtocolsWithLog(
-		handler, transport, errorUnwrapper, connLog, opts)
+		handler, transport, errorUnwrapper, connLog, opts,
+	)
 }
 
 // NewTLSConnection returns a connection that tries to connect to the
@@ -583,7 +584,8 @@ func newConnectionWithTransportAndProtocols(handler ConnectionHandler,
 ) *Connection {
 	return newConnectionWithTransportAndProtocolsWithLog(
 		handler, transport, errorUnwrapper,
-		newConnectionLogUnstructured(log, "CONN "+handler.HandlerName()), opts)
+		newConnectionLogUnstructured(log, "CONN "+handler.HandlerName()), opts,
+	)
 }
 
 func (c *Connection) setReconnectCompleteForTest(ch chan struct{}) {
@@ -742,7 +744,7 @@ func (c *Connection) ForceReconnect(ctx context.Context) error {
 
 // Returns true if the error indicates we should retry the command.
 func (c *Connection) checkForRetry(err error) bool {
-	return err == io.EOF
+	return errors.Is(err, io.EOF)
 }
 
 func (c *Connection) isConnectedLocked() bool {

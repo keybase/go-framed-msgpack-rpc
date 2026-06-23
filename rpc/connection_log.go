@@ -49,7 +49,8 @@ func newConnectionLogUnstructured(
 	return &connectionLogUnstructured{
 		LogOutput: logOutput.CloneWithAddedDepth(1),
 		logPrefix: strings.Join(
-			[]string{prefix, hex.EncodeToString(randBytes)}, " "),
+			[]string{prefix, hex.EncodeToString(randBytes)}, " ",
+		),
 	}
 }
 

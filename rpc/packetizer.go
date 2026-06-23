@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -100,7 +101,7 @@ func (l *frameReader) Read(p []byte) (int, error) {
 	if n > 0 {
 		l.log.FrameRead(p[:n])
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		err = io.ErrUnexpectedEOF
 	}
 	return n, err
@@ -110,7 +111,7 @@ func (l *frameReader) drain() error {
 	n, err := l.r.Discard(int(l.remaining))
 	l.remaining -= int32(n) //nolint:gosec // G115: n is bounded by l.remaining which is int32
 
-	if l.remaining != 0 && err == io.EOF {
+	if l.remaining != 0 && errors.Is(err, io.EOF) {
 		return io.ErrUnexpectedEOF
 	} else if err != nil {
 		return err
@@ -148,7 +149,7 @@ func (p *packetizer) NextFrame() (msg rpcMessage, err error) {
 		// this side, return EOF. lengthDecoder wraps most
 		// errors, so we have to check p.reader.err instead of
 		// err.
-		if _, ok := p.reader.err.(*net.OpError); ok {
+		if errors.As(p.reader.err, new(*net.OpError)) {
 			return nil, io.EOF
 		}
 		return nil, err

@@ -87,6 +87,10 @@ func (e throttleError) Error() string {
 	return e.Err.Error()
 }
 
+func (e throttleError) Unwrap() error {
+	return e.Err
+}
+
 type testErrorUnwrapper struct{}
 
 var _ ErrorUnwrapper = testErrorUnwrapper{}
