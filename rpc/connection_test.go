@@ -49,7 +49,7 @@ func (ut *unitTester) OnDisconnected(context.Context, DisconnectStatus) {
 
 // ShouldRetry implements the ConnectionHandler interface.
 func (ut *unitTester) ShouldRetry(_ string, err error) bool {
-	_, isThrottle := err.(throttleError)
+	isThrottle := errors.As(err, new(throttleError))
 	return isThrottle
 }
 
@@ -241,7 +241,8 @@ func TestDoCommandThrottle(t *testing.T) {
 		if throttle {
 			throttle = false
 			err, _ := conn.errorUnwrapper.UnwrapError(
-				throttleError{Err: throttleErr}.ToStatus())
+				throttleError{Err: throttleErr}.ToStatus(),
+			)
 			return err
 		}
 		return nil

@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -124,6 +125,10 @@ func (r DecodeError) Error() string {
 	return fmt.Sprintf("RPC error. type: %s, method: %s, length: %d, compression: %v, error: %v", r.typ, r.name, r.len, r.ctype, r.err)
 }
 
+func (r DecodeError) Unwrap() error {
+	return r.err
+}
+
 func newRPCDecodeError(t MethodType, n string, l int, ctype CompressionType, err error) DecodeError {
 	return DecodeError{
 		err:   err,
@@ -139,10 +144,9 @@ func newRPCMessageFieldDecodeError(i int, err error) error {
 }
 
 func unboxRPCError(err error) error {
-	switch e := err.(type) {
-	case DecodeError:
-		return e.err
-	default:
-		return err
+	var de DecodeError
+	if errors.As(err, &de) {
+		return de.err
 	}
+	return err
 }

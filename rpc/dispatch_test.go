@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -91,7 +92,7 @@ func TestDispatchCanceledBeforeResult(t *testing.T) {
 	sendResponse(c)
 
 	err := <-done
-	require.True(t, err == nil || err == context.Canceled,
+	require.True(t, err == nil || errors.Is(err, context.Canceled),
 		"Expected call to complete successfully or be cancelled")
 
 	require.Nil(t, calls.RetrieveCall(0),
@@ -112,7 +113,7 @@ func TestDispatchCanceledAfterResult(t *testing.T) {
 	cancel()
 
 	err := <-done
-	require.True(t, err == nil || err == context.Canceled,
+	require.True(t, err == nil || errors.Is(err, context.Canceled),
 		"Expected call to complete successfully or be cancelled")
 
 	require.Nil(t, calls.RetrieveCall(0),

@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -181,7 +182,7 @@ func (s SimpleLog) TransportStart() {
 }
 
 func (s SimpleLog) TransportError(e error) {
-	if e != io.EOF {
+	if !errors.Is(e, io.EOF) {
 		s.Out.Error(s.msg(true, "Error in transport: %s", e.Error()))
 	} else if s.Opts.TransportStart() {
 		s.Out.Debug(s.msg(true, "EOF"))
