@@ -46,6 +46,13 @@ func makeCall(seq SeqNumber, name string) *rpcCallMessage {
 	}
 }
 
+func makeNotify(name string) *rpcNotifyMessage {
+	return &rpcNotifyMessage{
+		name: name,
+		arg:  nil,
+	}
+}
+
 func makeResponse(err error, res any) *rpcResponseMessage {
 	return &rpcResponseMessage{
 		err: err,

@@ -1,6 +1,9 @@
 package rpc
 
-import "context"
+import (
+	"context"
+	"sync/atomic"
+)
 
 type task struct {
 	seqid      SeqNumber
@@ -16,17 +19,22 @@ type receiveHandler struct {
 	writer      *framedMsgpackEncoder
 	protHandler *protocolHandler
 
-	tasks map[int]context.CancelFunc
-
-	// Stops all loops when closed
+	// Stops all loops when closed.
 	stopCh chan struct{}
-	// Closed once all loops are finished
+	// Closed once taskLoop exits.
 	closedCh chan struct{}
 
-	// Task loop channels
+	// Task loop channels.
 	taskBeginCh  chan *task
 	taskCancelCh chan SeqNumber
 	taskEndCh    chan SeqNumber
+
+	// notifySeq generates unique negative task IDs for notify handlers in the
+	// taskLoop map. Notify messages all carry SeqNo=-1 on the wire; without
+	// unique IDs the taskLoop map key would collide and cancel funcs would leak.
+	// Initialized to -1 so the first Add(-1) yields -2, avoiding the wire SeqNo
+	// of -1 that a malicious peer could send as a cancel message.
+	notifySeq atomic.Int64
 
 	log LogInterface
 }
@@ -37,7 +45,6 @@ func newReceiveHandler(enc *framedMsgpackEncoder, protHandler *protocolHandler,
 	r := &receiveHandler{
 		writer:      enc,
 		protHandler: protHandler,
-		tasks:       make(map[int]context.CancelFunc),
 		stopCh:      make(chan struct{}),
 		closedCh:    make(chan struct{}),
 
@@ -47,6 +54,7 @@ func newReceiveHandler(enc *framedMsgpackEncoder, protHandler *protocolHandler,
 
 		log: l,
 	}
+	r.notifySeq.Store(-1)
 	go r.taskLoop()
 	return r
 }
@@ -111,11 +119,9 @@ func (r *receiveHandler) receiveCallCompressed(rpc *rpcCallCompressedMessage) er
 
 func (r *receiveHandler) receiveCancel(rpc *rpcCancelMessage) error {
 	r.log.ServerCancelCall(rpc.SeqNo(), rpc.Name())
-	// Only notify taskLoop if it's still running
 	select {
 	case r.taskCancelCh <- rpc.SeqNo():
 	case <-r.stopCh:
-		// Connection closed, taskLoop already exited
 	}
 	return nil
 }
@@ -130,25 +136,28 @@ func (r *receiveHandler) handleReceiveDispatch(req request) error {
 		req.LogInvocation(se)
 		return req.Reply(r.writer, nil, wrapError(wrapErrorFunc, se))
 	}
-	// Only notify taskLoop if it's still running and request isn't already cancelled
+	// Compute the taskLoop key. Call messages use their SeqNo (always >= 0).
+	// Notify messages all carry SeqNo=-1 on the wire; assign each a unique
+	// negative ID (starting at -2) so their cancel funcs don't overwrite each
+	// other in the map and don't alias a malicious cancel with SeqNo=-1.
+	taskID := req.SeqNo()
+	if taskID < 0 {
+		taskID = SeqNumber(r.notifySeq.Add(-1))
+	}
 	select {
-	case r.taskBeginCh <- &task{req.SeqNo(), req.CancelFunc()}:
+	case r.taskBeginCh <- &task{taskID, req.CancelFunc()}:
 	case <-r.stopCh:
-		// Connection closed, taskLoop already exited - don't start the handler
+		req.CancelFunc()()
 		return nil
 	case <-req.Context().Done():
-		// Request was cancelled before we could start - don't start the handler
+		req.CancelFunc()()
 		return nil
 	}
 	go func() {
 		req.Serve(r.writer, serveHandler, wrapErrorFunc)
-		// Only notify taskLoop if it's still running and the request wasn't cancelled
 		select {
-		case r.taskEndCh <- req.SeqNo():
+		case r.taskEndCh <- taskID:
 		case <-r.stopCh:
-			// Connection closed, taskLoop already exited
-		case <-req.Context().Done():
-			// Request was cancelled
 		}
 	}()
 	return nil

@@ -62,12 +62,12 @@ func (t CompressionType) String() string {
 	}
 }
 
-func (t CompressionType) NewCompressor() compressor {
+func (t CompressionType) NewCompressor(maxDecompressedSize int64) compressor {
 	switch t {
 	case CompressionGzip:
-		return newGzipCompressor()
+		return newGzipCompressor(maxDecompressedSize)
 	case CompressionMsgpackzip:
-		return newMsgpackzipCompressor()
+		return newMsgpackzipCompressor(maxDecompressedSize)
 	default:
 		return nil
 	}

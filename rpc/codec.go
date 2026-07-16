@@ -39,7 +39,7 @@ func newFramedMsgpackEncoder(maxFrameLength int32, writer io.Writer) *framedMsgp
 		writeCh:          make(chan writeBundle),
 		doneCh:           make(chan struct{}),
 		closedCh:         make(chan struct{}),
-		compressorCacher: newCompressorCacher(),
+		compressorCacher: newCompressorCacher(int64(maxFrameLength) * decompressedSizeMultiplier),
 	}
 	go e.writerLoop()
 	return e

@@ -1,16 +1,16 @@
 module github.com/keybase/go-framed-msgpack-rpc
 
-go 1.24.0
+go 1.25.0
 
 toolchain go1.25.5
 
 require (
 	github.com/keybase/backoff v1.0.1-0.20160517061000-726b63b835ec
 	github.com/keybase/go-codec v0.0.0-20180928230036-164397562123
-	github.com/keybase/msgpackzip v0.0.0-20251211192551-92e2da32c96f
+	github.com/keybase/msgpackzip v0.0.0-20260715171557-e81e137bd2ef
 	github.com/reiver/go-telnet v0.0.0-20180421082511-9ff0b2ab096e
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/sync v0.19.0
+	golang.org/x/sync v0.22.0
 )
 
 require (

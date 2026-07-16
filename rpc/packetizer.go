@@ -44,7 +44,7 @@ func newPacketizer(maxFrameLength int32, reader io.Reader, protocols *protocolHa
 		reader:              wrappedReader,
 		protocols:           protocols,
 		calls:               calls,
-		compressorCacher:    newCompressorCacher(),
+		compressorCacher:    newCompressorCacher(int64(maxFrameLength) * decompressedSizeMultiplier),
 		log:                 log,
 		instrumenterStorage: instrumenterStorage,
 	}
