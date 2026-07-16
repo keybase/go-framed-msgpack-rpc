@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"io"
 	"net"
 	"runtime"
 	"sync/atomic"
@@ -11,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// setupReceiverTest creates a receiver with a protocol for testing
+// setupReceiverTest creates a receiver for use in tests.
 func setupReceiverTest(t *testing.T, p *Protocol) (receiver, net.Conn, net.Conn) {
 	conn1, conn2 := net.Pipe()
 	receiveOut := newFramedMsgpackEncoder(testMaxFrameLength, conn2)
@@ -254,4 +255,64 @@ func TestReceiverMultipleSimultaneousRPCs(t *testing.T) {
 
 	// With 100 simultaneous RPCs, without the fix we'd leak ~200 goroutines
 	checkGoroutineLeak(t, baseline, 15)
+}
+
+// TestWorkerSemaphoreNotifySeqNoCollision verifies that concurrent in-flight
+// notify handlers do not leak cancel functions. Notifies all carry SeqNo=-1;
+// the old code stored them in a map keyed by SeqNo, so each new notify
+// overwrote the previous cancel func without calling it, causing handlers to
+// run forever after Close().
+func TestWorkerSemaphoreNotifySeqNoCollision(t *testing.T) {
+	const numNotifies = 10
+
+	started := make(chan struct{}, numNotifies)
+	// exited is closed by each handler when it exits, giving us a deterministic
+	// signal instead of a sleep.
+	exited := make(chan struct{}, numNotifies)
+
+	p := &Protocol{
+		Name: "notifysvc",
+		Methods: map[string]ServeHandlerDescription{
+			"ping": {
+				MakeArg: func() any { return nil },
+				Handler: func(ctx context.Context, _ any) (any, error) {
+					started <- struct{}{}
+					<-ctx.Done()
+					exited <- struct{}{}
+					return nil, nil
+				},
+			},
+		},
+	}
+
+	r, conn1, conn2 := setupReceiverTest(t, p)
+	go func() { _, _ = io.Copy(io.Discard, conn1) }()
+
+	for range numNotifies {
+		require.NoError(t, r.Receive(makeNotify("notifysvc.ping")))
+	}
+
+	// Wait for all handlers to be in-flight.
+	for range numNotifies {
+		select {
+		case <-started:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout waiting for notify handlers to start")
+		}
+	}
+
+	// Close should cancel all in-flight notify handlers via taskLoop.
+	closeCh := r.Close()
+	conn1.Close()
+	conn2.Close()
+	<-closeCh
+
+	// Wait for each handler to confirm it received the cancellation.
+	for range numNotifies {
+		select {
+		case <-exited:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout waiting for notify handler to exit after cancellation")
+		}
+	}
 }

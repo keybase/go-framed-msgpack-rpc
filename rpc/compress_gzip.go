@@ -3,7 +3,9 @@ package rpc
 import (
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
+	"math"
 	"sync"
 )
 
@@ -19,12 +21,14 @@ var gzipReaderPool = sync.Pool{
 	},
 }
 
-type gzipCompressor struct{}
+type gzipCompressor struct {
+	maxDecompressedSize int64
+}
 
 var _ compressor = (*gzipCompressor)(nil)
 
-func newGzipCompressor() *gzipCompressor {
-	return &gzipCompressor{}
+func newGzipCompressor(maxDecompressedSize int64) *gzipCompressor {
+	return &gzipCompressor{maxDecompressedSize: maxDecompressedSize}
 }
 
 func (c *gzipCompressor) getGzipWriter(writer io.Writer) (*gzip.Writer, func()) {
@@ -65,14 +69,24 @@ func (c *gzipCompressor) Decompress(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer reader.Close() //nolint:errcheck
 	defer reclaim()
 
+	// +1 sentinel: io.LimitReader yields exactly maxSize+1 bytes when the
+	// stream is too large, making the length check below unambiguous.
+	// Guard against overflow when maxDecompressedSize is already math.MaxInt64.
+	limitCap := c.maxDecompressedSize
+	if limitCap < math.MaxInt64 {
+		limitCap++
+	}
+	limited := io.LimitReader(reader, limitCap)
 	var out bytes.Buffer
-	if _, err := out.ReadFrom(reader); err != nil {
+	n, err := out.ReadFrom(limited)
+	if err != nil {
 		return nil, err
 	}
-	if err := reader.Close(); err != nil {
-		return nil, err
+	if n > c.maxDecompressedSize {
+		return nil, errors.New("decompressed payload exceeds limit")
 	}
 	return out.Bytes(), nil
 }
