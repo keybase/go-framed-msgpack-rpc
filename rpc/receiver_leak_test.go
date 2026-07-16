@@ -303,8 +303,8 @@ func TestWorkerSemaphoreNotifySeqNoCollision(t *testing.T) {
 
 	// Close should cancel all in-flight notify handlers via taskLoop.
 	closeCh := r.Close()
-	conn1.Close()
-	conn2.Close()
+	require.NoError(t, conn1.Close())
+	require.NoError(t, conn2.Close())
 	<-closeCh
 
 	// Wait for each handler to confirm it received the cancellation.
