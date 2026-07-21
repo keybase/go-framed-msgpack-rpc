@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/keybase/go-codec/codec"
@@ -80,6 +81,42 @@ func TestDecompressionLimit(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestGzipConcurrentDecompress(t *testing.T) {
+	payload := compressiblePayload(t, 10_000)
+	compressor := newGzipCompressor(int64(len(payload)))
+	compressed, err := compressor.Compress(payload)
+	require.NoError(t, err)
+
+	const (
+		workers    = 16
+		iterations = 100
+	)
+	start := make(chan struct{})
+	results := make(chan error, workers)
+	for range workers {
+		go func() {
+			<-start
+			for range iterations {
+				decompressed, err := compressor.Decompress(compressed)
+				if err != nil {
+					results <- err
+					return
+				}
+				if !bytes.Equal(payload, decompressed) {
+					results <- errors.New("decompressed payload does not match input")
+					return
+				}
+			}
+			results <- nil
+		}()
+	}
+	close(start)
+
+	for range workers {
+		require.NoError(t, <-results)
+	}
 }
 
 func TestCompressionAlgs(t *testing.T) {
