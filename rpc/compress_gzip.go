@@ -69,8 +69,9 @@ func (c *gzipCompressor) Decompress(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close() //nolint:errcheck
+	// Defers run LIFO: close the reader before returning it to the pool.
 	defer reclaim()
+	defer reader.Close() //nolint:errcheck
 
 	// +1 sentinel: io.LimitReader yields exactly maxSize+1 bytes when the
 	// stream is too large, making the length check below unambiguous.
