@@ -13,12 +13,12 @@ import (
 )
 
 // fireOnce is a construct to synchronize different goroutines. Specifically,
-// one routine can use wait() to wait on a signal, and another routine can call
-// fire() to wake up the first routine. Only the first call to fire() is
+// one routine can use waitContext() to wait on a signal, and another routine
+// can call fire() to wake up the first routine. Only the first call to fire() is
 // effective, and multiple calls to fire() don't panic.
 //
-// A zero value fireOnce is valid, and no-op for both fire() and wait(). Use
-// newFireOnce() to make one that's fire-able.
+// A zero value fireOnce is valid, and no-op for both fire() and waitContext().
+// Use newFireOnce() to make one that's fire-able.
 //
 // This is to replace the use case where a channel may be used to synchronize
 // different goroutines, and one routine waits on a channel read while another
@@ -43,11 +43,22 @@ func (o fireOnce) fire() {
 	o.once.Do(func() { close(o.ch) })
 }
 
-func (o fireOnce) wait() {
-	if o.ch == nil {
-		return
+func (o fireOnce) waitContext(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	<-o.ch
+	if o.ch == nil {
+		return nil
+	}
+	select {
+	case <-o.ch:
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // CancellableTimer can be used to wait on a random backoff timer. A
@@ -116,12 +127,21 @@ func (b *CancellableTimer) StartRandom(maxWait time.Duration) time.Duration {
 // later than the old timer). If FireNow() is called, Wait() returns
 // immediately.
 func (b *CancellableTimer) Wait() {
+	_ = b.WaitContext(context.Background())
+}
+
+// WaitContext waits on any existing random timer, or returns when ctx is
+// canceled. If there isn't a timer started, WaitContext returns immediately.
+func (b *CancellableTimer) WaitContext(ctx context.Context) error {
 	var oldF fireOnce
 	f := b.get()
 	for f != oldF {
-		f.wait()
+		if err := f.waitContext(ctx); err != nil {
+			return err
+		}
 		f, oldF = b.get(), f
 	}
+	return nil
 }
 
 // FireNow fast-forwards any existing timer so that any Wait() calls on b wakes

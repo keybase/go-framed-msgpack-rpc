@@ -1,8 +1,11 @@
 package rpc
 
 import (
+	"context"
 	"net"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type fmpURITest struct {
@@ -52,5 +55,19 @@ func TestParseFMPURI(t *testing.T) {
 		if u.UseTLS() != test.tls {
 			t.Errorf("Parse(%q) use tls: %v, expected %v", test.in, u.UseTLS(), test.tls)
 		}
+	}
+}
+
+func TestFMPURIDialContextCanceledBeforeDial(t *testing.T) {
+	for _, scheme := range []string{fmpSchemeStandard, fmpSchemeTLS} {
+		t.Run(scheme, func(t *testing.T) {
+			uri := &FMPURI{Scheme: scheme, HostPort: "127.0.0.1:0"}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			conn, err := uri.DialContext(ctx)
+			require.Nil(t, conn)
+			require.ErrorIs(t, err, context.Canceled)
+		})
 	}
 }

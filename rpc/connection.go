@@ -110,7 +110,7 @@ func (t *connTransport) Dial(ctx context.Context) (Transporter, error) {
 	if t.dialable != nil {
 		t.conn, err = t.dialable.Dial(ctx, "tcp", t.uri.HostPort)
 	} else {
-		t.conn, err = t.uri.Dial()
+		t.conn, err = t.uri.DialContext(ctx)
 	}
 	if err != nil {
 		return nil, err
@@ -118,7 +118,12 @@ func (t *connTransport) Dial(ctx context.Context) (Transporter, error) {
 
 	// Disable SIGPIPE on platforms that require it (Darwin). See sigpipe_bsd.go.
 	if err = DisableSigPipe(t.conn); err != nil {
+		_ = t.conn.Close()
 		return nil, err
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		_ = t.conn.Close()
+		return nil, ctxErr
 	}
 
 	if t.stagedTransport != nil {
@@ -268,6 +273,12 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	if err != nil {
 		return nil, err
 	}
+	keepConn := true
+	defer func() {
+		if keepConn {
+			_ = baseConn.Close()
+		}
+	}()
 	ct.log.Debug("baseConn: %s; Calling %s",
 		LogField{Key: "local-addr", Value: baseConn.LocalAddr()},
 		LogField{Key: ConnectionLogMsgKey, Value: "Handshake"})
@@ -278,10 +289,13 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 	if handshakeTimeout == 0 {
 		handshakeTimeout = time.Minute
 	}
-	handshakeCtx, cancel := context.WithTimeout(context.Background(), handshakeTimeout)
+	handshakeCtx, cancel := context.WithTimeout(ctx, handshakeTimeout)
 	defer cancel()
 	if err := conn.HandshakeContext(handshakeCtx); err != nil {
 		return nil, err
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
 	}
 	ct.log.Debug("%s", LogField{Key: ConnectionLogMsgKey, Value: "Handshaken"})
 
@@ -293,6 +307,9 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
 	if ct.conn != nil {
 		// Close old connection before handshake
 		if err := ct.conn.Close(); err != nil {
@@ -305,6 +322,7 @@ func (ct *ConnectionTransportTLS) Dial(ctx context.Context) (
 		ct.stagedTransport.Close()
 	}
 	ct.stagedTransport = transport
+	keepConn = false
 	return transport, nil
 }
 
@@ -684,7 +702,7 @@ func (c *Connection) DoCommand(ctx context.Context, name string, timeout time.Du
 		var rpcErr error
 
 		// retry throttle errors w/backoff
-		throttleErr := backoff.RetryNotify(func() error {
+		throttleErr := backoff.RetryNotifyWithContext(ctx, func() error {
 			rawClient := func() GenericClient {
 				c.mutex.Lock()
 				defer c.mutex.Unlock()
@@ -717,9 +735,15 @@ func (c *Connection) DoCommand(ctx context.Context, name string, timeout time.Du
 func (c *Connection) waitForConnection(
 	ctx context.Context, forceReconnect bool,
 ) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
 	reconnectChan, disconnectStatus, reconnectErrPtr, wait := func() (chan struct{}, DisconnectStatus, *error, bool) {
 		c.mutex.Lock()
 		defer c.mutex.Unlock()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, UsingExistingConnection, nil, false
+		}
 		if !forceReconnect && c.isConnectedLocked() {
 			// already connected
 			return nil, UsingExistingConnection, nil, false
@@ -730,7 +754,7 @@ func (c *Connection) waitForConnection(
 		return reconnectChan, disconnectStatus, reconnectErrPtr, true
 	}()
 	if !wait {
-		return nil
+		return ctx.Err()
 	}
 	c.log.Debug("Connection: %s; status: %d",
 		LogField{Key: ConnectionLogMsgKey, Value: "waitForConnection"},
@@ -742,6 +766,9 @@ func (c *Connection) waitForConnection(
 	case <-reconnectChan:
 		// Reconnect complete.  If something unretriable happened to
 		// shut down the connection, this will be non-nil.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		return *reconnectErrPtr
 	}
 }
@@ -807,39 +834,44 @@ func (c *Connection) getReconnectChan() (
 	return c.getReconnectChanLocked()
 }
 
-// doReconnect attempts a reconnection.  It assumes that reconnectChan
-// and reconnectErrPtr are the same ones in c, but are passed in to
-// avoid having to take the mutex at the beginning of the method.
-func (c *Connection) doReconnect(ctx context.Context, disconnectStatus DisconnectStatus,
-	reconnectChan chan struct{}, reconnectErrPtr *error,
-) {
-	// inform the handler of our disconnected state
-	c.handler.OnDisconnected(ctx, disconnectStatus)
-	if c.firstConnectDelayDuration != 0 &&
-		disconnectStatus == StartingFirstConnection {
+func (c *Connection) waitForReconnectDelay(ctx context.Context, disconnectStatus DisconnectStatus) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+
+	var doneMessage string
+	switch {
+	case c.firstConnectDelayDuration != 0 && disconnectStatus == StartingFirstConnection:
 		c.connectDelayTimer.StartConstant(c.firstConnectDelayDuration)
 		c.log.Debug("starting %s: %s",
 			LogField{
 				Key: ConnectionLogMsgKey, Value: "initial connect backoff",
 			},
 			LogField{Key: "duration", Value: c.firstConnectDelayDuration})
-		c.connectDelayTimer.Wait()
-		c.log.Debug("%s!", LogField{
-			Key: ConnectionLogMsgKey, Value: "initial connect backoff done",
-		})
-	} else if c.initialReconnectBackoffWindow != nil &&
-		disconnectStatus == StartingNonFirstConnection {
+		doneMessage = "initial connect backoff done"
+	case c.initialReconnectBackoffWindow != nil &&
+		disconnectStatus == StartingNonFirstConnection:
 		waitDur := c.connectDelayTimer.StartRandom(c.initialReconnectBackoffWindow())
 		c.log.Debug("starting random %s: %s",
 			LogField{
 				Key: ConnectionLogMsgKey, Value: "initial reconnect backoff",
 			},
 			LogField{Key: "duration", Value: waitDur})
-		c.connectDelayTimer.Wait()
-		c.log.Debug("%s!", LogField{
-			Key: ConnectionLogMsgKey, Value: "initial reconnect backoff done",
-		})
+		doneMessage = "initial reconnect backoff done"
+	default:
+		return nil
 	}
+
+	if err := c.connectDelayTimer.WaitContext(ctx); err != nil {
+		return err
+	}
+	c.log.Debug("%s!", LogField{
+		Key: ConnectionLogMsgKey, Value: doneMessage,
+	})
+	return nil
+}
+
+func (c *Connection) retryReconnect(ctx context.Context, reconnectErrPtr *error) {
 	c.log.Debug("RetryNotify %s", LogField{Key: ConnectionLogMsgKey, Value: "beginning"})
 	err := backoff.RetryNotifyWithContext(ctx, func() (err error) {
 		c.log.Debug("RetryNotify %s", LogField{Key: ConnectionLogMsgKey, Value: "attempt"})
@@ -873,6 +905,22 @@ func (c *Connection) doReconnect(ctx context.Context, disconnectStatus Disconnec
 	if err != nil {
 		// this shouldn't happen, but just in case.
 		*reconnectErrPtr = err
+	}
+}
+
+// doReconnect attempts a reconnection.  It assumes that reconnectChan
+// and reconnectErrPtr are the same ones in c, but are passed in to
+// avoid having to take the mutex at the beginning of the method.
+func (c *Connection) doReconnect(ctx context.Context, disconnectStatus DisconnectStatus,
+	reconnectChan chan struct{}, reconnectErrPtr *error,
+) {
+	// inform the handler of our disconnected state
+	c.handler.OnDisconnected(ctx, disconnectStatus)
+
+	if err := c.waitForReconnectDelay(ctx, disconnectStatus); err != nil {
+		*reconnectErrPtr = err
+	} else {
+		c.retryReconnect(ctx, reconnectErrPtr)
 	}
 
 	// close the reconnect channel to signal we're connected.
