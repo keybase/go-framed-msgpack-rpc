@@ -467,8 +467,9 @@ func (t *closeTrackingTransport) getCloseCount() int {
 // trackingConnectionTransport wraps a ConnectionTransport and tracks the created Transporter
 type trackingConnectionTransport struct {
 	ConnectionTransport
-	tracked *closeTrackingTransport
-	mu      sync.Mutex
+	tracked       *closeTrackingTransport
+	finalizeCount int
+	mu            sync.Mutex
 }
 
 func (t *trackingConnectionTransport) Dial(ctx context.Context) (Transporter, error) {
@@ -501,6 +502,19 @@ func (t *trackingConnectionTransport) getCloseCount() int {
 	return 0
 }
 
+func (t *trackingConnectionTransport) Finalize() {
+	t.mu.Lock()
+	t.finalizeCount++
+	t.mu.Unlock()
+	t.ConnectionTransport.Finalize()
+}
+
+func (t *trackingConnectionTransport) getFinalizeCount() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.finalizeCount
+}
+
 // newTestTransport creates a simple ConnectionTransport that creates pipe-based transports
 func newTestTransport(logOutput LogOutput) ConnectionTransport {
 	return ConnectionFunc(func(_ context.Context) (Transporter, error) {
@@ -520,6 +534,115 @@ func (f ConnectionFunc) Dial(ctx context.Context) (Transporter, error) { return 
 func (f ConnectionFunc) IsConnected() bool                             { return false }
 func (f ConnectionFunc) Finalize()                                     {}
 func (f ConnectionFunc) Close()                                        {}
+
+type blockingConnectionHandler struct {
+	testConnectionHandler
+	entered   chan struct{}
+	releaseCh chan struct{}
+	releaseMu sync.Once
+}
+
+func (h *blockingConnectionHandler) OnConnect(context.Context, *Connection, GenericClient, *Server) error {
+	close(h.entered)
+	<-h.releaseCh
+	return nil
+}
+
+func (h *blockingConnectionHandler) release() {
+	h.releaseMu.Do(func() { close(h.releaseCh) })
+}
+
+// TestConnectCanceledAfterOnConnectDoesNotCommit verifies that cancellation
+// after OnConnect prevents the client and server from being published and
+// prevents transport finalization.
+func TestConnectCanceledAfterOnConnectDoesNotCommit(t *testing.T) {
+	logOutput := &testLogOutput{t: t}
+	t.Cleanup(func() { logOutput.MarkDone() })
+
+	handler := &blockingConnectionHandler{
+		entered:   make(chan struct{}),
+		releaseCh: make(chan struct{}),
+	}
+	tracked := &trackingConnectionTransport{
+		ConnectionTransport: newTestTransport(logOutput),
+	}
+	conn := NewConnectionWithTransport(
+		handler,
+		tracked,
+		testErrorUnwrapper{},
+		logOutput,
+		ConnectionOpts{
+			WrapErrorFunc:  testWrapError,
+			TagsFunc:       testLogTags,
+			DontConnectNow: true,
+		},
+	)
+	defer conn.Shutdown()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	resultCh := make(chan error, 1)
+	go func() { resultCh <- conn.connect(ctx) }()
+
+	<-handler.entered
+	cancel()
+	handler.release()
+
+	require.ErrorIs(t, <-resultCh, context.Canceled)
+	require.Equal(t, 0, tracked.getFinalizeCount())
+	require.Equal(t, 1, tracked.getCloseCount())
+
+	conn.mutex.Lock()
+	require.Nil(t, conn.client)
+	require.Nil(t, conn.server)
+	conn.mutex.Unlock()
+}
+
+// TestShutdownDuringOnConnectDoesNotCommit verifies the cancellation path
+// used by Connection.Shutdown while OnConnect is still running.
+func TestShutdownDuringOnConnectDoesNotCommit(t *testing.T) {
+	logOutput := &testLogOutput{t: t}
+	t.Cleanup(func() { logOutput.MarkDone() })
+
+	handler := &blockingConnectionHandler{
+		entered:   make(chan struct{}),
+		releaseCh: make(chan struct{}),
+	}
+	tracked := &trackingConnectionTransport{
+		ConnectionTransport: newTestTransport(logOutput),
+	}
+	conn := NewConnectionWithTransport(
+		handler,
+		tracked,
+		testErrorUnwrapper{},
+		logOutput,
+		ConnectionOpts{
+			WrapErrorFunc:  testWrapError,
+			TagsFunc:       testLogTags,
+			DontConnectNow: true,
+		},
+	)
+
+	reconnectComplete := make(chan struct{})
+	conn.setReconnectCompleteForTest(reconnectComplete)
+	conn.getReconnectChan()
+	<-handler.entered
+
+	conn.Shutdown()
+	handler.release()
+
+	select {
+	case <-reconnectComplete:
+	case <-time.After(time.Second):
+		t.Fatal("reconnect loop did not finish after shutdown")
+	}
+
+	require.Equal(t, 0, tracked.getFinalizeCount())
+	conn.mutex.Lock()
+	require.Nil(t, conn.client)
+	require.Nil(t, conn.server)
+	conn.mutex.Unlock()
+}
 
 // failingConnectionHandler always returns an error from OnConnect
 type failingConnectionHandler struct {

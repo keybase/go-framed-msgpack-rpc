@@ -637,12 +637,20 @@ func (c *Connection) connect(ctx context.Context) (err error) {
 			LogField{Key: "error", Value: err})
 		return err
 	}
+	// OnConnect may outlive Shutdown. Do not publish a client for a
+	// connection attempt that was canceled while the handler was running.
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
 
 	// set the client for other callers.
 	// we wait to do this so the handler has time to do
 	// any setup required, e.g. authenticate.
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
 	c.client = client
 	c.server = server
 	c.transport.Finalize()
