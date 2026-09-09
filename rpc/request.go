@@ -34,6 +34,7 @@ type callRequest struct {
 }
 
 func newCallRequest(rpc *rpcCallMessage, log LogInterface) *callRequest {
+	//nolint:gosec // G118: Cancel called by receiver lifecycle management in receiver.go
 	ctx, cancel := context.WithCancel(rpc.Context())
 	return &callRequest{
 		rpcCallMessage: rpc,
@@ -95,6 +96,7 @@ type callCompressedRequest struct {
 }
 
 func newCallCompressedRequest(rpc *rpcCallCompressedMessage, log LogInterface) *callCompressedRequest {
+	//nolint:gosec // G118: Cancel called by receiver lifecycle management in receiver.go
 	ctx, cancel := context.WithCancel(rpc.Context())
 	return &callCompressedRequest{
 		rpcCallCompressedMessage: rpc,
@@ -160,6 +162,7 @@ type notifyRequest struct {
 }
 
 func newNotifyRequest(rpc *rpcNotifyMessage, log LogInterface) *notifyRequest {
+	//nolint:gosec // G118: Cancel called by receiver lifecycle management in receiver.go
 	ctx, cancel := context.WithCancel(rpc.Context())
 	return &notifyRequest{
 		rpcNotifyMessage: rpc,
