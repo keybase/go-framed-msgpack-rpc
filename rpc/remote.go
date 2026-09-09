@@ -4,9 +4,8 @@
 package rpc
 
 import (
-	"crypto/rand"
-	"encoding/binary"
 	"errors"
+	"math/rand"
 	"strings"
 	"sync"
 )
@@ -96,27 +95,14 @@ func NewPrioritizedRoundRobinRemote(addressGroups [][]string) (Remote, error) {
 	return r, nil
 }
 
-// cryptoRandShuffle performs a Fisher-Yates shuffle using crypto/rand
-func cryptoRandShuffle(slice []string) {
-	n := len(slice)
-	for i := n - 1; i > 0; i-- {
-		var b [8]byte
-		if _, err := rand.Read(b[:]); err != nil {
-			// Fallback to no shuffle on error
-			return
-		}
-		//nolint:gosec // G115: Bounded by modulo operation, i+1 is always small
-		j := int(binary.BigEndian.Uint64(b[:]) % uint64(i+1))
-		slice[i], slice[j] = slice[j], slice[i]
-	}
-}
-
 func (r *prioritizedRoundRobinRemote) resetLocked() {
 	r.toIterate = make([][]string, 0, len(r.addresses))
 	for _, group := range r.addresses {
-		groupCopied := make([]string, len(group))
-		copy(groupCopied, group)
-		cryptoRandShuffle(groupCopied)
+		groupCopied := make([]string, 0, len(group))
+		//nolint:gosec // G404: Using math/rand for load balancing, not cryptography
+		for _, i := range rand.Perm(len(group)) {
+			groupCopied = append(groupCopied, group[i])
+		}
 		r.toIterate = append(r.toIterate, groupCopied)
 	}
 }
