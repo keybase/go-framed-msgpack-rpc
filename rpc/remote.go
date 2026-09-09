@@ -99,6 +99,7 @@ func (r *prioritizedRoundRobinRemote) resetLocked() {
 	r.toIterate = make([][]string, 0, len(r.addresses))
 	for _, group := range r.addresses {
 		groupCopied := make([]string, 0, len(group))
+		//nolint:gosec // G404: Using math/rand for load balancing, not cryptography
 		for _, i := range rand.Perm(len(group)) {
 			groupCopied = append(groupCopied, group[i])
 		}

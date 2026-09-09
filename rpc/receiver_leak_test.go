@@ -51,7 +51,7 @@ func TestReceiverGoroutineLeakOnClose(t *testing.T) {
 	numCalls := 50
 	handlerStarted := make(chan struct{}, numCalls)
 	handlerCanFinish := make(chan struct{})
-	var handlerFinished int32
+	var handlerFinished atomic.Int32
 
 	p := &Protocol{
 		Name: "slowservice",
@@ -62,10 +62,10 @@ func TestReceiverGoroutineLeakOnClose(t *testing.T) {
 					handlerStarted <- struct{}{}
 					select {
 					case <-handlerCanFinish:
-						atomic.AddInt32(&handlerFinished, 1)
+						handlerFinished.Add(1)
 						return "done", nil
 					case <-ctx.Done():
-						atomic.AddInt32(&handlerFinished, 1)
+						handlerFinished.Add(1)
 						return nil, ctx.Err()
 					}
 				},
@@ -107,14 +107,14 @@ func TestReceiverGoroutineLeakOnClose(t *testing.T) {
 	}
 
 	checkGoroutineLeak(t, baseline, 10)
-	require.Equal(t, int32(numCalls), atomic.LoadInt32(&handlerFinished))
+	require.Equal(t, int32(numCalls), handlerFinished.Load())
 }
 
 // TestReceiverTaskEndChDoesNotBlockOnClose verifies the specific fix:
 // that sending to taskEndCh doesn't block when the receiver is closed
 func TestReceiverTaskEndChDoesNotBlockOnClose(t *testing.T) {
 	handlerDone := make(chan struct{})
-	var goroutineExited int32
+	var goroutineExited atomic.Int32
 
 	p := &Protocol{
 		Name: "testservice",
@@ -144,12 +144,12 @@ func TestReceiverTaskEndChDoesNotBlockOnClose(t *testing.T) {
 	go func() {
 		<-closeCh
 		time.Sleep(200 * time.Millisecond)
-		atomic.StoreInt32(&goroutineExited, 1)
+		goroutineExited.Store(1)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
 
-	require.Equal(t, int32(1), atomic.LoadInt32(&goroutineExited),
+	require.Equal(t, int32(1), goroutineExited.Load(),
 		"Goroutine should have exited, but appears blocked on taskEndCh send")
 }
 
@@ -157,7 +157,7 @@ func TestReceiverTaskEndChDoesNotBlockOnClose(t *testing.T) {
 // exit cleanly when the context is cancelled
 func TestReceiverContextCancellationExitPath(t *testing.T) {
 	handlerStarted := make(chan struct{})
-	var handlerExited int32
+	var handlerExited atomic.Int32
 
 	p := &Protocol{
 		Name: "cancelservice",
@@ -167,7 +167,7 @@ func TestReceiverContextCancellationExitPath(t *testing.T) {
 				Handler: func(ctx context.Context, _ any) (any, error) {
 					close(handlerStarted)
 					<-ctx.Done()
-					atomic.StoreInt32(&handlerExited, 1)
+					handlerExited.Store(1)
 					return nil, ctx.Err()
 				},
 			},
@@ -193,7 +193,7 @@ func TestReceiverContextCancellationExitPath(t *testing.T) {
 
 	time.Sleep(200 * time.Millisecond)
 
-	require.Equal(t, int32(1), atomic.LoadInt32(&handlerExited),
+	require.Equal(t, int32(1), handlerExited.Load(),
 		"Handler should have exited via context cancellation")
 }
 
