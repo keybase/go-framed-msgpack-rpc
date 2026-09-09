@@ -144,8 +144,7 @@ func newRPCMessageFieldDecodeError(i int, err error) error {
 }
 
 func unboxRPCError(err error) error {
-	var de DecodeError
-	if errors.As(err, &de) {
+	if de, ok := errors.AsType[DecodeError](err); ok {
 		return de.err
 	}
 	return err
