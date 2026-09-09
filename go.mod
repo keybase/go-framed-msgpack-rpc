@@ -7,7 +7,7 @@ toolchain go1.27.1
 require (
 	github.com/keybase/backoff v1.0.1-0.20160517061000-726b63b835ec
 	github.com/keybase/go-codec v0.0.0-20180928230036-164397562123
-	github.com/keybase/msgpackzip v0.0.0-20260715171557-e81e137bd2ef
+	github.com/keybase/msgpackzip v0.0.0-20260909174327-47c0c65d548a
 	github.com/reiver/go-telnet v0.0.0-20180421082511-9ff0b2ab096e
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.22.0
