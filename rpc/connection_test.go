@@ -211,6 +211,157 @@ func TestReconnectCanceled(t *testing.T) {
 	require.Equal(t, err, cancelErr)
 }
 
+func TestCanceledForceReconnectDoesNotStartAttempt(t *testing.T) {
+	dialStarted := make(chan struct{})
+	transport := ConnectionFunc(func(context.Context) (Transporter, error) {
+		close(dialStarted)
+		return nil, errors.New("dial should not be attempted")
+	})
+	output := testLogOutput{t: t}
+	t.Cleanup(func() { output.MarkDone() })
+	conn := NewConnectionWithTransport(
+		testConnectionHandler{},
+		transport,
+		testErrorUnwrapper{},
+		&output,
+		ConnectionOpts{
+			WrapErrorFunc:  testWrapError,
+			TagsFunc:       testLogTags,
+			DontConnectNow: true,
+		},
+	)
+	defer conn.Shutdown()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	require.ErrorIs(t, conn.ForceReconnect(ctx), context.Canceled)
+	select {
+	case <-dialStarted:
+		t.Fatal("canceled ForceReconnect started a connection attempt")
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestDoCommandCancellationInterruptsThrottleBackoff(t *testing.T) {
+	unitTester := &unitTester{doneChan: make(chan bool)}
+	output := testLogOutput{t: t}
+	t.Cleanup(func() { output.MarkDone() })
+	opts := ConnectionOpts{
+		WrapErrorFunc: testWrapError,
+		TagsFunc:      testLogTags,
+		CommandBackoff: func() backoff.BackOff {
+			return backoff.NewConstantBackOff(time.Hour)
+		},
+	}
+	conn := NewConnectionWithTransport(
+		unitTester,
+		unitTester,
+		testErrorUnwrapper{},
+		&output,
+		opts,
+	)
+	defer conn.Shutdown()
+	<-unitTester.doneChan
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	attempted := make(chan struct{})
+	resultCh := make(chan error, 1)
+	callCount := 0
+	go func() {
+		resultCh <- conn.DoCommand(ctx, "test", 0, func(GenericClient) error {
+			callCount++
+			if callCount == 1 {
+				close(attempted)
+			}
+			return throttleError{Err: errors.New("throttle")}
+		})
+	}()
+
+	<-attempted
+	cancel()
+	select {
+	case err := <-resultCh:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(time.Second):
+		t.Fatal("DoCommand did not stop during throttle backoff")
+	}
+	require.Equal(t, 1, callCount)
+}
+
+type disconnectTrackingHandler struct {
+	testConnectionHandler
+	disconnected chan struct{}
+}
+
+func (h *disconnectTrackingHandler) OnDisconnected(context.Context, DisconnectStatus) {
+	close(h.disconnected)
+}
+
+func TestShutdownInterruptsReconnectBackoff(t *testing.T) {
+	tests := []struct {
+		name string
+		opts ConnectionOpts
+	}{
+		{
+			name: "first connection",
+			opts: ConnectionOpts{
+				FirstConnectDelayDuration: time.Hour,
+			},
+		},
+		{
+			name: "non-first connection",
+			opts: ConnectionOpts{
+				InitialReconnectBackoffWindow: func() time.Duration { return time.Hour },
+				ForceInitialBackoff:           true,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output := testLogOutput{t: t}
+			t.Cleanup(func() { output.MarkDone() })
+			handler := &disconnectTrackingHandler{disconnected: make(chan struct{})}
+			dialStarted := make(chan struct{})
+			transport := ConnectionFunc(func(context.Context) (Transporter, error) {
+				close(dialStarted)
+				return nil, errors.New("dial should not be attempted")
+			})
+			connOpts := test.opts
+			connOpts.WrapErrorFunc = testWrapError
+			connOpts.TagsFunc = testLogTags
+			connOpts.DontConnectNow = true
+			conn := NewConnectionWithTransport(
+				handler,
+				transport,
+				testErrorUnwrapper{},
+				&output,
+				connOpts,
+			)
+			defer conn.Shutdown()
+
+			reconnectComplete := make(chan struct{})
+			conn.setReconnectCompleteForTest(reconnectComplete)
+			conn.getReconnectChan()
+			<-handler.disconnected
+
+			conn.Shutdown()
+			select {
+			case <-reconnectComplete:
+			case <-time.After(time.Second):
+				t.Fatal("shutdown did not interrupt reconnect backoff")
+			}
+			select {
+			case <-dialStarted:
+				t.Fatal("shutdown dialed after canceling reconnect backoff")
+			default:
+			}
+		})
+	}
+}
+
 // Test DoCommand with throttling.
 func TestDoCommandThrottle(t *testing.T) {
 	unitTester := &unitTester{
@@ -344,6 +495,26 @@ type mockedDialable struct {
 	setoptsWasCalled bool
 }
 
+type blockingTLSHandshakeDialable struct {
+	entered chan struct{}
+	server  net.Conn
+}
+
+func (d *blockingTLSHandshakeDialable) SetOpts(time.Duration, time.Duration) {}
+
+func (d *blockingTLSHandshakeDialable) Dial(context.Context, string, string) (net.Conn, error) {
+	client, server := net.Pipe()
+	d.server = server
+	close(d.entered)
+	return client, nil
+}
+
+func (d *blockingTLSHandshakeDialable) closeServer() {
+	if d.server != nil {
+		_ = d.server.Close()
+	}
+}
+
 func (md *mockedDialable) SetOpts(_ time.Duration, _ time.Duration) {
 	md.mutex.Lock()
 	md.setoptsWasCalled = true
@@ -442,6 +613,47 @@ func TestDialableTLSConn(t *testing.T) {
 	require.True(t, md.dialWasCalled)
 	require.True(t, md.setoptsWasCalled)
 	md.mutex.Unlock()
+}
+
+func TestTLSConnectionDialCancellationInterruptsHandshake(t *testing.T) {
+	logOutput := &testLogOutput{t: t}
+	t.Cleanup(func() { logOutput.MarkDone() })
+	dialable := &blockingTLSHandshakeDialable{entered: make(chan struct{})}
+	t.Cleanup(dialable.closeServer)
+	conn := NewTLSConnectionWithDialable(
+		NewFixedRemote("localhost:443"),
+		nil,
+		testErrorUnwrapper{},
+		testConnectionHandler{},
+		nil,
+		NewMemoryInstrumentationStorage(),
+		logOutput,
+		DefaultMaxFrameLength,
+		ConnectionOpts{
+			DontConnectNow:   true,
+			HandshakeTimeout: time.Hour,
+		},
+		dialable,
+	)
+	defer conn.Shutdown()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	resultCh := make(chan error, 1)
+	transport := conn.transport.(*ConnectionTransportTLS)
+	go func() {
+		_, err := transport.Dial(ctx)
+		resultCh <- err
+	}()
+
+	<-dialable.entered
+	cancel()
+	select {
+	case err := <-resultCh:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(time.Second):
+		t.Fatal("TLS handshake did not stop after context cancellation")
+	}
 }
 
 // closeTrackingTransport wraps a Transporter and counts Close() calls

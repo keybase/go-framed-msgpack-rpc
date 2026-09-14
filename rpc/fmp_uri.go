@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -55,13 +56,27 @@ func (f *FMPURI) String() string {
 }
 
 func (f *FMPURI) DialWithConfig(config *tls.Config) (net.Conn, error) {
+	return f.dialWithConfigContext(context.Background(), config)
+}
+
+func (f *FMPURI) dialWithConfigContext(ctx context.Context, config *tls.Config) (net.Conn, error) {
 	network, addr := "tcp", f.HostPort
 	if f.UseTLS() {
-		return tls.Dial(network, addr, config) //nolint:noctx // context management handled at higher level
+		dialer := tls.Dialer{
+			NetDialer: &net.Dialer{},
+			Config:    config,
+		}
+		return dialer.DialContext(ctx, network, addr)
 	}
-	return net.Dial(network, addr) //nolint:noctx // context management handled at higher level
+	return (&net.Dialer{}).DialContext(ctx, network, addr)
 }
 
 func (f *FMPURI) Dial() (net.Conn, error) {
-	return f.DialWithConfig(nil)
+	return f.dialWithConfigContext(context.Background(), nil)
+}
+
+// DialContext dials the URI using ctx to bound the network connection
+// attempt.
+func (f *FMPURI) DialContext(ctx context.Context) (net.Conn, error) {
+	return f.dialWithConfigContext(ctx, nil)
 }
