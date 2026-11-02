@@ -148,8 +148,9 @@ func TestCloseReceiver(t *testing.T) {
 	require.NoError(t, conn1.Close())
 	require.NoError(t, conn2.Close())
 
-	// Wait for the background goroutine in testReceive to complete
-	<-errCh
+	// Wait for the background goroutine in testReceive to complete. Closing
+	// conn1 makes its pending read fail, so an error is expected here.
+	require.Error(t, <-errCh)
 
 	err := <-waitCh
 	require.EqualError(t, err, context.Canceled.Error())
